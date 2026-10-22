@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import time
+
 from sqlalchemy import (
     Boolean,
     CheckConstraint,
@@ -8,6 +10,7 @@ from sqlalchemy import (
     Integer,
     String,
     Table,
+    Time,
     UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -39,6 +42,7 @@ class Degree(Base):
     years: Mapped[list["Year"]] = relationship(
         back_populates="degree",
         cascade="all, delete-orphan",
+        order_by="Year.number",
     )
 
     __table_args__ = (
@@ -59,6 +63,7 @@ class Year(Base):
     semesters: Mapped[list["Semester"]] = relationship(
         back_populates="year",
         cascade="all, delete-orphan",
+        order_by="Semester.number",
     )
 
     __table_args__ = (
@@ -168,4 +173,27 @@ class Room(Base):
     __table_args__ = (
         CheckConstraint("capacity > 0", name="ck_room_capacity_positive"),
         CheckConstraint("length(trim(code)) > 0", name="ck_room_code_not_empty"),
+    )
+
+
+class ScheduleSession(Base):
+    __tablename__ = "schedule_session"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    course_id: Mapped[int] = mapped_column(
+        ForeignKey("course.id", ondelete="CASCADE"), nullable=False
+    )
+    room_id: Mapped[int | None] = mapped_column(
+        ForeignKey("room.id", ondelete="SET NULL")
+    )
+    weekday: Mapped[int] = mapped_column(Integer, nullable=False)
+    start_time: Mapped[time] = mapped_column(Time, nullable=False)
+    end_time: Mapped[time] = mapped_column(Time, nullable=False)
+
+    course: Mapped["Course"] = relationship()
+    room: Mapped["Room | None"] = relationship()
+
+    __table_args__ = (
+        CheckConstraint("weekday BETWEEN 0 AND 6", name="ck_schedule_weekday"),
+        CheckConstraint("start_time < end_time", name="ck_schedule_time_order"),
     )

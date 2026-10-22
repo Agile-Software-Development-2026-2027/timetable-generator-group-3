@@ -1,11 +1,13 @@
-# Timetable Generator
+# University of Calabria Timetable Generator
 
-An automated university timetable generator: it takes the data of a degree
-program (courses, rooms, teachers, constraints) and produces an optimized
-weekly schedule.
+An automated timetable generator for the University of Calabria. It will use
+degree programmes, courses, rooms, teachers, and constraints to produce an
+optimized weekly schedule.
 
 The backend lives in [`backend/`](backend/README.md) (FastAPI + SQLAlchemy +
 Alembic). See its README for setup, running the migrations, and tests.
+The Next.js academic planning UI lives in [`frontend/`](frontend/). Start it
+with `npm install` and `npm run dev` from that directory after starting the API.
 
 ## How we work
 

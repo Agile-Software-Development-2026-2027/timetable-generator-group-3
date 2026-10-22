@@ -1,6 +1,6 @@
 # Timetable Generator — Backend
 
-FastAPI + SQLAlchemy backend for the automated university timetable generator.
+FastAPI + SQLAlchemy backend for the University of Calabria timetable generator.
 This package delivers the relational data model and the database plumbing the
 rest of the system builds on.
 
@@ -83,3 +83,14 @@ uvicorn app.main:app --reload
 # health check:
 curl http://127.0.0.1:8000/health   # -> {"status":"ok"}
 ```
+
+Degree management is available at `/degrees` (list/create), `/degrees/{id}`
+(view/update), and `DELETE /degrees/{id}`. Creation accepts `name`, `years`
+(1–6), and optional `semesters_per_year` (default 2). The Next.js UI is in
+`../frontend`; set `NEXT_PUBLIC_API_URL` if the API is not at localhost:8000.
+
+The recurring timetable API is available at `/timetable/sessions` (list/create),
+`/timetable/sessions/{id}` (update/delete), `/courses`, and `/rooms`. Sessions
+store weekday (Monday=0), start/end times, course, and optional room. Apply the
+`schedule_session` table definition from `schema.sql` to Supabase before using
+the calendar there. SQLite creates missing tables on startup.

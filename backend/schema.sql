@@ -86,3 +86,17 @@ CREATE TABLE course_teacher (
 	FOREIGN KEY(course_id) REFERENCES course (id) ON DELETE CASCADE, 
 	FOREIGN KEY(teacher_id) REFERENCES teacher (id) ON DELETE CASCADE
 );
+
+CREATE TABLE schedule_session (
+	id SERIAL NOT NULL,
+	course_id INTEGER NOT NULL,
+	room_id INTEGER,
+	weekday INTEGER NOT NULL,
+	start_time TIME NOT NULL,
+	end_time TIME NOT NULL,
+	PRIMARY KEY (id),
+	CONSTRAINT ck_schedule_weekday CHECK (weekday BETWEEN 0 AND 6),
+	CONSTRAINT ck_schedule_time_order CHECK (start_time < end_time),
+	FOREIGN KEY(course_id) REFERENCES course (id) ON DELETE CASCADE,
+	FOREIGN KEY(room_id) REFERENCES room (id) ON DELETE SET NULL
+);

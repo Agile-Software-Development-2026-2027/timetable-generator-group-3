@@ -1,6 +1,11 @@
-# Project name
+# Timetable Generator
 
-One paragraph: what the project is.
+An automated university timetable generator: it takes the data of a degree
+program (courses, rooms, teachers, constraints) and produces an optimized
+weekly schedule.
+
+The backend lives in [`backend/`](backend/README.md) (FastAPI + SQLAlchemy +
+Alembic). See its README for setup, running the migrations, and tests.
 
 ## How we work
 

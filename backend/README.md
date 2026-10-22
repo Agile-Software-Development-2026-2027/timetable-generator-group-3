@@ -1,0 +1,85 @@
+# Timetable Generator — Backend
+
+FastAPI + SQLAlchemy backend for the automated university timetable generator.
+This package delivers the relational data model and the database plumbing the
+rest of the system builds on.
+
+## Database
+
+The database is hosted on **Supabase (PostgreSQL)** and is shared by the whole
+team. The schema is owned and applied by the project maintainer directly in
+Supabase. The rest of the team connects to the same database to write queries
+and CRUD endpoints — there is nothing to recreate locally.
+
+The exact shape of the schema is versioned in [`schema.sql`](schema.sql) so
+everyone can see the tables, columns, and constraints when writing queries. It
+is generated from the SQLAlchemy models in `app/models.py`, which remain the
+source of truth.
+
+## Data model
+
+Six entities and one association table (see `app/models.py`):
+
+| Entity   | Key fields                                                                 |
+|----------|----------------------------------------------------------------------------|
+| Degree   | `name` (unique, non-empty)                                                 |
+| Year     | `number` (unique per degree) → belongs to a Degree                         |
+| Semester | `number` (unique per year) → belongs to a Year                             |
+| Course   | `name`, `weekly_hours` (>0), `enrolled_students` (>0), `requires_lab`      |
+| Teacher  | `name`, `identifier` (unique)                                              |
+| Room     | `code` (unique), `capacity` (>0), `has_projector`, `has_computers`, `is_lab` |
+
+Relationships / cardinalities:
+
+- A **Degree** has many **Years**; a **Year** has many **Semesters** (typically two).
+- A **Course** belongs to exactly one Degree, one Year, and one Semester.
+- A **Course** can have one or more **Teachers**, and a **Teacher** can teach
+  many **Courses** (many-to-many via `course_teacher`).
+- **Room** is an independent resource used by the scheduling engine later.
+
+Integrity is enforced with primary keys, foreign keys, unique constraints, and
+check constraints (positive capacities/hours, non-empty names). Boolean feature
+flags default to `false`.
+
+## Requirements
+
+- Python 3.11+
+- Access to the shared Supabase database (connection string), or SQLite for a
+  quick local run.
+
+## Setup
+
+```bash
+cd backend
+uv venv                      # or: python3 -m venv .venv
+source .venv/bin/activate
+uv pip install -e .          # or: pip install -e .
+cp .env.example .env         # then set DATABASE_URL
+```
+
+`DATABASE_URL` is the only required setting and is read from the environment
+(or `.env`). Nothing is hardcoded. Examples:
+
+```bash
+# Shared Supabase database (connection pooler, session mode).
+# The full string — including the password — is NOT in this repo.
+# Ask the project maintainer for it; it is shared privately.
+DATABASE_URL=postgresql+psycopg2://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres
+# SQLite (quick local run)
+DATABASE_URL=sqlite:///./timetable.db
+```
+
+SSL is requested automatically for Supabase hosts, so you don't need to add
+`sslmode` to the URL.
+
+> The connection string contains the database password, so it is never
+> committed. `.env` is git-ignored, and `.env.example` only shows placeholders.
+> The maintainer shares the real string privately with the team.
+
+## Running the API
+
+```bash
+uvicorn app.main:app --reload
+# health check:
+curl http://127.0.0.1:8000/health   # -> {"status":"ok"}
+```

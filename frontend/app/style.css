@@ -1,0 +1,36 @@
+body { background: #f5f7f8; color: #172a35; }
+.campus-app { min-height: 100vh; }
+.campus-nav { background: #102f3b; border-bottom: 3px solid #d6a75d; }
+.navbar-brand { color: #fff; font-size: 1rem; font-weight: 750; letter-spacing: .12em; }
+.navbar-brand:hover { color: #fff; }
+.navbar-brand span, .nav-note { color: #b8c7ca; font-size: .65rem; letter-spacing: .15em; }
+.navbar-brand span { margin-left: .65rem; }
+.eyebrow { color: #758b8e; font-size: .68rem; font-weight: 700; letter-spacing: .13em; }
+.campus-card, .degree-card { border: 1px solid #e5eaeb; border-radius: 12px; box-shadow: 0 5px 20px #183a4408; }
+.form-label { color: #435860; font-size: .88rem; font-weight: 600; }
+.form-control { padding: .7rem .8rem; border-color: #dce4e5; }
+.form-control:focus { border-color: #367b78; box-shadow: 0 0 0 .2rem #367b7825; }
+.btn-campus { background: #176b68; color: #fff; }
+.btn-campus:hover { background: #125754; color: #fff; }
+.degree-card { color: inherit; transition: border-color .15s, transform .15s; }
+.degree-card:hover { border-color: #74aaa3; transform: translateY(-1px); }
+.degree-card.is-selected { border-color: #176b68; box-shadow: 0 0 0 2px #176b6818; }
+.empty-state, .year-card { background: #fff; border: 1px dashed #dce4e5; border-radius: 10px; }
+.empty-state > span { color: #176b68; }
+.semester-pill { display: inline-block; margin: 0 .35rem .35rem 0; padding: .4rem .65rem; background: #eaf3f1; border-radius: 20px; color: #245c58; font-size: .78rem; }
+.timetable-heading { display: flex; justify-content: space-between; align-items: end; gap: 1rem; }
+.schedule-count { display: grid; justify-items: end; color: #176b68; }
+.schedule-count strong { font-size: 1.8rem; line-height: 1; }
+.schedule-count span { margin-top: .3rem; color: #758b8e; font-size: .75rem; }
+.timetable-card { overflow: hidden; padding: 1.25rem; }
+.timetable-card .fc-breezy-n5m { --fc-breezy-primary: #176b68; --fc-breezy-primary-over: #125754; --fc-breezy-event: #176b68; --fc-breezy-now: #d6a75d; }
+.timetable-card .fc-breezy-n5m { border-radius: 10px; }
+.timetable-card .fc-breezy-n5m button { transition: background-color .15s, box-shadow .15s; }
+.timetable-card .fc-breezy-n5m button:focus-visible { outline: 3px solid #d6a75d; outline-offset: 2px; }
+.empty-calendar { display: flex; align-items: center; gap: .85rem; padding: 1rem 1.2rem; border: 1px solid #dce9e6; border-radius: 12px; background: #eff7f4; color: #245c58; }
+.empty-calendar-icon { font-size: 1.6rem; }
+.empty-calendar strong, .empty-calendar small { display: block; }
+.empty-calendar small { margin-top: .15rem; color: #657e7b; }
+.timetable-alert { border-color: #f0dfb8; background: #fffaf0; color: #74561a; }
+@media (max-width: 575px) { .timetable-heading { align-items: start; } .schedule-count { font-size: .8rem; } .timetable-card { padding: .5rem; } }
+@media (max-width: 575px) { .nav-note { display: none; } main.container { padding-top: 2rem !important; } }

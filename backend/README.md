@@ -94,3 +94,22 @@ The recurring timetable API is available at `/timetable/sessions` (list/create),
 store weekday (Monday=0), start/end times, course, and optional room. Apply the
 `schedule_session` table definition from `schema.sql` to Supabase before using
 the calendar there. SQLite creates missing tables on startup.
+
+## Manual Data Loader
+
+A reusable JSON-based seed loader provides sample datasets for AI & Computer
+Science, Mathematics, and Software Engineering. It validates input and reuses
+existing records to avoid duplicates.
+
+Run from `backend/` with the virtual environment activated and database configured:
+
+```bash
+# Load all available datasets
+python -m app.seed.seed_sample_data --all
+
+# Load one degree program
+python -m app.seed.seed_sample_data --file app/seed/data/ai_cs.json
+```
+
+For dataset details and instructions for adding another degree, see the
+[Data Loader README](app/seed/README.md).

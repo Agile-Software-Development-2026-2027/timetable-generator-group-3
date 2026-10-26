@@ -1,0 +1,20 @@
+{
+  "degree": {"name": "Software Engineering", "academic_year": "2026/2027"},
+  "years": [{"number": 1, "semesters": [1, 2]}],
+  "rooms": [
+    {"code": "MT10", "capacity": 70, "has_projector": false, "has_computers": false, "is_lab": false},
+    {"code": "MT11", "capacity": 70, "has_projector": false, "has_computers": false, "is_lab": false},
+    {"code": "LAB-31A", "capacity": 30, "has_projector": false, "has_computers": true, "is_lab": true}
+  ],
+  "teachers": [
+    {"name": "Demo Software Engineering Lecturer 1", "identifier": "SE-DEMO-001"},
+    {"name": "Demo Software Engineering Lecturer 2", "identifier": "SE-DEMO-002"},
+    {"name": "Demo Software Engineering Lecturer 3", "identifier": "SE-DEMO-003"}
+  ],
+  "courses": [
+    {"name": "Software Requirements Engineering", "year": 1, "semester": 1, "weekly_hours": 5, "enrolled_students": 28, "requires_lab": false, "teacher_ids": ["SE-DEMO-001"]},
+    {"name": "Software Architecture", "year": 1, "semester": 1, "weekly_hours": 5, "enrolled_students": 26, "requires_lab": false, "teacher_ids": ["SE-DEMO-002"]},
+    {"name": "Software Testing Laboratory", "year": 1, "semester": 1, "weekly_hours": 4, "enrolled_students": 24, "requires_lab": true, "teacher_ids": ["SE-DEMO-003"]}
+  ],
+  "notes": "SYNTHETIC test dataset: course details, teacher names, and enrollments are illustrative, not verified university offerings. Rooms reuse the AI & CS dataset with exactly matching attributes."
+}

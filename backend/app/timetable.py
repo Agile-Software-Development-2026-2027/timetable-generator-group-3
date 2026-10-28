@@ -38,11 +38,9 @@ def list_courses(session: Database) -> list[dict]:
     return [
         {"id": course.id, "name": course.name, "degree": course.semester.year.degree.name}
         for course in session.scalars(
-            select(Course).options(
-                joinedload(Course.semester)
-                .joinedload(Semester.year)
-                .joinedload(Year.degree)
-            ).order_by(Course.name)
+            select(Course)
+            .options(joinedload(Course.semester).joinedload(Semester.year).joinedload(Year.degree))
+            .order_by(Course.name)
         )
     ]
 
@@ -57,16 +55,10 @@ def list_rooms(session: Database) -> list[dict]:
 
 @router.get("/timetable/sessions", response_model=list[SessionView])
 def list_sessions(session: Database) -> list[ScheduleSession]:
-    return list(
-        session.scalars(
-            select(ScheduleSession).options(joinedload(ScheduleSession.room))
-        )
-    )
+    return list(session.scalars(select(ScheduleSession).options(joinedload(ScheduleSession.room))))
 
 
-def save_session(
-    record: ScheduleSession, data: SessionInput, session: Session
-) -> ScheduleSession:
+def save_session(record: ScheduleSession, data: SessionInput, session: Session) -> ScheduleSession:
     if session.get(Course, data.course_id) is None:
         raise HTTPException(404, "Course not found.")
     if data.room_id is not None and session.get(Room, data.room_id) is None:
@@ -89,9 +81,7 @@ def create_session(data: SessionInput, session: Database) -> ScheduleSession:
 
 
 @router.put("/timetable/sessions/{session_id}", response_model=SessionView)
-def update_session(
-    session_id: int, data: SessionInput, session: Database
-) -> ScheduleSession:
+def update_session(session_id: int, data: SessionInput, session: Database) -> ScheduleSession:
     record = session.get(ScheduleSession, session_id)
     if record is None:
         raise HTTPException(404, "Timetable session not found.")

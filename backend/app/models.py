@@ -39,15 +39,13 @@ class Degree(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
 
-    years: Mapped[list["Year"]] = relationship(
+    years: Mapped[list[Year]] = relationship(
         back_populates="degree",
         cascade="all, delete-orphan",
         order_by="Year.number",
     )
 
-    __table_args__ = (
-        CheckConstraint("length(trim(name)) > 0", name="ck_degree_name_not_empty"),
-    )
+    __table_args__ = (CheckConstraint("length(trim(name)) > 0", name="ck_degree_name_not_empty"),)
 
 
 class Year(Base):
@@ -59,8 +57,8 @@ class Year(Base):
     )
     number: Mapped[int] = mapped_column(Integer, nullable=False)
 
-    degree: Mapped["Degree"] = relationship(back_populates="years")
-    semesters: Mapped[list["Semester"]] = relationship(
+    degree: Mapped[Degree] = relationship(back_populates="years")
+    semesters: Mapped[list[Semester]] = relationship(
         back_populates="year",
         cascade="all, delete-orphan",
         order_by="Semester.number",
@@ -76,13 +74,11 @@ class Semester(Base):
     __tablename__ = "semester"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    year_id: Mapped[int] = mapped_column(
-        ForeignKey("year.id", ondelete="CASCADE"), nullable=False
-    )
+    year_id: Mapped[int] = mapped_column(ForeignKey("year.id", ondelete="CASCADE"), nullable=False)
     number: Mapped[int] = mapped_column(Integer, nullable=False)
 
-    year: Mapped["Year"] = relationship(back_populates="semesters")
-    courses: Mapped[list["Course"]] = relationship(
+    year: Mapped[Year] = relationship(back_populates="semesters")
+    courses: Mapped[list[Course]] = relationship(
         back_populates="semester",
         cascade="all, delete-orphan",
     )
@@ -102,9 +98,7 @@ class Course(Base):
     degree_id: Mapped[int] = mapped_column(
         ForeignKey("degree.id", ondelete="RESTRICT"), nullable=False
     )
-    year_id: Mapped[int] = mapped_column(
-        ForeignKey("year.id", ondelete="RESTRICT"), nullable=False
-    )
+    year_id: Mapped[int] = mapped_column(ForeignKey("year.id", ondelete="RESTRICT"), nullable=False)
     semester_id: Mapped[int] = mapped_column(
         ForeignKey("semester.id", ondelete="CASCADE"), nullable=False
     )
@@ -115,20 +109,16 @@ class Course(Base):
         Boolean, nullable=False, default=False, server_default="0"
     )
 
-    semester: Mapped["Semester"] = relationship(back_populates="courses")
-    teachers: Mapped[list["Teacher"]] = relationship(
+    semester: Mapped[Semester] = relationship(back_populates="courses")
+    teachers: Mapped[list[Teacher]] = relationship(
         secondary=course_teacher,
         back_populates="courses",
     )
 
     __table_args__ = (
-        UniqueConstraint(
-            "semester_id", "name", name="uq_course_semester_name"
-        ),
+        UniqueConstraint("semester_id", "name", name="uq_course_semester_name"),
         CheckConstraint("weekly_hours > 0", name="ck_course_weekly_hours_positive"),
-        CheckConstraint(
-            "enrolled_students > 0", name="ck_course_enrolled_students_positive"
-        ),
+        CheckConstraint("enrolled_students > 0", name="ck_course_enrolled_students_positive"),
         CheckConstraint("length(trim(name)) > 0", name="ck_course_name_not_empty"),
     )
 
@@ -140,16 +130,14 @@ class Teacher(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     identifier: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
 
-    courses: Mapped[list["Course"]] = relationship(
+    courses: Mapped[list[Course]] = relationship(
         secondary=course_teacher,
         back_populates="teachers",
     )
 
     __table_args__ = (
         CheckConstraint("length(trim(name)) > 0", name="ck_teacher_name_not_empty"),
-        CheckConstraint(
-            "length(trim(identifier)) > 0", name="ck_teacher_identifier_not_empty"
-        ),
+        CheckConstraint("length(trim(identifier)) > 0", name="ck_teacher_identifier_not_empty"),
     )
 
 
@@ -166,9 +154,7 @@ class Room(Base):
     has_computers: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="0"
     )
-    is_lab: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=False, server_default="0"
-    )
+    is_lab: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="0")
 
     __table_args__ = (
         CheckConstraint("capacity > 0", name="ck_room_capacity_positive"),
@@ -183,15 +169,13 @@ class ScheduleSession(Base):
     course_id: Mapped[int] = mapped_column(
         ForeignKey("course.id", ondelete="CASCADE"), nullable=False
     )
-    room_id: Mapped[int | None] = mapped_column(
-        ForeignKey("room.id", ondelete="SET NULL")
-    )
+    room_id: Mapped[int | None] = mapped_column(ForeignKey("room.id", ondelete="SET NULL"))
     weekday: Mapped[int] = mapped_column(Integer, nullable=False)
     start_time: Mapped[time] = mapped_column(Time, nullable=False)
     end_time: Mapped[time] = mapped_column(Time, nullable=False)
 
-    course: Mapped["Course"] = relationship()
-    room: Mapped["Room | None"] = relationship()
+    course: Mapped[Course] = relationship()
+    room: Mapped[Room | None] = relationship()
 
     __table_args__ = (
         CheckConstraint("weekday BETWEEN 0 AND 6", name="ck_schedule_weekday"),

@@ -120,18 +120,12 @@ def update_degree(degree_id: int, data: DegreeInput, session: Database) -> Degre
             raise HTTPException(409, "Years containing courses cannot be removed.")
     for year in degree.years:
         removed_semesters = [
-            semester
-            for semester in year.semesters
-            if semester.number > data.semesters_per_year
+            semester for semester in year.semesters if semester.number > data.semesters_per_year
         ]
         if removed_semesters:
             course_exists = session.scalar(
                 select(Course.id)
-                .where(
-                    Course.semester_id.in_(
-                        [semester.id for semester in removed_semesters]
-                    )
-                )
+                .where(Course.semester_id.in_([semester.id for semester in removed_semesters]))
                 .limit(1)
             )
             if course_exists:
@@ -152,9 +146,7 @@ def update_degree(degree_id: int, data: DegreeInput, session: Database) -> Degre
     )
     for year in degree.years:
         year.semesters = [
-            semester
-            for semester in year.semesters
-            if semester.number <= data.semesters_per_year
+            semester for semester in year.semesters if semester.number <= data.semesters_per_year
         ]
         present_semesters = {semester.number for semester in year.semesters}
         year.semesters.extend(

@@ -47,14 +47,6 @@ def list_courses(session: Database) -> list[dict]:
     ]
 
 
-@router.get("/rooms")
-def list_rooms(session: Database) -> list[dict]:
-    return [
-        {"id": room.id, "code": room.code}
-        for room in session.scalars(select(Room).order_by(Room.code))
-    ]
-
-
 @router.get("/timetable/sessions", response_model=list[SessionView])
 def list_sessions(session: Database) -> list[ScheduleSession]:
     return list(

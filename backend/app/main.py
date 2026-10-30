@@ -6,6 +6,7 @@ from sqlalchemy import text
 
 from app.database import Base, engine
 from app.degrees import router as degrees_router
+from app.rooms import router as rooms_router
 from app.timetable import router as timetable_router
 
 
@@ -26,6 +27,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(degrees_router)
+app.include_router(rooms_router)
 app.include_router(timetable_router)
 
 

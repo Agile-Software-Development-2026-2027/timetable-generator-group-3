@@ -89,6 +89,15 @@ Degree management is available at `/degrees` (list/create), `/degrees/{id}`
 (1–6), and optional `semesters_per_year` (default 2). The Next.js UI is in
 `../frontend`; set `NEXT_PUBLIC_API_URL` if the API is not at localhost:8000.
 
+Room management is available at `/rooms` (list/create), `/rooms/{id}`
+(view/update), and `DELETE /rooms/{id}`. A room has a `code` (unique,
+case-insensitive), a `capacity` (positive whole number), and the feature flags
+`has_projector`, `has_computers`, and `is_lab`. Filter the list by feature with
+query parameters, e.g. `GET /rooms?is_lab=true`. Each room reports how many
+`scheduled_sessions` use it; deleting a room that the saved timetable uses
+returns `409` with a warning, and `DELETE /rooms/{id}?force=true` confirms it
+(those sessions are kept without a room). The UI is at `/rooms` in the frontend.
+
 The recurring timetable API is available at `/timetable/sessions` (list/create),
 `/timetable/sessions/{id}` (update/delete), `/courses`, and `/rooms`. Sessions
 store weekday (Monday=0), start/end times, course, and optional room. Apply the

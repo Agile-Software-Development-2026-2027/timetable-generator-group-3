@@ -8,7 +8,7 @@ from app.database import Base, engine
 from app.degrees import router as degrees_router
 from app.rooms import router as rooms_router
 from app.timetable import router as timetable_router
-
+from app.seed_api import router as seed_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -29,7 +29,7 @@ app.add_middleware(
 app.include_router(degrees_router)
 app.include_router(rooms_router)
 app.include_router(timetable_router)
-
+app.include_router(seed_router)
 
 @app.get("/health")
 def health() -> dict[str, str]:

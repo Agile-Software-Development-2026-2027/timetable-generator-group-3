@@ -1,4 +1,6 @@
 from __future__ import annotations
+from typing import List, Optional
+from pydantic import BaseModel, Field
 
 from datetime import time
 
@@ -197,3 +199,30 @@ class ScheduleSession(Base):
         CheckConstraint("weekday BETWEEN 0 AND 6", name="ck_schedule_weekday"),
         CheckConstraint("start_time < end_time", name="ck_schedule_time_order"),
     )
+
+# --- Teacher Schemas ---
+class CourseRef(BaseModel):
+    id: int
+    name: str
+
+class TeacherBase(BaseModel):
+    identifier: str = Field(..., description="Unique staff identifier or email")
+    full_name: str = Field(..., min_length=1)
+
+class TeacherCreate(TeacherBase):
+    course_ids: Optional[List[int]] = []
+
+class TeacherUpdate(BaseModel):
+    identifier: Optional[str] = None
+    full_name: Optional[str] = None
+    course_ids: Optional[List[int]] = None
+
+class TeacherResponse(TeacherBase):
+    id: int
+    courses_count: int = 0
+    courses: Optional[List[CourseRef]] = []
+
+    class Config:
+        from_attributes = True
+
+

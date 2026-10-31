@@ -37,6 +37,8 @@ Replace the example URL as needed, then restart the frontend server.
 
 - `/` — Manage degree programmes. View the programme list and course counts,
   inspect years and semesters, and create, edit, or delete degrees.
+- `/rooms` — Manage rooms. Search, sort, filter by feature, and page through the
+  room table, and create, edit, or delete rooms.
 - `/calendar` — View scheduled classes in weekly, daily, or monthly calendar
   views.
 
@@ -49,6 +51,14 @@ The degree page uses:
 - `GET /degrees/{id}` — view a degree's structure
 - `PUT /degrees/{id}` — update a degree
 - `DELETE /degrees/{id}` — delete a degree
+
+The rooms page uses:
+
+- `GET /rooms` — list rooms, optionally filtered by feature
+- `POST /rooms` — create a room
+- `PUT /rooms/{id}` — update a room
+- `DELETE /rooms/{id}` — delete a room; `?force=true` confirms deleting a room
+  the saved timetable uses
 
 The calendar page reads from `GET /courses`, `GET /rooms`, and
 `GET /timetable/sessions`. Refer to the [backend README](../backend/README.md)

@@ -100,3 +100,18 @@ CREATE TABLE schedule_session (
 	FOREIGN KEY(course_id) REFERENCES course (id) ON DELETE CASCADE,
 	FOREIGN KEY(room_id) REFERENCES room (id) ON DELETE SET NULL
 );
+
+-- Teachers table
+CREATE TABLE IF NOT EXISTS teachers (
+    id SERIAL PRIMARY KEY,
+    identifier VARCHAR(100) UNIQUE NOT NULL,
+    full_name VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Many-to-Many relationship between Courses and Teachers
+CREATE TABLE IF NOT EXISTS course_teachers (
+    course_id INTEGER NOT NULL REFERENCES course(id) ON DELETE CASCADE,
+    teacher_id INTEGER NOT NULL REFERENCES teachers(id) ON DELETE CASCADE,
+    PRIMARY KEY (course_id, teacher_id)
+);

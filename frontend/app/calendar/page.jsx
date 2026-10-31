@@ -79,7 +79,10 @@ export default function TimetablePage() {
   return <div className="campus-app">
     <nav className="navbar campus-nav"><div className="container">
       <Link className="navbar-brand" href="/">UNICAL <span>UNIVERSITY OF CALABRIA</span></Link>
-      <Link className="btn btn-outline-light btn-sm" href="/">Degree programmes</Link>
+      <div className="nav-actions">
+        <Link className="btn btn-outline-light btn-sm" href="/">Degree programmes</Link>
+        <Link className="btn btn-outline-light btn-sm" href="/rooms">Rooms</Link>
+      </div>
     </div></nav>
     <main className="container py-5">
       <header className="timetable-heading mb-4">

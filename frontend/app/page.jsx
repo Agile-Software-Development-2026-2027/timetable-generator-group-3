@@ -147,7 +147,10 @@ export default function DegreesPage() {
   return <div className="campus-app">
     <nav className="navbar campus-nav">
       <div className="container"><Link className="navbar-brand" href="/">UNICAL <span>UNIVERSITY OF CALABRIA</span></Link>
-        <Link className="btn btn-outline-light btn-sm" href="/calendar">Open timetable</Link>
+        <div className="nav-actions">
+          <Link className="btn btn-outline-light btn-sm" href="/rooms">Rooms</Link>
+          <Link className="btn btn-outline-light btn-sm" href="/calendar">Open timetable</Link>
+        </div>
       </div>
     </nav>
     <main className="container degrees-main py-4">

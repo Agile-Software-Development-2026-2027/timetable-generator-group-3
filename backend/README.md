@@ -98,6 +98,18 @@ query parameters, e.g. `GET /rooms?is_lab=true`. Each room reports how many
 returns `409` with a warning, and `DELETE /rooms/{id}?force=true` confirms it
 (those sessions are kept without a room). The UI is at `/rooms` in the frontend.
 
+Teacher management is available at `/teachers` (list/create), `/teachers/{id}`
+(view/update), and `DELETE /teachers/{id}`. A teacher has a `name` and a unique
+`identifier` (staff code or email, case-insensitive); a duplicate identifier
+returns `409` with a clear message. Each teacher reports `course_count` and its
+`courses`; send `course_ids` on create/update to set the assignments (omit it on
+update to keep them). Deleting a teacher who is assigned to courses returns
+`409`; `DELETE /teachers/{id}?force=true` confirms it and removes the
+assignments (the courses are kept). From the course side,
+`GET /courses/{id}/teachers` lists a course's teachers and
+`PUT /courses/{id}/teachers` with `{"teacher_ids": [...]}` replaces them. The
+UI is at `/teachers` and `/courses` in the frontend.
+
 The recurring timetable API is available at `/timetable/sessions` (list/create),
 `/timetable/sessions/{id}` (update/delete), `/courses`, and `/rooms`. Sessions
 store weekday (Monday=0), start/end times, course, and optional room. Apply the

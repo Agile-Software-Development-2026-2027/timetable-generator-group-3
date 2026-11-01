@@ -79,6 +79,7 @@ export default function DataLoaderPage() {
         <Link className="btn btn-outline-light btn-sm" href="/">Degree programmes</Link>
         <Link className="btn btn-outline-light btn-sm" href="/rooms">Rooms</Link>
         <Link className="btn btn-outline-light btn-sm" href="/teachers">Teachers</Link>
+        <Link className="btn btn-outline-light btn-sm" href="/courses">Courses</Link>
         <Link className="btn btn-outline-light btn-sm" href="/calendar">Open timetable</Link>
       </div>
     </div></nav>

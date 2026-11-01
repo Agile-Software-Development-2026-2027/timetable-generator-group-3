@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { emptyTeacherForm, matches, teacherFormErrors, teacherFormFromTeacher, teacherPayload, toggleId } from "../teacher-form.mjs";
+import { emptyTeacherForm, matches, teacherFormErrors, teacherFormFromTeacher, teacherPayload, teachersByCourse, toggleId } from "../teacher-form.mjs";
 
 const rossi = { id: 1, name: "Mario Rossi", identifier: "m.rossi@unical.it", courses: [{ id: 10, name: "Databases" }] };
 
@@ -28,4 +28,10 @@ describe("teacher form helpers", () => {
     expect(matches("Mario Rossi", " ross")).toBe(true);
   });
 
+  it("groups teachers by course", () => {
+    const bianchi = { id: 2, name: "Anna Bianchi", identifier: "S2", courses: [{ id: 10 }, { id: 11 }] };
+    const map = teachersByCourse([rossi, bianchi]);
+    expect(map.get(10).map((t) => t.id)).toEqual([1, 2]);
+    expect(map.get(11).map((t) => t.id)).toEqual([2]);
+  });
 });

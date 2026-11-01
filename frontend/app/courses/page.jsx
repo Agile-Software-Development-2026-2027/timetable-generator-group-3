@@ -27,7 +27,7 @@ headers: {
 if (!response.ok) {
 let detail = "Request failed.";
 
-```
+
 try {
   const body = await response.json();
   detail = Array.isArray(body.detail)
@@ -40,7 +40,7 @@ try {
 const error = new Error(detail);
 error.status = response.status;
 throw error;
-```
+
 
 }
 
@@ -71,7 +71,7 @@ setNotification({ text, type });
 const refreshCourses = useCallback(async () => {
 const params = new URLSearchParams();
 
-```
+
 if (filterDegree) params.set("degree_id", filterDegree);
 if (filterYear) params.set("year_id", filterYear);
 if (filterSemester) params.set("semester_id", filterSemester);
@@ -80,7 +80,7 @@ const query = params.toString();
 const result = await request(`/courses${query ? `?${query}` : ""}`);
 
 setCourses(result);
-```
+
 
 }, [filterDegree, filterYear, filterSemester]);
 
@@ -89,7 +89,7 @@ async function loadDegrees() {
 try {
 const degreeList = await request("/degrees");
 
-```
+
     const detailedDegrees = await Promise.all(
       degreeList.map((degree) => request(`/degrees/${degree.id}`))
     );
@@ -101,7 +101,7 @@ const degreeList = await request("/degrees");
 }
 
 loadDegrees();
-```
+
 
 }, []);
 
@@ -112,10 +112,9 @@ refreshCourses().catch((error) => showNotification(error.message));
 useEffect(() => {
 if (!notification) return undefined;
 
-```
 const timeout = window.setTimeout(() => setNotification(null), 5000);
 return () => window.clearTimeout(timeout);
-```
+
 
 }, [notification]);
 
@@ -135,7 +134,6 @@ years.find((year) => String(year.id) === String(yearId))?.semesters || []
 function changeFormDegree(degreeId) {
 const years = getYears(degreeId);
 
-```
 setForm({
   ...form,
   degree_id: degreeId,
@@ -145,14 +143,13 @@ setForm({
 
 setFormYears(years);
 setFormSemesters([]);
-```
+
 
 }
 
 function changeFormYear(yearId) {
 const semesters = getSemesters(yearId, formYears);
 
-```
 setForm({
   ...form,
   year_id: yearId,
@@ -160,31 +157,26 @@ setForm({
 });
 
 setFormSemesters(semesters);
-```
 
 }
 
 function changeFilterDegree(degreeId) {
 const years = getYears(degreeId);
 
-```
 setFilterDegree(degreeId);
 setFilterYear("");
 setFilterSemester("");
 setFilterYears(years);
 setFilterSemesters([]);
-```
 
 }
 
 function changeFilterYear(yearId) {
 const semesters = getSemesters(yearId, filterYears);
 
-```
 setFilterYear(yearId);
 setFilterSemester("");
 setFilterSemesters(semesters);
-```
 
 }
 
@@ -200,7 +192,6 @@ function openEditForm(course) {
 const years = getYears(course.degree_id);
 const semesters = getSemesters(course.year_id, years);
 
-```
 setForm({
   name: course.name,
   degree_id: String(course.degree_id),
@@ -216,7 +207,6 @@ setFormYears(years);
 setFormSemesters(semesters);
 setEditingId(course.id);
 setFormOpen(true);
-```
 
 }
 
@@ -229,7 +219,7 @@ setForm({ ...emptyForm });
 async function submit(event) {
 event.preventDefault();
 
-```
+
 if (!form.degree_id || !form.year_id || !form.semester_id) {
   showNotification("Please select a degree, year and semester.");
   return;
@@ -281,7 +271,7 @@ try {
 } catch (error) {
   showNotification(error.message);
 }
-```
+
 
 }
 
@@ -290,7 +280,7 @@ const confirmed = window.confirm(
 `Are you sure you want to delete the course "${course.name}"?`
 );
 
-```
+
 if (!confirmed) return;
 
 try {
@@ -320,13 +310,13 @@ try {
     showNotification(error.message);
   }
 }
-```
+
 
 }
 
 return ( <main className="page"> <header className="page-header"> <div> <h1>Manage Courses</h1> <p>Create, edit, filter and delete courses.</p> </div>
 
-```
+
     <button type="button" onClick={openCreateForm}>
       Add course
     </button>
@@ -602,7 +592,6 @@ return ( <main className="page"> <header className="page-header"> <div> <h1>Mana
     )}
   </section>
 </main>
-```
 
 );
 }

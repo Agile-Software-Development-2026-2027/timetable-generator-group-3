@@ -149,6 +149,7 @@ export default function DegreesPage() {
       <div className="container"><Link className="navbar-brand" href="/">UNICAL <span>UNIVERSITY OF CALABRIA</span></Link>
         <div className="nav-actions">
           <Link className="btn btn-outline-light btn-sm" href="/rooms">Rooms</Link>
+          <Link className="btn btn-outline-light btn-sm" href="/teachers">Teachers</Link>
           <Link className="btn btn-outline-light btn-sm" href="/data-loader">Data Loader</Link>
           <Link className="btn btn-outline-light btn-sm" href="/calendar">Open timetable</Link>
         </div>

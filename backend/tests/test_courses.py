@@ -1,4 +1,3 @@
-```python
 import pytest
 
 from app.models import Course, ScheduleSession
@@ -235,4 +234,4 @@ def test_delete_unknown_course_returns_404(client):
     response = client.delete("/courses/999")
 
     assert response.status_code == 404
-```
+

@@ -83,6 +83,7 @@ export default function TimetablePage() {
         <Link className="btn btn-outline-light btn-sm" href="/">Degree programmes</Link>
         <Link className="btn btn-outline-light btn-sm" href="/data-loader">Data Loader</Link>
         <Link className="btn btn-outline-light btn-sm" href="/rooms">Rooms</Link>
+        <Link className="btn btn-outline-light btn-sm" href="/teachers">Teachers</Link>
       </div>
     </div></nav>
     <main className="container py-5">

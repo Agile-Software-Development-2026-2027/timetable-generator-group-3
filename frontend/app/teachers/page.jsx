@@ -3,12 +3,15 @@
 import { useEffect, useState } from "react";
 import { AppNav, Notification, useNotification } from "../components/app-shell.jsx";
 import { emptyTeacherForm, matches, request, teacherFormErrors, teacherFormFromTeacher, teacherPayload, toggleId } from "./teacher-form.mjs";
+import { pageNumbers, pageSizes, paginate } from "../rooms/room-table.mjs";
 
 export default function TeachersPage() {
   const [teachers, setTeachers] = useState([]);
   const [courses, setCourses] = useState([]);
   const [loadState, setLoadState] = useState("loading");
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(pageSizes[0]);
   const [courseSearch, setCourseSearch] = useState("");
   const [form, setForm] = useState(emptyTeacherForm);
   const [formErrors, setFormErrors] = useState({});
@@ -77,6 +80,7 @@ export default function TeachersPage() {
   }
 
   const rows = teachers.filter((t) => matches(`${t.name} ${t.identifier}`, search));
+  const teacherPage = paginate(rows, page, pageSize);
   const visibleCourses = courses.filter((c) => matches(`${c.name} ${c.degree}`, courseSearch));
 
   return <div className="campus-app">
@@ -98,7 +102,7 @@ export default function TeachersPage() {
       <div className="room-table-panel">
         <div className="room-table-toolbar">
           <label className="catalogue-search room-search">
-            <input type="search" placeholder="Search by name or identifier" aria-label="Search teachers" value={search} onChange={(e) => setSearch(e.target.value)} />
+            <input type="search" placeholder="Search by name or identifier" aria-label="Search teachers" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} />
           </label>
         </div>
         <div className="table-responsive">
@@ -106,7 +110,7 @@ export default function TeachersPage() {
             <caption className="visually-hidden">Registered teachers</caption>
             <thead><tr><th scope="col">Full name</th><th scope="col">Identifier</th><th scope="col" className="text-end">Courses</th><th scope="col" className="text-end">Actions</th></tr></thead>
             <tbody>
-              {rows.map((teacher) => <tr key={teacher.id}>
+              {teacherPage.rows.map((teacher) => <tr key={teacher.id}>
                 <th scope="row" className="room-code">{teacher.name}</th>
                 <td>{teacher.identifier}</td>
                 <td className="text-end room-number">{teacher.course_count}</td>
@@ -124,6 +128,32 @@ export default function TeachersPage() {
             </tbody>
           </table>
         </div>
+        {!!rows.length && <div className="room-table-footer">
+          <div className="room-page-size">
+            <span className="room-filters-label" id="teacher-page-size-label">Rows per page</span>
+            <div className="btn-group btn-group-sm" role="group" aria-labelledby="teacher-page-size-label">
+              {pageSizes.map((size) => (
+                <button type="button" key={size} className={`btn btn-page-size ${pageSize === size ? "is-active" : ""}`} aria-pressed={pageSize === size} onClick={() => { setPageSize(size); setPage(1); }}>{size}</button>
+              ))}
+            </div>
+          </div>
+          <p className="room-page-range" role="status">Showing {teacherPage.first}–{teacherPage.last} of {teacherPage.total} {teacherPage.total === 1 ? "teacher" : "teachers"}</p>
+          <nav aria-label="Teacher pages">
+            <ul className="pagination pagination-sm mb-0 room-pagination">
+              <li className={`page-item ${teacherPage.page === 1 ? "disabled" : ""}`}>
+                <button type="button" className="page-link" disabled={teacherPage.page === 1} onClick={() => setPage(teacherPage.page - 1)}>Previous</button>
+              </li>
+              {pageNumbers(teacherPage.page, teacherPage.pageCount).map((number, index) => (number === null
+                ? <li className="page-item disabled" key={`gap-${index}`}><span className="page-link" aria-hidden="true">…</span></li>
+                : <li className={`page-item ${number === teacherPage.page ? "active" : ""}`} key={number}>
+                  <button type="button" className="page-link" aria-label={`Page ${number}`} aria-current={number === teacherPage.page ? "page" : undefined} onClick={() => setPage(number)}>{number}</button>
+                </li>))}
+              <li className={`page-item ${teacherPage.page === teacherPage.pageCount ? "disabled" : ""}`}>
+                <button type="button" className="page-link" disabled={teacherPage.page === teacherPage.pageCount} onClick={() => setPage(teacherPage.page + 1)}>Next</button>
+              </li>
+            </ul>
+          </nav>
+        </div>}
       </div>
 
       {formOpen && <div className="delete-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="teacher-form-title">

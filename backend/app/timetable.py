@@ -19,20 +19,16 @@ weekday: int = Field(ge=0, le=6, description="Monday=0, Sunday=6")
 start_time: time
 end_time: time
 
-```
 @model_validator(mode="after")
 def validate_times(self):
     if self.start_time >= self.end_time:
         raise ValueError("End time must be after start time.")
     return self
-```
 
 class SessionView(SessionInput):
 id: int
 
-```
 model_config = {"from_attributes": True}
-```
 
 @router.get("/timetable/sessions", response_model=list[SessionView])
 def list_sessions(session: Database) -> list[ScheduleSession]:
@@ -50,7 +46,6 @@ raise HTTPException(404, "Course not found.")
 if data.room_id is not None and session.get(Room, data.room_id) is None:
 raise HTTPException(404, "Room not found.")
 
-```
 record.course_id = data.course_id
 record.room_id = data.room_id
 record.weekday = data.weekday
@@ -58,7 +53,7 @@ record.start_time = data.start_time
 record.end_time = data.end_time
 
 return record
-```
+
 
 @router.post("/timetable/sessions", response_model=SessionView, status_code=201)
 def create_session(data: SessionInput, session: Database) -> ScheduleSession:
@@ -74,7 +69,7 @@ session_id: int, data: SessionInput, session: Database
 ) -> ScheduleSession:
 record = session.get(ScheduleSession, session_id)
 
-```
+
 if record is None:
     raise HTTPException(404, "Timetable session not found.")
 
@@ -83,16 +78,15 @@ session.commit()
 session.refresh(record)
 
 return record
-```
+
 
 @router.delete("/timetable/sessions/{session_id}", status_code=204)
 def delete_session(session_id: int, session: Database) -> None:
 record = session.get(ScheduleSession, session_id)
 
-```
+
 if record is None:
     raise HTTPException(404, "Timetable session not found.")
 
 session.delete(record)
 session.commit()
-```

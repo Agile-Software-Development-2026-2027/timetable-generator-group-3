@@ -66,15 +66,22 @@ export default function CoursesPage() {
   }
 
   const refreshCourses = useCallback(async () => {
-    const params = new URLSearchParams();
+    const filters = [];
 
-    if (filterDegree) params.set("degree_id", filterDegree);
-    if (filterYear) params.set("year_id", filterYear);
-    if (filterSemester) params.set("semester_id", filterSemester);
+if (filterDegree) {
+  filters.push(`degree_id=${encodeURIComponent(filterDegree)}`);
+}
 
-    const query = params.toString();
-    const result = await request(`/courses${query ? `?${query}` : ""}`);
+if (filterYear) {
+  filters.push(`year_id=${encodeURIComponent(filterYear)}`);
+}
 
+if (filterSemester) {
+  filters.push(`semester_id=${encodeURIComponent(filterSemester)}`);
+}
+
+const query = filters.length > 0 ? `?${filters.join("&")}` : "";
+const result = await request(`/courses${query}`);
     setCourses(result);
   }, [filterDegree, filterYear, filterSemester]);
 

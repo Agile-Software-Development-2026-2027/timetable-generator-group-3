@@ -1,6 +1,7 @@
 import pytest
 
 from app.models import Course, ScheduleSession
+from datetime import time
 
 
 def course_payload(course, **overrides):
@@ -198,8 +199,8 @@ def test_delete_course_used_in_timetable_warns_first(
     scheduled = ScheduleSession(
         course_id=course.id,
         weekday=0,
-        start_time="09:00",
-        end_time="11:00",
+        start_time=time(9, 0),
+        end_time=time(11, 0),
     )
     session.add(scheduled)
     session.commit()
@@ -217,8 +218,8 @@ def test_force_delete_course_removes_timetable_sessions(
     scheduled = ScheduleSession(
         course_id=course.id,
         weekday=0,
-        start_time="09:00",
-        end_time="11:00",
+        start_time=time(9, 0),
+        end_time=time(11, 0),
     )
     session.add(scheduled)
     session.commit()

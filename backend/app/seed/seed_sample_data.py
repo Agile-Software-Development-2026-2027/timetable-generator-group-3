@@ -55,6 +55,13 @@ def validate(data):
     room_codes = []
     for room in data["rooms"]:
         nonblank(room["code"], "room code")
+        # A code-only object references an existing shared room without redefining it.
+        if set(room) == {"code"}:
+            room_codes.append(room["code"])
+            continue
+        expected = {"code", "capacity", "is_lab", "has_computers", "has_projector"}
+        if set(room) != expected:
+            raise ValueError(f"{room['code']}: supply only code, or all room attributes")
         positive(room["capacity"], "room capacity")
         for flag in ("is_lab", "has_computers", "has_projector"):
             if type(room[flag]) is not bool:
@@ -85,11 +92,7 @@ def validate(data):
         unique(assigned, f"teacher assignment in {course['name']}")
         if any(identifier not in teacher_ids for identifier in assigned):
             raise ValueError(f"Unknown teacher for {course['name']}")
-        if course["requires_lab"] and not any(
-            room["is_lab"] and room["has_computers"]
-            and room["capacity"] >= course["enrolled_students"] for room in data["rooms"]
-        ):
-            raise ValueError(f"No suitable computer lab for {course['name']}")
+        # Room references must be resolved against the database before checking suitability.
         course_keys.append((*slot, course["name"]))
     unique(course_keys, "course (year, semester, name)")
 
@@ -110,7 +113,26 @@ def get_or_create(session: Session, model, lookup: dict, values: dict | None = N
         raise ValueError(f"Existing {model.__name__} conflicts with dataset: {lookup}")
     return obj
 
-def load_dataset(session: Session, data: dict):
+ROOM_FIELDS = ("capacity", "has_projector", "has_computers", "is_lab")
+
+
+def room_differences(session: Session, data: dict) -> list[dict]:
+    """Read-only preview of conflicts; never modifies shared database records."""
+    differences = []
+    for item in data["rooms"]:
+        existing = session.scalar(select(Room).where(Room.code == item["code"]))
+        if existing is None or set(item) == {"code"}:
+            continue
+        changes = {
+            field: {"file": item[field], "database": getattr(existing, field)}
+            for field in ROOM_FIELDS if item[field] != getattr(existing, field)
+        }
+        if changes:
+            differences.append({"code": item["code"], "differences": changes})
+    return differences
+
+
+def load_dataset(session: Session, data: dict, *, reuse_existing_rooms: bool = False):
     """Insert or reuse one validated degree and its related records."""
     degree = get_or_create(session, Degree, {"name": data["degree"]["name"]})
     slots = {}
@@ -120,8 +142,33 @@ def load_dataset(session: Session, data: dict):
             semester = get_or_create(session, Semester, {"year_id": year.id, "number": number})
             slots[(year_data["number"], number)] = (year, semester)
 
+    # All rooms are shared resources. Existing DB metadata is authoritative only
+    # when the administrator has explicitly accepted mismatches in the preview.
     for room in data["rooms"]:
-        get_or_create(session, Room, {"code": room["code"]}, {k: v for k, v in room.items() if k != "code"})
+        existing = session.scalar(select(Room).where(Room.code == room["code"]))
+        if existing is None:
+            if set(room) == {"code"}:
+                raise ValueError(f"Referenced room {room['code']!r} does not exist")
+            session.add(Room(**room))
+            session.flush()
+        elif set(room) != {"code"}:
+            mismatch = [field for field in ROOM_FIELDS if getattr(existing, field) != room[field]]
+            if mismatch and not reuse_existing_rooms:
+                raise ValueError(
+                    f"Room {room['code']!r} differs in {', '.join(mismatch)}; "
+                    "review the differences before choosing to reuse database values"
+                )
+
+    # The Room table is a global resource pool, not scoped to a degree.
+    # Check equipment/capacity against actual database values, never stale JSON.
+    for item in data["courses"]:
+        if item["requires_lab"] and not session.scalar(
+            select(Room.id).where(
+                Room.is_lab.is_(True), Room.has_computers.is_(True),
+                Room.capacity >= item["enrolled_students"]
+            ).limit(1)
+        ):
+            raise ValueError(f"No sufficiently equipped computer lab for {item['name']}")
 
     teachers = {}
     for teacher in data["teachers"]:

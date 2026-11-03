@@ -41,6 +41,46 @@ describe("DegreesPage", () => {
     expect(screen.getByText("2 total")).toBeInTheDocument();
   });
 
+  it("shows database course counts for each year in the degree structure", async () => {
+    mockFetch((url) => {
+      if (url.endsWith("/degrees")) {
+        return jsonResponse([
+          { id: 1, name: "Computer Science", years: 2, courses: 3 },
+        ]);
+      }
+      return jsonResponse({
+        id: 1,
+        name: "Computer Science",
+        years: [
+          {
+            id: 1,
+            number: 1,
+            courses: 2,
+            semesters: [
+              { id: 1, number: 1, courses: 2 },
+              { id: 2, number: 2, courses: 0 },
+            ],
+          },
+          {
+            id: 2,
+            number: 2,
+            courses: 1,
+            semesters: [{ id: 3, number: 1, courses: 1 }],
+          },
+        ],
+      });
+    });
+
+    render(<DegreesPage />);
+    fireEvent.click(await screen.findByRole("button", { name: /computer science/i }));
+
+    expect(await screen.findAllByText("2 courses")).toHaveLength(2);
+    expect(screen.getAllByText("1 course")).toHaveLength(2);
+    expect(screen.getAllByText("Semester 1")).toHaveLength(2);
+    expect(screen.getByText("Semester 2")).toBeInTheDocument();
+    expect(screen.getAllByText("0 courses")).toHaveLength(1);
+  });
+
   it("shows degree programmes on separate pages", async () => {
     const degrees = Array.from({ length: 11 }, (_, index) => ({
       id: index + 1,

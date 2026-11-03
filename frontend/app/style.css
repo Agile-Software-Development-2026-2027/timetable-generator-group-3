@@ -209,11 +209,15 @@ body { background: linear-gradient(180deg, #f4f7f8 0%, #eef4f5 100%); color: #17
 .degree-actions .btn-edit { padding: .5rem .85rem; border: 1px solid #d5e5e3; background: #edf5f4; color: #195b59; }
 .degree-actions .btn-delete { width: auto; padding: .5rem .85rem; border: 1px solid #f2d2d5; background: #fff3f4; color: #b43b45; }
 .degree-details-inline { margin: 0 1.2rem 1.1rem; padding: .9rem 0 0; border-top: 1px solid #e7eeee; }
-.degree-years-inline { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: .7rem 1rem; }
-.degree-year-inline { display: flex; align-items: flex-start; gap: .75rem; }
-.degree-year-label { flex: 0 0 auto; padding-top: .4rem; color: #435860; font-size: .8rem; font-weight: 700; }
-.degree-year-semesters { display: flex; flex-wrap: wrap; }
-.degree-year-semesters .semester-pill { margin-bottom: .25rem; }
+.degree-years-inline { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: .8rem; }
+.degree-year-inline { min-width: 0; padding: .85rem; border: 1px solid #e3eeed; border-radius: 12px; background: #f8fbfa; }
+.degree-year-heading { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-bottom: .7rem; }
+.degree-year-label { margin: 0; color: #28474e; font-size: .88rem; font-weight: 750; }
+.degree-year-course-count, .degree-semester-course-count { color: #708991; font-size: .72rem; }
+.degree-year-course-count { padding: .25rem .5rem; border-radius: 999px; background: #eaf3f1; font-weight: 650; }
+.degree-year-semesters { display: grid; grid-template-columns: repeat(auto-fit, minmax(105px, 1fr)); gap: .5rem; }
+.degree-semester-card { display: grid; gap: .2rem; padding: .6rem; border: 1px solid #e7eeee; border-radius: 9px; background: #fff; }
+.degree-semester-label { color: #245c58; font-size: .76rem; font-weight: 700; }
 .degrees-main { padding-top: 1.5rem !important; }
 .degrees-heading { margin-bottom: 1rem !important; }
 .degrees-heading .eyebrow { margin-bottom: .35rem !important; font-size: .64rem; }
@@ -244,8 +248,8 @@ body { background: linear-gradient(180deg, #f4f7f8 0%, #eef4f5 100%); color: #17
   .degree-form-modal-actions { flex-direction: column-reverse; }
   .degree-form-modal-actions .btn { width: 100%; }
   .degree-details-inline { margin-right: .65rem; margin-left: .65rem; }
-  .degree-year-inline { flex-direction: column; gap: .15rem; }
-  .degree-year-label { padding-top: 0; }
+  .degree-years-inline { grid-template-columns: 1fr; }
+  .degree-year-semesters { grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); }
 }
 .nav-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
 .room-features { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem; }

@@ -30,6 +30,26 @@ def test_list_degrees_reports_course_count(client):
     assert physics["years"] == 1
 
 
+def test_degree_details_reports_per_year_course_counts_after_adding_year(client, course):
+    degree_id = course.degree_id
+    details = client.get(f"/degrees/{degree_id}")
+    assert details.status_code == 200
+    assert details.json()["years"][0]["courses"] == 1
+    assert details.json()["years"][0]["semesters"][0]["courses"] == 1
+
+    updated = client.put(
+        f"/degrees/{degree_id}",
+        json={"name": "Computer Science", "years": 2},
+    )
+    assert updated.status_code == 200
+    assert [year["courses"] for year in updated.json()["years"]] == [1, 0]
+    assert [
+        semester["courses"]
+        for year in updated.json()["years"]
+        for semester in year["semesters"]
+    ] == [1, 0, 0, 0]
+
+
 def test_get_missing_degree_returns_404(client):
     assert client.get("/degrees/9999").status_code == 404
 

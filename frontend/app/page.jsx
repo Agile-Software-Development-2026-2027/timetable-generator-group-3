@@ -202,12 +202,22 @@ export default function DegreesPage() {
                 {selected?.id === degree.id && <div className="degree-details-inline">
                   <p className="eyebrow mb-2">PROGRAMME STRUCTURE</p>
                   <div className="degree-years-inline">
-                    {selected.years.map((year) => <div className="degree-year-inline" key={year.id}>
-                      <span className="degree-year-label">Year {year.number}</span>
-                      <div className="degree-year-semesters">
-                        {year.semesters.map((semester) => <span className="semester-pill" key={semester.id}>Semester {semester.number}</span>)}
-                      </div>
-                    </div>)}
+                    {selected.years.map((year) => (
+                      <section className="degree-year-inline" key={year.id} aria-label={`Year ${year.number}`}>
+                        <div className="degree-year-heading">
+                          <h3 className="degree-year-label">Year {year.number}</h3>
+                          <span className="degree-year-course-count">{year.courses} {year.courses === 1 ? "course" : "courses"}</span>
+                        </div>
+                        <div className="degree-year-semesters">
+                          {year.semesters.map((semester) => (
+                            <div className="degree-semester-card" key={semester.id}>
+                              <span className="degree-semester-label">Semester {semester.number}</span>
+                              <span className="degree-semester-course-count">{semester.courses} {semester.courses === 1 ? "course" : "courses"}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </section>
+                    ))}
                   </div>
                 </div>}
               </div>

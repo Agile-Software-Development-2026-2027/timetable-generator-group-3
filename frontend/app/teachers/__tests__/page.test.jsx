@@ -36,6 +36,28 @@ describe("TeachersPage", () => {
     expect(within(screen.getByRole("dialog")).getByText("Databases")).toBeInTheDocument();
   });
 
+  it("shows ten teachers per page and lets the user navigate to the next page", async () => {
+    const teachers = Array.from({ length: 11 }, (_, index) => ({
+      id: index + 1,
+      name: `Teacher ${index + 1}`,
+      identifier: `STAFF-${index + 1}`,
+      course_count: 0,
+      courses: [],
+    }));
+    mockApi(teachers);
+    render(<TeachersPage />);
+
+    expect(await screen.findByRole("rowheader", { name: "Teacher 1" })).toBeInTheDocument();
+    expect(screen.getByRole("rowheader", { name: "Teacher 10" })).toBeInTheDocument();
+    expect(screen.queryByRole("rowheader", { name: "Teacher 11" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+
+    expect(await screen.findByRole("rowheader", { name: "Teacher 11" })).toBeInTheDocument();
+    expect(screen.queryByRole("rowheader", { name: "Teacher 1" })).not.toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Showing 11–11 of 11 teachers");
+  });
+
   it("creates a teacher assigned to the selected courses", async () => {
     mockApi([], (url, options) => (options?.method === "POST" ? jsonResponse({}, true, 201) : undefined));
     render(<TeachersPage />);

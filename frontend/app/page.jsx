@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { pageNumbers, pageSizes, paginate } from "./rooms/room-table.mjs";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 const emptyForm = { name: "", years: 3, semesters_per_year: 2 };
@@ -17,6 +18,8 @@ function ActionIcon({ name }) {
 
 export default function DegreesPage() {
   const [degrees, setDegrees] = useState([]);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(pageSizes[0]);
   const [selected, setSelected] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [editing, setEditing] = useState(false);
@@ -144,6 +147,8 @@ export default function DegreesPage() {
     }
   }
 
+  const degreePage = paginate(degrees, page, pageSize);
+
   return <div className="campus-app">
     <nav className="navbar campus-nav">
       <div className="container"><Link className="navbar-brand" href="/">UNICAL <span>UNIVERSITY OF CALABRIA</span></Link>
@@ -179,7 +184,7 @@ export default function DegreesPage() {
             </div>
           </div>
           <div className="d-grid gap-3">
-            {degrees.map((degree) => (
+            {degreePage.rows.map((degree) => (
               <div className={`card degree-card ${selected?.id === degree.id ? "is-selected" : ""}`} key={degree.id}>
                 <div className="card-body degree-card-body">
                   <button type="button" className="degree-card-main text-start" aria-expanded={selected?.id === degree.id} onClick={() => toggleDegreeDetails(degree)}>
@@ -210,6 +215,32 @@ export default function DegreesPage() {
             ))}
             {!degrees.length && <div className="empty-state text-center p-5"><span className="display-6">＋</span><p className="fw-semibold mt-2 mb-1">Your catalogue is ready</p><p className="text-secondary small mb-0">Create a degree to get started.</p></div>}
           </div>
+          {!!degrees.length && <div className="room-table-footer">
+            <div className="room-page-size">
+              <span className="room-filters-label" id="degree-page-size-label">Rows per page</span>
+              <div className="btn-group btn-group-sm" role="group" aria-labelledby="degree-page-size-label">
+                {pageSizes.map((size) => (
+                  <button type="button" key={size} className={`btn btn-page-size ${pageSize === size ? "is-active" : ""}`} aria-pressed={pageSize === size} onClick={() => { setPageSize(size); setPage(1); }}>{size}</button>
+                ))}
+              </div>
+            </div>
+            <p className="room-page-range" role="status">Showing {degreePage.first}–{degreePage.last} of {degreePage.total} {degreePage.total === 1 ? "degree programme" : "degree programmes"}</p>
+            <nav aria-label="Degree programme pages">
+              <ul className="pagination pagination-sm mb-0 room-pagination">
+                <li className={`page-item ${degreePage.page === 1 ? "disabled" : ""}`}>
+                  <button type="button" className="page-link" disabled={degreePage.page === 1} onClick={() => setPage(degreePage.page - 1)}>Previous</button>
+                </li>
+                {pageNumbers(degreePage.page, degreePage.pageCount).map((number, index) => (number === null
+                  ? <li className="page-item disabled" key={`gap-${index}`}><span className="page-link" aria-hidden="true">…</span></li>
+                  : <li className={`page-item ${number === degreePage.page ? "active" : ""}`} key={number}>
+                    <button type="button" className="page-link" aria-label={`Page ${number}`} aria-current={number === degreePage.page ? "page" : undefined} onClick={() => setPage(number)}>{number}</button>
+                  </li>))}
+                <li className={`page-item ${degreePage.page === degreePage.pageCount ? "disabled" : ""}`}>
+                  <button type="button" className="page-link" disabled={degreePage.page === degreePage.pageCount} onClick={() => setPage(degreePage.page + 1)}>Next</button>
+                </li>
+              </ul>
+            </nav>
+          </div>}
         </section>
       </div>
       {formOpen && <div className="delete-modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="degree-form-title" onMouseDown={(event) => { if (event.target === event.currentTarget) cancelEdit(); }}>

@@ -33,11 +33,13 @@ class DegreeSummary(BaseModel):
 class SemesterView(BaseModel):
     id: int
     number: int
+    courses: int
 
 
 class YearView(BaseModel):
     id: int
     number: int
+    courses: int
     semesters: list[SemesterView]
 
 
@@ -67,7 +69,7 @@ def list_degrees(session: Database) -> list[DegreeSummary]:
 
 
 @router.post("", response_model=DegreeView, status_code=201)
-def create_degree(data: DegreeInput, session: Database) -> Degree:
+def create_degree(data: DegreeInput, session: Database) -> DegreeView:
     if session.scalar(select(Degree.id).where(Degree.name == data.name)):
         raise HTTPException(409, "A degree with this name already exists.")
     degree = Degree(name=data.name)
@@ -83,12 +85,11 @@ def create_degree(data: DegreeInput, session: Database) -> Degree:
     ]
     session.add(degree)
     session.commit()
-    session.refresh(degree)
-    return degree
+    return get_degree(degree.id, session)
 
 
 @router.get("/{degree_id}", response_model=DegreeView)
-def get_degree(degree_id: int, session: Database) -> Degree:
+def get_degree(degree_id: int, session: Database) -> DegreeView:
     degree = session.scalar(
         select(Degree)
         .where(Degree.id == degree_id)
@@ -96,11 +97,54 @@ def get_degree(degree_id: int, session: Database) -> Degree:
     )
     if degree is None:
         raise HTTPException(404, "Degree not found.")
-    return degree
+    year_ids = [year.id for year in degree.years]
+    course_counts = {}
+    semester_ids = [
+        semester.id for year in degree.years for semester in year.semesters
+    ]
+    semester_course_counts = {}
+    if year_ids:
+        course_counts = {
+            year_id: count
+            for year_id, count in session.execute(
+                select(Course.year_id, func.count(Course.id))
+                .where(Course.year_id.in_(year_ids))
+                .group_by(Course.year_id)
+            )
+        }
+    if semester_ids:
+        semester_course_counts = {
+            semester_id: count
+            for semester_id, count in session.execute(
+                select(Course.semester_id, func.count(Course.id))
+                .where(Course.semester_id.in_(semester_ids))
+                .group_by(Course.semester_id)
+            )
+        }
+    return DegreeView(
+        id=degree.id,
+        name=degree.name,
+        years=[
+            YearView(
+                id=year.id,
+                number=year.number,
+                courses=course_counts.get(year.id, 0),
+                semesters=[
+                    SemesterView(
+                        id=semester.id,
+                        number=semester.number,
+                        courses=semester_course_counts.get(semester.id, 0),
+                    )
+                    for semester in year.semesters
+                ],
+            )
+            for year in degree.years
+        ],
+    )
 
 
 @router.put("/{degree_id}", response_model=DegreeView)
-def update_degree(degree_id: int, data: DegreeInput, session: Database) -> Degree:
+def update_degree(degree_id: int, data: DegreeInput, session: Database) -> DegreeView:
     degree = session.get(Degree, degree_id)
     if degree is None:
         raise HTTPException(404, "Degree not found.")

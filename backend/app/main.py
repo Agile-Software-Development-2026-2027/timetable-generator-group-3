@@ -10,6 +10,7 @@ from app.rooms import router as rooms_router
 from app.teachers import router as teachers_router
 from app.timetable import router as timetable_router
 from app.seed_api import router as seed_router
+from app.slot_config import router as slot_config_router
 from app.courses import router as courses_router
 
 
@@ -42,6 +43,7 @@ app.include_router(teachers_router)
 app.include_router(timetable_router)
 app.include_router(seed_router)
 app.include_router(courses_router)
+app.include_router(slot_config_router)
 
 
 @app.get("/health")

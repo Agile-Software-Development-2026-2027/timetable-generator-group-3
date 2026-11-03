@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import SeedImporter from "./components/SeedImporter";
+import { pageNumbers } from "../rooms/room-table.mjs";
 import "./data-loader.css";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
@@ -139,21 +140,21 @@ export default function DataLoaderPage() {
           <span className="loader-page-summary" aria-live="polite">
             {loading ? "Loading…" : error ? "Unable to load records" : `${firstRow}–${lastRow} of ${rows.length} records`}
           </span>
-          <div className="loader-page-controls" role="group" aria-label="Navigate table pages">
-            <button type="button" className="btn btn-outline-secondary btn-sm"
-              disabled={loading || !!error || safePage === 1}
-              onClick={() => setCurrentPage(1)} aria-label="First page">«</button>
-            <button type="button" className="btn btn-outline-secondary btn-sm"
-              disabled={loading || !!error || safePage === 1}
-              onClick={() => setCurrentPage(safePage - 1)} aria-label="Previous page">Previous</button>
-            <span className="loader-page-number">Page {safePage} of {totalPages}</span>
-            <button type="button" className="btn btn-outline-secondary btn-sm"
-              disabled={loading || !!error || safePage === totalPages}
-              onClick={() => setCurrentPage(safePage + 1)} aria-label="Next page">Next</button>
-            <button type="button" className="btn btn-outline-secondary btn-sm"
-              disabled={loading || !!error || safePage === totalPages}
-              onClick={() => setCurrentPage(totalPages)} aria-label="Last page">»</button>
-          </div>
+          <nav aria-label="Academic record pages">
+            <ul className="pagination pagination-sm mb-0 room-pagination loader-page-pagination">
+              <li className={`page-item ${safePage === 1 || loading || !!error ? "disabled" : ""}`}>
+                <button type="button" className="page-link" disabled={loading || !!error || safePage === 1} onClick={() => setCurrentPage(safePage - 1)}>Previous</button>
+              </li>
+              {pageNumbers(safePage, totalPages).map((number, index) => (number === null
+                ? <li className="page-item disabled" key={`gap-${index}`}><span className="page-link" aria-hidden="true">…</span></li>
+                : <li className={`page-item ${number === safePage ? "active" : ""}`} key={number}>
+                  <button type="button" className="page-link" aria-label={`Page ${number}`} aria-current={number === safePage ? "page" : undefined} disabled={loading || !!error} onClick={() => setCurrentPage(number)}>{number}</button>
+                </li>))}
+              <li className={`page-item ${safePage === totalPages || loading || !!error ? "disabled" : ""}`}>
+                <button type="button" className="page-link" disabled={loading || !!error || safePage === totalPages} onClick={() => setCurrentPage(safePage + 1)}>Next</button>
+              </li>
+            </ul>
+          </nav>
         </div>
       </section>
     </main>

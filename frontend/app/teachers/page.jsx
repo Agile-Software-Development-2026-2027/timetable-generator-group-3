@@ -5,6 +5,18 @@ import { AppNav, Notification, useNotification } from "../components/app-shell.j
 import { emptyTeacherForm, matches, request, teacherFormErrors, teacherFormFromTeacher, teacherPayload, toggleId } from "./teacher-form.mjs";
 import { pageNumbers, pageSizes, paginate } from "../rooms/room-table.mjs";
 
+function ActionIcon({ name }) {
+  const iconPaths = {
+    edit: <path d="m4 16-.8 4.8L8 20l11-11-4-4zM13.5 6.5l4 4" />,
+    delete: <path d="M4 7h16M10 11v6m4-6v6M6 7l1 14h10l1-14M9 7V4h6v3" />,
+  };
+  return (
+    <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      {iconPaths[name]}
+    </svg>
+  );
+}
+
 export default function TeachersPage() {
   const [teachers, setTeachers] = useState([]);
   const [courses, setCourses] = useState([]);
@@ -116,8 +128,8 @@ export default function TeachersPage() {
                 <td className="text-end room-number">{teacher.course_count}</td>
                 <td><div className="room-actions">
                   <button type="button" className="btn btn-light" aria-label={`View courses of ${teacher.name}`} onClick={() => setViewTarget(teacher)}>Courses</button>
-                  <button type="button" className="btn btn-edit" aria-label={`Edit ${teacher.name}`} onClick={() => openForm(teacher)}>Edit</button>
-                  <button type="button" className="btn btn-delete" aria-label={`Delete ${teacher.name}`} onClick={() => setDeleteTarget(teacher)}>Delete</button>
+                  <button type="button" className="btn btn-edit" aria-label={`Edit ${teacher.name}`} onClick={() => openForm(teacher)}><ActionIcon name="edit" /><span>Edit</span></button>
+                  <button type="button" className="btn btn-delete" aria-label={`Delete ${teacher.name}`} onClick={() => setDeleteTarget(teacher)}><ActionIcon name="delete" /><span>Delete</span></button>
                 </div></td>
               </tr>)}
               {!rows.length && <tr><td colSpan="4" className="room-table-message">
@@ -130,12 +142,10 @@ export default function TeachersPage() {
         </div>
         {!!rows.length && <div className="room-table-footer">
           <div className="room-page-size">
-            <span className="room-filters-label" id="teacher-page-size-label">Rows per page</span>
-            <div className="btn-group btn-group-sm" role="group" aria-labelledby="teacher-page-size-label">
-              {pageSizes.map((size) => (
-                <button type="button" key={size} className={`btn btn-page-size ${pageSize === size ? "is-active" : ""}`} aria-pressed={pageSize === size} onClick={() => { setPageSize(size); setPage(1); }}>{size}</button>
-              ))}
-            </div>
+            <label className="room-filters-label" htmlFor="teacher-page-size">Rows per page</label>
+            <select id="teacher-page-size" className="form-select form-select-sm table-page-size-select" value={pageSize} onChange={(event) => { setPageSize(Number(event.target.value)); setPage(1); }}>
+              {pageSizes.map((size) => <option key={size} value={size}>{size}</option>)}
+            </select>
           </div>
           <p className="room-page-range" role="status">Showing {teacherPage.first}–{teacherPage.last} of {teacherPage.total} {teacherPage.total === 1 ? "teacher" : "teachers"}</p>
           <nav aria-label="Teacher pages">

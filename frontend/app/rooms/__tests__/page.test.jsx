@@ -67,7 +67,7 @@ describe("RoomsPage", () => {
     await screen.findByText("Showing 1–10 of 60 rooms");
 
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
-    fireEvent.click(screen.getByRole("button", { name: "50" }));
+    fireEvent.change(screen.getByLabelText("Rows per page"), { target: { value: "50" } });
 
     expect(screen.getByText("Showing 1–50 of 60 rooms")).toBeInTheDocument();
     expect(rowCodes()).toHaveLength(50);

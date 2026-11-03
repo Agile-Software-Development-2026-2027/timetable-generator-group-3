@@ -39,6 +39,36 @@ describe("DegreesPage", () => {
     expect(await screen.findByText("Computer Science")).toBeInTheDocument();
     expect(screen.getByText("Mathematics")).toBeInTheDocument();
     expect(screen.getByText("2 total")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Edit Computer Science" }).querySelector("svg")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Delete Computer Science" }).querySelector("svg")).toBeInTheDocument();
+  });
+
+  it("shows each semester's course count from degree details", async () => {
+    mockFetch((url) => {
+      if (url.endsWith("/degrees")) {
+        return jsonResponse([
+          { id: 1, name: "Computer Science", years: 1, courses: 1 },
+        ]);
+      }
+      return jsonResponse({
+        id: 1,
+        name: "Computer Science",
+        years: [{
+          id: 1,
+          number: 1,
+          semesters: [
+            { id: 1, number: 1, courses: 1 },
+            { id: 2, number: 2, courses: 0 },
+          ],
+        }],
+      });
+    });
+
+    render(<DegreesPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "Computer Science" }));
+
+    expect(await screen.findByText("1 course")).toBeInTheDocument();
+    expect(screen.getByText("0 courses")).toBeInTheDocument();
   });
 
   it("shows database course counts for each year in the degree structure", async () => {
@@ -72,7 +102,7 @@ describe("DegreesPage", () => {
     });
 
     render(<DegreesPage />);
-    fireEvent.click(await screen.findByRole("button", { name: /computer science/i }));
+    fireEvent.click(await screen.findByRole("button", { name: "Computer Science", exact: true }));
 
     expect(await screen.findAllByText("2 courses")).toHaveLength(2);
     expect(screen.getAllByText("1 course")).toHaveLength(2);
@@ -96,6 +126,11 @@ describe("DegreesPage", () => {
     expect(screen.getByText("Degree 10")).toBeInTheDocument();
     expect(screen.queryByText("Degree 11")).not.toBeInTheDocument();
 
+    fireEvent.change(screen.getByLabelText("Rows per page"), { target: { value: "50" } });
+    expect(screen.getByText("Degree 11")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Showing 1–11 of 11 degree programmes");
+    fireEvent.change(screen.getByLabelText("Rows per page"), { target: { value: "10" } });
+
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
 
     expect(await screen.findByText("Degree 11")).toBeInTheDocument();
@@ -114,7 +149,7 @@ describe("DegreesPage", () => {
   it("shows an empty state when there are no degrees", async () => {
     mockFetch(() => jsonResponse([]));
     render(<DegreesPage />);
-    expect(await screen.findByText(/your catalogue is ready/i)).toBeInTheDocument();
+    expect(await screen.findByText(/no degree programmes yet/i)).toBeInTheDocument();
   });
 
   it("surfaces an error notification when the API fails", async () => {

@@ -31,6 +31,8 @@ describe("TeachersPage", () => {
     expect(within(row).getByText("m.rossi@unical.it")).toBeInTheDocument();
     expect(within(row).getByText("1")).toBeInTheDocument();
     expect(screen.getByText("2 total")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Edit Mario Rossi" }).querySelector("svg")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Delete Mario Rossi" }).querySelector("svg")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "View courses of Mario Rossi" }));
     expect(within(screen.getByRole("dialog")).getByText("Databases")).toBeInTheDocument();
@@ -52,10 +54,11 @@ describe("TeachersPage", () => {
     expect(screen.queryByRole("rowheader", { name: "Teacher 11" })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    fireEvent.change(screen.getByLabelText("Rows per page"), { target: { value: "50" } });
 
     expect(await screen.findByRole("rowheader", { name: "Teacher 11" })).toBeInTheDocument();
-    expect(screen.queryByRole("rowheader", { name: "Teacher 1" })).not.toBeInTheDocument();
-    expect(screen.getByRole("status")).toHaveTextContent("Showing 11–11 of 11 teachers");
+    expect(screen.getByRole("rowheader", { name: "Teacher 1" })).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Showing 1–11 of 11 teachers");
   });
 
   it("creates a teacher assigned to the selected courses", async () => {

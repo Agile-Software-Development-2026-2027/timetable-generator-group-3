@@ -36,6 +36,18 @@ export function teacherFormFromTeacher(teacher) {
   return { name: teacher.name, identifier: teacher.identifier, course_ids: teacher.courses.map((course) => course.id) };
 }
 
+export function teachersByCourse(teachers) {
+  const result = new Map();
+  for (const teacher of teachers) {
+    for (const course of teacher.courses) {
+      const assigned = result.get(course.id) ?? [];
+      assigned.push(teacher);
+      result.set(course.id, assigned);
+    }
+  }
+  return result;
+}
+
 export function toggleId(ids, id) {
   return ids.includes(id) ? ids.filter((value) => value !== id) : [...ids, id];
 }

@@ -269,12 +269,10 @@ export default function RoomsPage() {
             </div>
             <div className="room-table-footer">
               <div className="room-page-size">
-                <span className="room-filters-label" id="room-page-size-label">Rows per page</span>
-                <div className="btn-group btn-group-sm" role="group" aria-labelledby="room-page-size-label">
-                  {pageSizes.map((size) => (
-                    <button type="button" key={size} className={`btn btn-page-size ${pageSize === size ? "is-active" : ""}`} aria-pressed={pageSize === size} onClick={() => changePageSize(size)}>{size}</button>
-                  ))}
-                </div>
+                <label className="room-filters-label" htmlFor="room-page-size">Rows per page</label>
+                <select id="room-page-size" className="form-select form-select-sm table-page-size-select" value={pageSize} onChange={(event) => changePageSize(Number(event.target.value))}>
+                  {pageSizes.map((size) => <option key={size} value={size}>{size}</option>)}
+                </select>
               </div>
               <p className="room-page-range" role="status">{table.total ? `Showing ${table.first}–${table.last} of ${table.total} ${table.total === 1 ? "room" : "rooms"}` : "No rooms to show"}</p>
               <nav aria-label="Rooms pages">

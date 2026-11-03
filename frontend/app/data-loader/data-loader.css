@@ -27,13 +27,13 @@
 .loader-page-size { display: flex; align-items: center; gap: .6rem; white-space: nowrap; font-weight: 600; }
 .loader-page-size select { width: 78px; border-radius: 8px; border-color: #dce7e6; }
 .loader-page-summary { color: #61777b; white-space: nowrap; }
-.loader-page-controls { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; }
-.loader-page-controls .btn { min-width: 34px; border-radius: 8px; }
-.loader-page-number { padding: 0 .4rem; color: #26414a; white-space: nowrap; font-weight: 600; }
+.loader-pagination nav { margin-left: auto; }
+.loader-page-pagination { flex-wrap: wrap; }
 @media (max-width: 650px) {
   .loader-pagination { justify-content: center; }
   .loader-page-size, .loader-page-summary { flex: 0 1 auto; }
-  .loader-page-controls { justify-content: center; width: 100%; }
+  .loader-pagination nav { width: 100%; margin-left: 0; }
+  .loader-page-pagination { justify-content: center; }
 }
 /* Manual sample data importer */
 .btn-seed-import { display:inline-flex; align-items:center; gap:.45rem; padding:.55rem .9rem; border:1px solid #b9dcd8; border-radius:10px; color:#176b68; background:#eef8f6; font-size:.88rem; font-weight:650; }

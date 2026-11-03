@@ -1,8 +1,8 @@
 "use client";
 
-import Link from "next/link";
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { pageNumbers, pageSizes, paginate } from "./rooms/room-table.mjs";
+import { AppNav } from "./components/app-shell";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 const emptyForm = { name: "", years: 3, semesters_per_year: 2 };
@@ -150,22 +150,12 @@ export default function DegreesPage() {
   const degreePage = paginate(degrees, page, pageSize);
 
   return <div className="campus-app">
-    <nav className="navbar campus-nav">
-      <div className="container"><Link className="navbar-brand" href="/">UNICAL <span>UNIVERSITY OF CALABRIA</span></Link>
-        <div className="nav-actions">
-          <Link className="btn btn-outline-light btn-sm" href="/rooms">Rooms</Link>
-          <Link className="btn btn-outline-light btn-sm" href="/teachers">Teachers</Link>
-          <Link className="btn btn-outline-light btn-sm" href="/courses">Courses</Link>
-          <Link className="btn btn-outline-light btn-sm" href="/data-loader">Data Loader</Link>
-          <Link className="btn btn-outline-light btn-sm" href="/calendar">Open timetable</Link>
-        </div>
-      </div>
-    </nav>
+    <AppNav current="/" />
     <main className="container degrees-main py-4">
       <header className="degrees-heading mb-3">
         <p className="eyebrow mb-2">ACADEMIC PLANNING</p>
         <div className="page-title-row">
-          <h1 className="display-5 fw-semibold mb-1">Timetable generator</h1>
+          <h1 className="display-5 fw-semibold mb-1">Degree programmes</h1>
         </div>
         <p className="text-secondary mb-0">Manage degree programmes and academic structures.</p>
       </header>
@@ -183,46 +173,94 @@ export default function DegreesPage() {
               <button type="button" className="btn btn-campus create-degree-button" onClick={openCreateForm}><ActionIcon name="add" /><span>Create degree</span></button>
             </div>
           </div>
-          <div className="d-grid gap-3">
-            {degreePage.rows.map((degree) => (
-              <div className={`card degree-card ${selected?.id === degree.id ? "is-selected" : ""}`} key={degree.id}>
-                <div className="card-body degree-card-body">
-                  <button type="button" className="degree-card-main text-start" aria-expanded={selected?.id === degree.id} onClick={() => toggleDegreeDetails(degree)}>
-                    <div className="degree-code">Programme</div>
-                    <div className="degree-name">{degree.name}</div>
-                    <div className="degree-meta">
-                      <span className="degree-stat"><strong>{degree.years}</strong><small>Years</small></span>
-                      <span className="degree-stat"><strong>{degree.courses}</strong><small>Courses</small></span>
-                    </div>
-                  </button>
-                  <div className="degree-actions">
-                    <button type="button" className="btn btn-edit" onClick={() => editSelected(degree)}><ActionIcon name="edit" /><span>Edit</span></button>
-                    <button type="button" className="btn btn-delete" onClick={() => openDeleteConfirm(degree)}><ActionIcon name="delete" /><span>Delete</span></button>
-                  </div>
-                </div>
-                {selected?.id === degree.id && <div className="degree-details-inline">
-                  <p className="eyebrow mb-2">PROGRAMME STRUCTURE</p>
-                  <div className="degree-years-inline">
-                    {selected.years.map((year) => <div className="degree-year-inline" key={year.id}>
-                      <span className="degree-year-label">Year {year.number}</span>
-                      <div className="degree-year-semesters">
-                        {year.semesters.map((semester) => <span className="semester-pill" key={semester.id}>Semester {semester.number}</span>)}
-                      </div>
-                    </div>)}
-                  </div>
-                </div>}
-              </div>
-            ))}
-            {!degrees.length && <div className="empty-state text-center p-5"><span className="display-6">＋</span><p className="fw-semibold mt-2 mb-1">Your catalogue is ready</p><p className="text-secondary small mb-0">Create a degree to get started.</p></div>}
+          <div className="room-table-panel">
+            <div className="table-responsive">
+              <table className="table table-hover align-middle mb-0 room-table degree-table">
+                <caption className="visually-hidden">Degree programmes</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Degree programme</th>
+                    <th scope="col" className="text-end">Academic years</th>
+                    <th scope="col" className="text-end">Courses</th>
+                    <th scope="col" className="text-end">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {degreePage.rows.map((degree) => (
+                    <Fragment key={degree.id}>
+                      <tr className={selected?.id === degree.id ? "is-selected" : ""}>
+                        <th scope="row" className="room-code">
+                          <button
+                            type="button"
+                            className="degree-table-name"
+                            aria-expanded={selected?.id === degree.id}
+                            aria-controls={`degree-structure-${degree.id}`}
+                            onClick={() => toggleDegreeDetails(degree)}
+                          >
+                            {degree.name}
+                          </button>
+                        </th>
+                        <td className="text-end room-number">{degree.years}</td>
+                        <td className="text-end room-number">{degree.courses}</td>
+                        <td>
+                          <div className="room-actions">
+                            <button type="button" className="btn btn-edit" aria-label={`Edit ${degree.name}`} onClick={() => editSelected(degree)}><ActionIcon name="edit" /><span>Edit</span></button>
+                            <button type="button" className="btn btn-delete" aria-label={`Delete ${degree.name}`} onClick={() => openDeleteConfirm(degree)}><ActionIcon name="delete" /><span>Delete</span></button>
+                          </div>
+                        </td>
+                      </tr>
+                      {selected?.id === degree.id && (
+                        <tr className="degree-structure-row">
+                          <td colSpan="4">
+                            <div className="degree-details-inline" id={`degree-structure-${degree.id}`}>
+                              <p className="eyebrow mb-2">PROGRAMME STRUCTURE</p>
+                              <div className="degree-years-inline">
+                                {selected.years.map((year) => (
+                                  <section className="degree-year-inline" key={year.id}>
+                                    <div className="degree-year-heading">
+                                      <h3 className="degree-year-label">Year {year.number}</h3>
+                                      <span className="degree-year-course-count">{year.courses} {year.courses === 1 ? "course" : "courses"}</span>
+                                    </div>
+                                    <div className="degree-year-semesters">
+                                      {year.semesters.map((semester) => (
+                                        <span className="semester-pill degree-semester-pill" key={semester.id}>
+                                          <span>Semester {semester.number}</span>
+                                          <span className="degree-semester-count">{semester.courses} {semester.courses === 1 ? "course" : "courses"}</span>
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </section>
+                                ))}
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  ))}
+                  {!degrees.length && (
+                    <tr>
+                      <td colSpan="4" className="room-table-message">
+                        <p className="fw-semibold mb-1">No degree programmes yet</p>
+                        <p className="text-secondary mb-0">Create a degree programme to get started.</p>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
           {!!degrees.length && <div className="room-table-footer">
             <div className="room-page-size">
-              <span className="room-filters-label" id="degree-page-size-label">Rows per page</span>
-              <div className="btn-group btn-group-sm" role="group" aria-labelledby="degree-page-size-label">
-                {pageSizes.map((size) => (
-                  <button type="button" key={size} className={`btn btn-page-size ${pageSize === size ? "is-active" : ""}`} aria-pressed={pageSize === size} onClick={() => { setPageSize(size); setPage(1); }}>{size}</button>
-                ))}
-              </div>
+              <label className="room-filters-label" htmlFor="degree-page-size">Rows per page</label>
+              <select
+                id="degree-page-size"
+                className="form-select form-select-sm table-page-size-select"
+                value={pageSize}
+                onChange={(event) => { setPageSize(Number(event.target.value)); setPage(1); }}
+              >
+                {pageSizes.map((size) => <option key={size} value={size}>{size}</option>)}
+              </select>
             </div>
             <p className="room-page-range" role="status">Showing {degreePage.first}–{degreePage.last} of {degreePage.total} {degreePage.total === 1 ? "degree programme" : "degree programmes"}</p>
             <nav aria-label="Degree programme pages">

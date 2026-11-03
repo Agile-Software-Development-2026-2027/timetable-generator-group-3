@@ -111,7 +111,11 @@ class Course(Base):
 
     weekly_hours: Mapped[int] = mapped_column(Integer, nullable=False)
     enrolled_students: Mapped[int] = mapped_column(Integer, nullable=False)
+
     requires_lab: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="0"
+    )
+    requires_projector: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="0"
     )
 
@@ -196,4 +200,36 @@ class ScheduleSession(Base):
     __table_args__ = (
         CheckConstraint("weekday BETWEEN 0 AND 6", name="ck_schedule_weekday"),
         CheckConstraint("start_time < end_time", name="ck_schedule_time_order"),
+    )
+
+
+class SlotConfig(Base):
+    """Singleton row that stores the timetable slot configuration.
+
+    There is always exactly one row (id=1). Use the slot_config endpoints
+    to read or update it. The full grid (days x blocks) is derived on the
+    fly from these values by the /slot-config/grid endpoint and the engine.
+
+    working_days: JSON-encoded sorted list of weekday integers (0=Mon … 6=Sun).
+    block_minutes: length of each time slot in minutes (must be > 0).
+    start_time / end_time: the daily range within which blocks are placed.
+    """
+
+    __tablename__ = "slot_config"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    working_days: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="[0,1,2,3,4]"
+    )
+    start_time: Mapped[time] = mapped_column(
+        Time, nullable=False, default=time(9, 0)
+    )
+    end_time: Mapped[time] = mapped_column(
+        Time, nullable=False, default=time(18, 0)
+    )
+    block_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=60)
+
+    __table_args__ = (
+        CheckConstraint("block_minutes > 0", name="ck_slot_block_minutes_positive"),
+        CheckConstraint("id = 1", name="ck_slot_config_singleton"),
     )

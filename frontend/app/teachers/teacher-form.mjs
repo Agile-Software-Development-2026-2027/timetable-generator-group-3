@@ -55,3 +55,14 @@ export function toggleId(ids, id) {
 export function matches(text, query) {
   return text.toLowerCase().includes(query.trim().toLowerCase());
 }
+
+// Course id -> teachers assigned to it, built from the teacher list.
+export function teachersByCourse(teachers) {
+  const map = new Map();
+  for (const teacher of teachers) {
+    for (const course of teacher.courses) {
+      map.set(course.id, [...(map.get(course.id) ?? []), teacher]);
+    }
+  }
+  return map;
+}

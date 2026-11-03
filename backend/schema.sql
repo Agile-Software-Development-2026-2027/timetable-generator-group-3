@@ -30,6 +30,17 @@ CREATE TABLE room (
 	UNIQUE (code)
 );
 
+CREATE TABLE slot_config (
+	id INTEGER NOT NULL, 
+	working_days VARCHAR(32) NOT NULL, 
+	start_time TIME WITHOUT TIME ZONE NOT NULL, 
+	end_time TIME WITHOUT TIME ZONE NOT NULL, 
+	block_minutes INTEGER NOT NULL, 
+	PRIMARY KEY (id), 
+	CONSTRAINT ck_slot_block_minutes_positive CHECK (block_minutes > 0), 
+	CONSTRAINT ck_slot_config_singleton CHECK (id = 1)
+);
+
 CREATE TABLE teacher (
 	id SERIAL NOT NULL, 
 	name VARCHAR(255) NOT NULL, 
@@ -69,6 +80,7 @@ CREATE TABLE course (
 	weekly_hours INTEGER NOT NULL, 
 	enrolled_students INTEGER NOT NULL, 
 	requires_lab BOOLEAN DEFAULT '0' NOT NULL, 
+	requires_projector BOOLEAN DEFAULT '0' NOT NULL, 
 	PRIMARY KEY (id), 
 	CONSTRAINT uq_course_semester_name UNIQUE (semester_id, name), 
 	CONSTRAINT ck_course_weekly_hours_positive CHECK (weekly_hours > 0), 
@@ -88,15 +100,15 @@ CREATE TABLE course_teacher (
 );
 
 CREATE TABLE schedule_session (
-	id SERIAL NOT NULL,
-	course_id INTEGER NOT NULL,
-	room_id INTEGER,
-	weekday INTEGER NOT NULL,
-	start_time TIME NOT NULL,
-	end_time TIME NOT NULL,
-	PRIMARY KEY (id),
-	CONSTRAINT ck_schedule_weekday CHECK (weekday BETWEEN 0 AND 6),
-	CONSTRAINT ck_schedule_time_order CHECK (start_time < end_time),
-	FOREIGN KEY(course_id) REFERENCES course (id) ON DELETE CASCADE,
+	id SERIAL NOT NULL, 
+	course_id INTEGER NOT NULL, 
+	room_id INTEGER, 
+	weekday INTEGER NOT NULL, 
+	start_time TIME WITHOUT TIME ZONE NOT NULL, 
+	end_time TIME WITHOUT TIME ZONE NOT NULL, 
+	PRIMARY KEY (id), 
+	CONSTRAINT ck_schedule_weekday CHECK (weekday BETWEEN 0 AND 6), 
+	CONSTRAINT ck_schedule_time_order CHECK (start_time < end_time), 
+	FOREIGN KEY(course_id) REFERENCES course (id) ON DELETE CASCADE, 
 	FOREIGN KEY(room_id) REFERENCES room (id) ON DELETE SET NULL
 );

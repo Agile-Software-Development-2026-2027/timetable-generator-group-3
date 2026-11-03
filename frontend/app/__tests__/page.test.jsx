@@ -138,6 +138,28 @@ describe("DegreesPage", () => {
     expect(screen.getByRole("status")).toHaveTextContent("Showing 11–11 of 11 degree programmes");
   });
 
+  it("shows degree programmes on separate pages", async () => {
+    const degrees = Array.from({ length: 11 }, (_, index) => ({
+      id: index + 1,
+      name: `Degree ${index + 1}`,
+      years: 3,
+      courses: 10,
+    }));
+    mockFetch(() => jsonResponse(degrees));
+
+    render(<DegreesPage />);
+
+    expect(await screen.findByText("Degree 1")).toBeInTheDocument();
+    expect(screen.getByText("Degree 10")).toBeInTheDocument();
+    expect(screen.queryByText("Degree 11")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+
+    expect(await screen.findByText("Degree 11")).toBeInTheDocument();
+    expect(screen.queryByText("Degree 1")).not.toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Showing 11–11 of 11 degree programmes");
+  });
+
   it("shows the create-degree action", async () => {
     mockFetch(() => jsonResponse([]));
     render(<DegreesPage />);

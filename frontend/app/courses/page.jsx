@@ -116,9 +116,10 @@ export default function CoursesPage() {
       try {
         const degreeList = await request("/degrees");
 
-        const detailedDegrees = await Promise.all(
-          degreeList.map((degree) => request(`/degrees/${degree.id}`))
-        );
+        const detailedDegrees = [];
+        for (const degree of degreeList) {
+          detailedDegrees.push(await request(`/degrees/${degree.id}`));
+        }
 
         setDegrees(detailedDegrees);
       } catch (error) {

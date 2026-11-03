@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 export function AppNav({ current }) {
-  const links = [["/", "Degree programmes"], ["/rooms", "Rooms"], ["/teachers", "Teachers"], ["/data-loader", "Data Loader"], ["/calendar", "Open timetable"]];
+  const links = [["/", "Degree programmes"], ["/rooms", "Rooms"], ["/teachers", "Teachers"], ["/courses", "Courses"], ["/data-loader", "Data Loader"], ["/calendar", "Open timetable"]];
   return <nav className="navbar campus-nav">
     <div className="container"><Link className="navbar-brand" href="/">UNICAL <span>UNIVERSITY OF CALABRIA</span></Link>
       <div className="nav-actions">

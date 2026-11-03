@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { teachersByCourse, toggleId } from "../teachers/teacher-form.mjs";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -61,6 +62,10 @@ export default function CoursesPage() {
   const [filterYears, setFilterYears] = useState([]);
   const [filterSemesters, setFilterSemesters] = useState([]);
 
+  const [teachers, setTeachers] = useState([]);
+  const [assignTarget, setAssignTarget] = useState(null);
+  const [selectedTeachers, setSelectedTeachers] = useState([]);
+
   function showNotification(text, type = "error") {
     setNotification({ text, type });
   }
@@ -81,8 +86,12 @@ if (filterSemester) {
 }
 
 const query = filters.length > 0 ? `?${filters.join("&")}` : "";
-const result = await request(`/courses${query}`);
+const [result, teacherList] = await Promise.all([
+  request(`/courses${query}`),
+  request("/teachers"),
+]);
     setCourses(result);
+    setTeachers(teacherList);
   }, [filterDegree, filterYear, filterSemester]);
 
   useEffect(() => {
@@ -305,6 +314,32 @@ const result = await request(`/courses${query}`);
     }
   }
 
+  const assignedTeachers = teachersByCourse(teachers);
+
+  function openAssignForm(course) {
+    setAssignTarget(course);
+    setSelectedTeachers(
+      (assignedTeachers.get(course.id) ?? []).map((teacher) => teacher.id)
+    );
+  }
+
+  async function saveAssignment(event) {
+    event.preventDefault();
+
+    try {
+      await request(`/courses/${assignTarget.id}/teachers`, {
+        method: "PUT",
+        body: JSON.stringify({ teacher_ids: selectedTeachers }),
+      });
+
+      setAssignTarget(null);
+      showNotification("Teacher assignments saved.", "success");
+      await refreshCourses();
+    } catch (error) {
+      showNotification(error.message);
+    }
+  }
+
   return (
     <main>
       <header>
@@ -524,6 +559,43 @@ const result = await request(`/courses${query}`);
         </section>
       )}
 
+      {assignTarget && (
+        <section className="course-form" aria-labelledby="assign-title">
+          <h2 id="assign-title">Assign teachers to {assignTarget.name}</h2>
+
+          <form onSubmit={saveAssignment}>
+            <fieldset>
+              <legend>Teachers</legend>
+
+              {teachers.length === 0 && (
+                <p>No teachers registered yet. Create one on the Teachers page.</p>
+              )}
+
+              {teachers.map((teacher) => (
+                <label key={teacher.id}>
+                  <input
+                    type="checkbox"
+                    checked={selectedTeachers.includes(teacher.id)}
+                    onChange={() =>
+                      setSelectedTeachers(toggleId(selectedTeachers, teacher.id))
+                    }
+                  />
+                  {teacher.name} ({teacher.identifier})
+                </label>
+              ))}
+            </fieldset>
+
+            <div className="form-actions">
+              <button type="submit">Save assignments</button>
+
+              <button type="button" onClick={() => setAssignTarget(null)}>
+                Cancel
+              </button>
+            </div>
+          </form>
+        </section>
+      )}
+
       <section className="course-list">
         <h2>Courses</h2>
 
@@ -541,6 +613,7 @@ const result = await request(`/courses${query}`);
                   <th>Weekly hours</th>
                   <th>Students</th>
                   <th>Requirements</th>
+                  <th>Teachers</th>
                   <th>Actions</th>
                 </tr>
               </thead>
@@ -557,6 +630,8 @@ const result = await request(`/courses${query}`);
                     requirements.push("Projector");
                   }
 
+                  const courseTeachers = assignedTeachers.get(course.id) ?? [];
+
                   return (
                     <tr key={course.id}>
                       <td>{course.name}</td>
@@ -571,6 +646,19 @@ const result = await request(`/courses${query}`);
                           : "None"}
                       </td>
                       <td>
+                        {courseTeachers.length > 0
+                          ? courseTeachers.map((teacher) => teacher.name).join(", ")
+                          : "No teacher assigned"}
+                      </td>
+                      <td>
+                        <button
+                          type="button"
+                          aria-label={`Assign teachers to ${course.name}`}
+                          onClick={() => openAssignForm(course)}
+                        >
+                          Assign teachers
+                        </button>
+
                         <button
                           type="button"
                           onClick={() => openEditForm(course)}

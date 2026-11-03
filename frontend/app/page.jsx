@@ -69,7 +69,10 @@ export default function DegreesPage() {
       setEditing(false);
       setFormOpen(false);
       setForm(emptyForm);
-      showNotification("Degree saved successfully.", "success");
+      showNotification(
+        editing ? "Degree updated successfully." : "Degree saved successfully.",
+        editing ? "success-prominent" : "success"
+      );
       await refresh(degree.id);
     } catch (error) { showNotification(error.message); }
   }

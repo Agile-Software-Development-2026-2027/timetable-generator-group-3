@@ -280,7 +280,7 @@ export default function CoursesPage() {
         editingId
           ? "Course updated successfully."
           : "Course created successfully.",
-        "success"
+        editingId ? "success-prominent" : "success"
       );
 
       closeForm();

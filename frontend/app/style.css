@@ -43,9 +43,12 @@ body { background: linear-gradient(180deg, #f4f7f8 0%, #eef4f5 100%); color: #17
 .btn-delete:hover { background: #fdecee; color: #a62838; }
 .app-notification { position: fixed; top: 1rem; right: 1rem; z-index: 1100; display: flex; align-items: center; gap: .8rem; width: min(420px, calc(100vw - 2rem)); padding: .9rem 1rem; border: 1px solid; border-radius: 14px; background: #fff; box-shadow: 0 16px 40px rgba(16, 47, 59, 0.18); animation: notification-enter .2s ease-out; }
 .app-notification-success { border-color: #b9ded1; color: #205e4b; }
+.app-notification-success-prominent { top: 1.5rem; right: auto; left: 50%; width: min(520px, calc(100vw - 2rem)); min-height: 76px; translate: -50% 0; border: 2px solid #82c8a9; border-radius: 16px; background: #f3fcf7; color: #174e3c; box-shadow: 0 20px 55px rgba(16, 47, 59, .25); }
 .app-notification-error { border-color: #efc3c7; color: #963440; }
 .notification-icon { display: grid; flex: 0 0 2rem; width: 2rem; height: 2rem; place-items: center; border-radius: 50%; font-weight: 800; }
 .app-notification-success .notification-icon { background: #e6f5ee; }
+.app-notification-success-prominent .notification-icon { flex-basis: 2.5rem; width: 2.5rem; height: 2.5rem; background: #d7f3e4; font-size: 1.1rem; }
+.app-notification-success-prominent .notification-text { font-size: 1rem; font-weight: 700; }
 .app-notification-error .notification-icon { background: #fff0f1; }
 .notification-text { flex: 1; margin: 0; font-size: .9rem; line-height: 1.4; overflow-wrap: anywhere; }
 .notification-close { flex: 0 0 auto; padding: 0 .2rem; border: 0; background: transparent; color: inherit; font-size: 1.4rem; line-height: 1; opacity: .7; }
@@ -69,6 +72,7 @@ body { background: linear-gradient(180deg, #f4f7f8 0%, #eef4f5 100%); color: #17
 }
 @media (max-width: 575px) {
   .app-notification { top: .75rem; right: .75rem; width: calc(100vw - 1.5rem); }
+  .app-notification-success-prominent { top: .75rem; right: auto; left: 50%; width: calc(100vw - 1.5rem); }
   .delete-modal { padding: 1rem; }
   .delete-modal-actions { flex-direction: column-reverse; }
   .delete-modal-actions .btn { width: 100%; }
@@ -298,3 +302,80 @@ body { background: linear-gradient(180deg, #f4f7f8 0%, #eef4f5 100%); color: #17
 .assignment-list { max-height: 260px; overflow-y: auto; padding: .6rem .8rem; border: 1px solid #e4ecec; border-radius: 10px; }
 .delete-modal-wide { width: min(100%, 540px); }
 .delete-modal-wide .delete-modal-actions .btn { white-space: nowrap; }
+
+.degrees-main:has(.degree-table, .course-table) .degrees-heading h1 { color: #1f3440; }
+.degrees-main:has(.degree-table, .course-table) .degrees-heading > p:last-child { color: #5c7278 !important; }
+.degrees-main:has(.degree-table, .course-table) .row > section > .d-flex > .h4,
+.degrees-main:has(.degree-table, .course-table) > .d-flex > .h4 { color: #1f3440; font-weight: 700; }
+.degrees-main:has(.degree-table, .course-table) .catalogue-header-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: .75rem; }
+.degrees-main:has(.degree-table, .course-table) .create-degree-button { min-height: 40px; }
+.degrees-main:has(.degree-table, .course-table) .room-page-size { display: flex; flex: 0 0 auto; flex-direction: row; flex-wrap: nowrap; align-items: center; gap: .6rem; white-space: nowrap; }
+.degrees-main:has(.degree-table, .course-table) .room-page-size .room-filters-label { margin: 0; white-space: nowrap; }
+.degrees-main:has(.degree-table, .course-table) .room-page-size .table-page-size-select { flex: 0 0 76px; width: 76px; }
+.degrees-main:has(.degree-table, .course-table) .room-table-panel { border-radius: 12px; }
+.degrees-main:has(.degree-table) .degree-table { min-width: 760px; }
+.degrees-main:has(.degree-table, .course-table) .room-table tbody th,
+.degrees-main:has(.degree-table, .course-table) .room-table tbody td { padding-top: .45rem; padding-bottom: .45rem; }
+.degrees-main:has(.degree-table) .degree-table-name { border: 0; padding: 0; background: transparent; color: inherit; font: inherit; font-weight: 700; text-align: left; overflow-wrap: anywhere; }
+.degrees-main:has(.degree-table) .degree-table-name:hover { color: #176b68; }
+.degrees-main:has(.degree-table) .degree-table-name:focus-visible { outline: 3px solid #d6a75d; outline-offset: 3px; border-radius: 3px; }
+.degrees-main:has(.degree-table) .degree-structure-row > td { padding: 0; background: #f6f9f9; }
+.degrees-main:has(.degree-table) .degree-details-inline { margin: 0; padding: 1rem 1.2rem; border-top: 1px solid #e7eeee; }
+.degrees-main:has(.degree-table) .degree-details-inline > .eyebrow { margin-bottom: .75rem !important; }
+.degrees-main:has(.degree-table) .degree-years-inline { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: .75rem; }
+.degrees-main:has(.degree-table) .degree-year-inline { display: block; min-width: 0; padding: .75rem; border: 1px solid #e5eaeb; border-radius: 10px; background: #fff; }
+.degrees-main:has(.degree-table) .degree-year-heading { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-bottom: .55rem; }
+.degrees-main:has(.degree-table) .degree-year-label { margin: 0; padding: 0; color: #1f3440; font-size: .88rem; font-weight: 700; }
+.degrees-main:has(.degree-table) .degree-year-course-count { color: #5c7278; font-size: .76rem; font-weight: 600; white-space: nowrap; }
+.degrees-main:has(.degree-table) .degree-year-semesters { display: flex; flex-wrap: wrap; gap: .25rem; }
+.degrees-main:has(.degree-table) .degree-year-semesters .degree-semester-pill { display: inline-flex; align-items: center; gap: .4rem; margin: 0; padding: .35rem .55rem; border: 1px solid #dce8e6; border-radius: 8px; background: #f6f9f9; color: #245c58; font-size: .74rem; }
+.degrees-main:has(.degree-table) .degree-semester-count { color: #5c7278; font-size: .68rem; }
+.degrees-main:has(.course-table) .course-filter-panel { margin-bottom: 1rem; }
+.degrees-main:has(.course-table) .course-filter-toolbar { align-items: center; }
+.degrees-main:has(.course-table) .course-filter-toolbar > h2 { color: #1f3440; font-weight: 700; }
+.degrees-main:has(.course-table) .course-filter-controls { display: flex; flex: 1; flex-wrap: wrap; justify-content: flex-end; gap: .65rem; }
+.degrees-main:has(.course-table) .course-filter-field { display: grid; flex: 1 1 150px; max-width: 230px; gap: .3rem; color: #5c7278; font-size: .76rem; font-weight: 650; }
+.degrees-main:has(.course-table) .course-filter-field .form-select { min-height: 40px; border-color: #dce4e5; border-radius: 8px; color: #2c4650; font-size: .84rem; }
+.degrees-main:has(.course-table) .course-list-panel { margin-top: 1rem; }
+.degrees-main:has(.course-table) .course-table { min-width: 1500px; }
+.degrees-main:has(.course-table) .course-table th:last-child { width: 280px; }
+.degrees-main:has(.course-table) .course-table th:nth-child(8) { width: 280px; }
+.degrees-main:has(.course-table) .course-table tbody th,
+.degrees-main:has(.course-table) .course-table tbody td { padding-top: .3rem; padding-bottom: .3rem; }
+.degrees-main:has(.course-table) .course-table tbody td { color: #2c4650; font-size: .84rem; overflow-wrap: anywhere; }
+.degrees-main:has(.course-table) .course-table tbody td:last-child { text-align: right; white-space: nowrap; }
+.degrees-main:has(.course-table) .course-table .room-actions { flex-wrap: nowrap; align-items: center; justify-content: flex-end; gap: .4rem; }
+.degrees-main:has(.course-table) .course-table .room-actions .btn { flex: 0 0 72px; min-height: 28px; justify-content: center; padding: .2rem .45rem; line-height: 1.2; }
+.degrees-main:has(.course-table) .course-table .room-actions .btn-light { border: 1px solid #dce4e5; border-radius: 8px; color: #245c58; }
+.degrees-main:has(.course-table) .course-table .room-actions .btn-light:hover { border-color: #74aaa3; background: #f6faf9; color: #245c58; }
+.degrees-main:has(.degree-table, .course-table) .degree-form-modal,
+.degrees-main:has(.degree-table, .course-table) .course-form-modal { width: min(100%, 560px); max-height: calc(100vh - 2rem); overflow-y: auto; padding: 1.35rem 1.25rem 1.1rem; border: 1px solid #e4ecec; border-radius: 16px; background: #fff; box-shadow: 0 25px 60px rgba(16, 47, 59, .2); }
+.degrees-main:has(.degree-table, .course-table) .degree-form-modal-header { margin-bottom: 1rem; }
+.degrees-main:has(.course-table) .course-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .85rem 1rem; }
+.degrees-main:has(.course-table) .course-form-field { display: grid; min-width: 0; align-content: start; }
+.degrees-main:has(.course-table) .course-form-requirements { grid-column: 1 / -1; margin: 0; padding: .6rem .8rem; border: 1px solid #e4ecec; border-radius: 10px; }
+.degrees-main:has(.course-table) .course-form-requirements legend,
+.degrees-main:has(.course-table) .assignment-list legend { float: none; width: auto; padding: 0 .25rem; }
+.degrees-main:has(.course-table) .course-form-actions { grid-column: 1 / -1; }
+.degrees-main:has(.course-table) .course-form-actions .btn-campus { min-width: 145px; }
+.degrees-main:has(.course-table) .course-assignment-modal { width: min(100%, 540px); }
+.degrees-main:has(.course-table) .assignment-list { max-height: 260px; }
+
+@media (max-width: 767px) {
+  .degrees-main:has(.course-table) .course-filter-toolbar { align-items: stretch; }
+  .degrees-main:has(.course-table) .course-filter-controls { justify-content: flex-start; }
+  .degrees-main:has(.course-table) .course-filter-field { max-width: none; }
+  .degrees-main:has(.degree-table) .degree-details-inline { padding-right: .9rem; padding-left: .9rem; }
+}
+
+@media (max-width: 575px) {
+  .degrees-main:has(.degree-table, .course-table) .catalogue-header-actions { gap: .5rem; }
+  .degrees-main:has(.course-table) .course-filter-controls,
+  .degrees-main:has(.course-table) .course-form-grid { display: grid; grid-template-columns: 1fr; }
+  .degrees-main:has(.course-table) .course-form-requirements,
+  .degrees-main:has(.course-table) .course-form-actions { grid-column: auto; }
+  .degrees-main:has(.degree-table, .course-table) .degree-form-modal-actions { flex-direction: column-reverse; }
+  .degrees-main:has(.degree-table, .course-table) .degree-form-modal-actions .btn { width: 100%; }
+  .degrees-main:has(.degree-table) .degree-year-inline { padding: .65rem; }
+  .degrees-main:has(.degree-table) .degree-details-inline { padding-right: .65rem; padding-left: .65rem; }
+}

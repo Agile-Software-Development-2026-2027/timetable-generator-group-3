@@ -32,6 +32,98 @@ afterEach(() => {
 });
 
 describe("CoursesPage teacher assignments", () => {
+  it("opens course editing in the styled dialog", async () => {
+    mockApi([rossi, bianchi]);
+    render(<CoursesPage />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Edit Databases" }));
+
+    expect(await screen.findByRole("dialog", { name: "Edit course" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Course name")).toHaveValue("Databases");
+  });
+
+  it("asks for confirmation before deleting a course", async () => {
+    mockApi([rossi, bianchi]);
+    render(<CoursesPage />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Delete Databases" }));
+    expect(await screen.findByRole("dialog", { name: "Delete course?" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "No, keep it" }));
+
+    expect(calls("DELETE")).toHaveLength(0);
+  });
+
+  it("asks for explicit confirmation before deleting saved timetable sessions", async () => {
+    global.fetch = vi.fn((url, options) => {
+      if (options?.method === "DELETE" && !url.includes("force=true")) {
+        return jsonResponse({
+          detail: "This course is used in 2 saved timetable session(s). Confirm to delete it anyway.",
+        }, false, 409);
+      }
+      if (options?.method === "DELETE") {
+        return Promise.resolve({ ok: true, status: 204, json: () => Promise.resolve(null) });
+      }
+      if (options?.method === "PUT") return jsonResponse({});
+      if (url.includes("/teachers")) return jsonResponse([rossi, bianchi]);
+      if (url.includes("/courses")) return jsonResponse(courses);
+      if (url.endsWith("/degrees")) return jsonResponse([]);
+      return jsonResponse({});
+    });
+    const confirmSpy = vi.spyOn(window, "confirm");
+    render(<CoursesPage />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Delete Databases" }));
+    fireEvent.click(screen.getByRole("button", { name: "Yes, delete" }));
+
+    expect(await screen.findByText(/used in 2 saved timetable session/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Delete course and sessions" }));
+
+    await waitFor(() => expect(calls("DELETE")).toHaveLength(2));
+    expect(calls("DELETE")[1][0]).toMatch(/\/courses\/10\?force=true$/);
+    expect(confirmSpy).not.toHaveBeenCalled();
+  });
+
+  it("uses the shared course catalogue layout and filters visible courses", async () => {
+    mockApi([rossi, bianchi]);
+    render(<CoursesPage />);
+
+    expect(await screen.findByRole("heading", { name: "Courses", level: 1 })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Course catalogue" })).toBeInTheDocument();
+    expect(screen.getByText("Databases")).toBeInTheDocument();
+    expect(screen.getByText("Algorithms")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Edit Databases" }).querySelector("svg")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Delete Databases" }).querySelector("svg")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole("searchbox", { name: "Search courses or degrees" }), {
+      target: { value: "algo" },
+    });
+
+    expect(screen.queryByText("Databases")).not.toBeInTheDocument();
+    expect(screen.getByText("Algorithms")).toBeInTheDocument();
+  });
+
+  it("changes the course page size using the rows dropdown", async () => {
+    const manyCourses = Array.from({ length: 11 }, (_, index) => course(index + 1, `Course ${index + 1}`));
+    global.fetch = vi.fn((url) => {
+      if (url.includes("/teachers")) return jsonResponse([]);
+      if (url.includes("/courses")) return jsonResponse(manyCourses);
+      if (url.endsWith("/degrees")) return jsonResponse([]);
+      return jsonResponse({});
+    });
+    render(<CoursesPage />);
+
+    expect(await screen.findByText("Showing 1–10 of 11 courses")).toBeInTheDocument();
+    expect(screen.queryByText("Course 11")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    fireEvent.change(screen.getByLabelText("Rows per page"), { target: { value: "50" } });
+
+    expect(screen.getByText("Course 1")).toBeInTheDocument();
+    expect(screen.getByText("Course 11")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Showing 1–11 of 11 courses");
+  });
+
   it("shows the teachers of each course and saves new assignments", async () => {
     mockApi([rossi, bianchi]);
     render(<CoursesPage />);

@@ -219,4 +219,31 @@ describe("DegreesPage", () => {
       await screen.findByText(/degree saved successfully/i)
     ).toBeInTheDocument();
   });
+
+  it("shows a prominent success popup after updating a degree", async () => {
+    const fullDegree = {
+      id: 1,
+      name: "Computer Science",
+      years: [{ id: 1, number: 1, courses: 0, semesters: [{ id: 1, number: 1, courses: 0 }] }],
+    };
+    mockFetch((url, options) => {
+      if (options?.method === "PUT") {
+        return jsonResponse({ ...fullDegree, name: "Applied Computer Science" });
+      }
+      if (url.endsWith("/degrees")) {
+        return jsonResponse([{ id: 1, name: "Computer Science", years: 1, courses: 0 }]);
+      }
+      return jsonResponse(fullDegree);
+    });
+
+    render(<DegreesPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "Edit Computer Science" }));
+    fireEvent.change(await screen.findByLabelText("Degree name"), {
+      target: { value: "Applied Computer Science" },
+    });
+    fireEvent.submit(screen.getByLabelText("Degree name").closest("form"));
+
+    const notification = (await screen.findByText("Degree updated successfully.")).closest("[role='status']");
+    expect(notification).toHaveClass("app-notification-success-prominent");
+  });
 });

@@ -42,6 +42,19 @@ describe("CoursesPage teacher assignments", () => {
     expect(screen.getByLabelText("Course name")).toHaveValue("Databases");
   });
 
+  it("shows a prominent success popup after updating a course", async () => {
+    mockApi([rossi, bianchi]);
+    render(<CoursesPage />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Edit Databases" }));
+    const nameInput = await screen.findByLabelText("Course name");
+    fireEvent.change(nameInput, { target: { value: "Updated Databases" } });
+    fireEvent.submit(nameInput.closest("form"));
+
+    const notification = (await screen.findByText("Course updated successfully.")).closest("[role='status']");
+    expect(notification).toHaveClass("app-notification-success-prominent");
+  });
+
   it("asks for confirmation before deleting a course", async () => {
     mockApi([rossi, bianchi]);
     render(<CoursesPage />);

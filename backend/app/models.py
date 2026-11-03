@@ -111,7 +111,11 @@ class Course(Base):
 
     weekly_hours: Mapped[int] = mapped_column(Integer, nullable=False)
     enrolled_students: Mapped[int] = mapped_column(Integer, nullable=False)
+
     requires_lab: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="0"
+    )
+    requires_projector: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default="0"
     )
 

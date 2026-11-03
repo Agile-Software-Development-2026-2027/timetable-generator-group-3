@@ -13,9 +13,16 @@ def test_list_courses(client, course):
     response = client.get("/courses")
 
     assert response.status_code == 200
-    assert response.json() == [
-        {"id": course.id, "name": "Databases", "degree": "Computer Science"}
-    ]
+
+    courses = response.json()
+    assert len(courses) == 1
+
+    listed_course = courses[0]
+    assert listed_course["id"] == course.id
+    assert listed_course["name"] == "Databases"
+    assert listed_course["degree"] == "Computer Science"
+    assert listed_course["weekly_hours"] == 4
+    assert listed_course["enrolled_students"] == 80
 
 
 def test_create_list_update_and_delete_session(client, course):

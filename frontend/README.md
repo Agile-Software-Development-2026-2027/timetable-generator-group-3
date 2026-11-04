@@ -37,8 +37,6 @@ Replace the example URL as needed, then restart the frontend server.
 
 - `/` — Manage degree programmes. View the programme list and course counts,
   inspect years and semesters, and create, edit, or delete degrees.
-- `/calendar` — View scheduled classes in weekly, daily, or monthly calendar
-  views.
 
 ## API endpoints used
 
@@ -49,7 +47,6 @@ The degree page uses:
 - `GET /degrees/{id}` — view a degree's structure
 - `PUT /degrees/{id}` — update a degree
 - `DELETE /degrees/{id}` — delete a degree
-
 The calendar page reads from `GET /courses`, `GET /rooms`, and
 `GET /timetable/sessions`. Refer to the [backend README](../backend/README.md)
 for backend setup and API details.

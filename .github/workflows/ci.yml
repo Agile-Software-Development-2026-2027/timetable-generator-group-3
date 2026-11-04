@@ -1,6 +1,10 @@
 # CI: runs on every pull request and on every push to main.
 # The job "test" is a required check on main: a pull request cannot be merged until it is green.
 # Do not rename the job.
+#
+# Both backend and frontend checks live inside this single "test" job on purpose:
+# "test" is the only required status check on main, so bundling them here means a
+# failure in either one blocks the merge.
 name: CI
 
 on:
@@ -16,8 +20,41 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      # Add here the steps that build and test your project.
-      # Until then this job does nothing and always passes.
+
+      # ---------- Backend ----------
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install backend dependencies
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+      - name: Backend lint (ruff)
+        working-directory: backend
+        run: ruff check app tests
+      - name: Backend tests (pytest)
+        working-directory: backend
+        env:
+          DATABASE_URL: "sqlite:///./ci.db"
+        run: pytest -q
+
+      # ---------- Frontend ----------
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm install
+      - name: Frontend lint (eslint)
+        working-directory: frontend
+        run: npm run lint
+      - name: Frontend tests (vitest)
+        working-directory: frontend
+        run: npm test
+      - name: Frontend build
+        working-directory: frontend
+        run: npm run build

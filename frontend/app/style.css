@@ -316,8 +316,8 @@ body { background: linear-gradient(180deg, #f4f7f8 0%, #eef4f5 100%); color: #17
 .degrees-main:has(.degree-table) .degree-table { min-width: 760px; }
 .degrees-main:has(.degree-table, .course-table) .room-table tbody th,
 .degrees-main:has(.degree-table, .course-table) .room-table tbody td { padding-top: .45rem; padding-bottom: .45rem; }
-.degrees-main:has(.degree-table) .degree-table-name { border: 0; padding: 0; background: transparent; color: inherit; font: inherit; font-weight: 700; text-align: left; overflow-wrap: anywhere; }
-.degrees-main:has(.degree-table) .degree-table-name:hover { color: #176b68; }
+.degrees-main:has(.degree-table) .degree-table-name { display: inline; border: 0; padding: 0; background: transparent; color: #245c58; font: inherit; font-weight: 700; text-align: left; text-decoration: underline; text-decoration-color: transparent; text-underline-offset: .2em; overflow-wrap: anywhere; cursor: pointer; }
+.degrees-main:has(.degree-table) .degree-table-name:hover { color: #176b68; text-decoration-color: currentColor; }
 .degrees-main:has(.degree-table) .degree-table-name:focus-visible { outline: 3px solid #d6a75d; outline-offset: 3px; border-radius: 3px; }
 .degrees-main:has(.degree-table) .degree-structure-row > td { padding: 0; background: #f6f9f9; }
 .degrees-main:has(.degree-table) .degree-details-inline { margin: 0; padding: 1rem 1.2rem; border-top: 1px solid #e7eeee; }

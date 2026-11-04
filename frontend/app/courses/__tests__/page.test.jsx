@@ -55,6 +55,41 @@ describe("CoursesPage teacher assignments", () => {
     expect(notification).toHaveClass("app-notification-success-prominent");
   });
 
+  it("loads degree structures sequentially on page refresh", async () => {
+    const degreeList = Array.from({ length: 10 }, (_, index) => ({
+      id: index + 1,
+      name: `Degree ${index + 1}`,
+      years: 1,
+      courses: 0,
+    }));
+    let activeDetails = 0;
+    let maximumActiveDetails = 0;
+
+    global.fetch = vi.fn(async (url) => {
+      if (url.endsWith("/degrees")) return jsonResponse(degreeList);
+      if (/\/degrees\/\d+$/.test(url)) {
+        activeDetails += 1;
+        maximumActiveDetails = Math.max(maximumActiveDetails, activeDetails);
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        activeDetails -= 1;
+        return jsonResponse({
+          id: Number(url.split("/").pop()),
+          name: `Degree ${url.split("/").pop()}`,
+          years: [],
+        });
+      }
+      if (url.includes("/teachers")) return jsonResponse([]);
+      if (url.includes("/courses")) return jsonResponse(courses);
+      return jsonResponse({});
+    });
+
+    render(<CoursesPage />);
+
+    expect(await screen.findByRole("option", { name: "Degree 10" })).toBeInTheDocument();
+    expect(maximumActiveDetails).toBe(1);
+    expect(screen.queryByText("Failed to fetch")).not.toBeInTheDocument();
+  });
+
   it("asks for confirmation before deleting a course", async () => {
     mockApi([rossi, bianchi]);
     render(<CoursesPage />);
@@ -103,7 +138,7 @@ describe("CoursesPage teacher assignments", () => {
 
     expect(await screen.findByRole("heading", { name: "Courses", level: 1 })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Course catalogue" })).toBeInTheDocument();
-    expect(screen.getByText("Databases")).toBeInTheDocument();
+    expect(await screen.findByText("Databases")).toBeInTheDocument();
     expect(screen.getByText("Algorithms")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Edit Databases" }).querySelector("svg")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Delete Databases" }).querySelector("svg")).toBeInTheDocument();

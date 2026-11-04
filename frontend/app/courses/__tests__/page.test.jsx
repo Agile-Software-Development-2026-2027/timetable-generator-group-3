@@ -138,7 +138,7 @@ describe("CoursesPage teacher assignments", () => {
 
     expect(await screen.findByRole("heading", { name: "Courses", level: 1 })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Course catalogue" })).toBeInTheDocument();
-    expect(screen.getByText("Databases")).toBeInTheDocument();
+    expect(await screen.findByText("Databases")).toBeInTheDocument();
     expect(screen.getByText("Algorithms")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Edit Databases" }).querySelector("svg")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Delete Databases" }).querySelector("svg")).toBeInTheDocument();

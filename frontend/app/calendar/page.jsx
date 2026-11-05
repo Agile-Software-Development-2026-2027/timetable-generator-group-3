@@ -6,6 +6,7 @@ import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/react/daygrid";
 import timeGridPlugin from "@fullcalendar/react/timegrid";
 import breezyThemePlugin from "@fullcalendar/react/themes/breezy";
+import { fetchAllSessions } from "./sessions.mjs";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -36,7 +37,7 @@ export default function TimetablePage() {
     let active = true;
     async function loadData() {
       const [courseResult, roomResult, sessionResult] = await Promise.allSettled([
-        request("/courses"), request("/rooms"), request("/timetable/sessions"),
+        request("/courses"), request("/rooms"), fetchAllSessions(request),
       ]);
       if (!active) return;
       if (courseResult.status === "fulfilled") {

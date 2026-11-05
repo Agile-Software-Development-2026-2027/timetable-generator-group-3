@@ -116,6 +116,16 @@ store weekday (Monday=0), start/end times, course, and optional room. Apply the
 `schedule_session` table definition from `schema.sql` to Supabase before using
 the calendar there. SQLite creates missing tables on startup.
 
+`GET /timetable/sessions` accepts optional filters, combined with AND:
+`?degree_id=`, `?year_id=`, `?semester_id=`, `?teacher_id=`, `?room_id=`, and
+`?weekday=` (0–6). Without filters it returns every session. Results are sorted
+by weekday, start time, then id, and paginated with `?page=` (from 1) and
+`?page_size=` (default 100, maximum 500). The body is a plain list; the
+`X-Total-Count` response header gives the number of matching sessions across all
+pages. Every session (also from `POST` and `PUT`) includes `course_name`,
+`degree_name`, `room_code` (`null` without a room), and `teacher_names`, the
+course's teachers from `course_teacher`, sorted by name.
+
 ## Manual Data Loader
 
 A reusable JSON-based seed loader provides sample datasets for AI & Computer

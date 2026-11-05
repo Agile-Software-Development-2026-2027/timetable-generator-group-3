@@ -48,7 +48,7 @@ The degree page uses:
 - `PUT /degrees/{id}` — update a degree
 - `DELETE /degrees/{id}` — delete a degree
 The calendar page reads from `GET /courses`, `GET /rooms`, and
-`GET /timetable/sessions`. Refer to the [backend README](../backend/README.md)
+`GET /timetable/sessions`, requesting every page of sessions so none are left out. Refer to the [backend README](../backend/README.md)
 for backend setup and API details.
 
 ## Available scripts

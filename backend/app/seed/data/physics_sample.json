@@ -1,0 +1,128 @@
+{
+  "degree": {
+    "name": "Physics",
+    "academic_year": "2026/2027"
+  },
+  "years": [
+    {
+      "number": 1,
+      "semesters": [
+        1,
+        2
+      ]
+    }
+  ],
+  "rooms": [
+    {
+      "code": "PHYS-DEMO-LECT-101",
+      "capacity": 80,
+      "has_projector": true,
+      "has_computers": false,
+      "is_lab": false
+    },
+    {
+      "code": "PHYS-DEMO-LECT-102",
+      "capacity": 55,
+      "has_projector": true,
+      "has_computers": false,
+      "is_lab": false
+    },
+    {
+      "code": "PHYS-DEMO-LAB-101",
+      "capacity": 35,
+      "has_projector": true,
+      "has_computers": true,
+      "is_lab": true
+    }
+  ],
+  "teachers": [
+    {
+      "name": "Demo Physics Lecturer 1",
+      "identifier": "PHYS-DEMO-T001"
+    },
+    {
+      "name": "Demo Physics Lecturer 2",
+      "identifier": "PHYS-DEMO-T002"
+    },
+    {
+      "name": "Demo Physics Lecturer 3",
+      "identifier": "PHYS-DEMO-T003"
+    },
+    {
+      "name": "Demo Physics Lecturer 4",
+      "identifier": "PHYS-DEMO-T004"
+    }
+  ],
+  "courses": [
+    {
+      "name": "Classical Mechanics I",
+      "year": 1,
+      "semester": 1,
+      "weekly_hours": 6,
+      "enrolled_students": 45,
+      "requires_lab": false,
+      "teacher_ids": [
+        "PHYS-DEMO-T001"
+      ]
+    },
+    {
+      "name": "Mathematical Methods for Physics",
+      "year": 1,
+      "semester": 1,
+      "weekly_hours": 5,
+      "enrolled_students": 42,
+      "requires_lab": false,
+      "teacher_ids": [
+        "PHYS-DEMO-T002"
+      ]
+    },
+    {
+      "name": "Computational Physics Laboratory",
+      "year": 1,
+      "semester": 1,
+      "weekly_hours": 4,
+      "enrolled_students": 28,
+      "requires_lab": true,
+      "teacher_ids": [
+        "PHYS-DEMO-T003"
+      ]
+    },
+    {
+      "name": "Electromagnetism I",
+      "year": 1,
+      "semester": 2,
+      "weekly_hours": 6,
+      "enrolled_students": 43,
+      "requires_lab": false,
+      "teacher_ids": [
+        "PHYS-DEMO-T001"
+      ]
+    },
+    {
+      "name": "Thermodynamics",
+      "year": 1,
+      "semester": 2,
+      "weekly_hours": 5,
+      "enrolled_students": 40,
+      "requires_lab": false,
+      "teacher_ids": [
+        "PHYS-DEMO-T004"
+      ]
+    },
+    {
+      "name": "Numerical Methods for Physics",
+      "year": 1,
+      "semester": 2,
+      "weekly_hours": 4,
+      "enrolled_students": 30,
+      "requires_lab": true,
+      "teacher_ids": [
+        "PHYS-DEMO-T003"
+      ]
+    }
+  ],
+  "notes": {
+    "purpose": "Synthetic demonstration dataset for testing the timetable import workflow. Rooms, teachers and courses are invented; not official university records.",
+    "room_codes": "PHYS-DEMO-prefixed codes are intentionally unique to avoid matching existing shared rooms."
+  }
+}

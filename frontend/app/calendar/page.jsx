@@ -299,7 +299,41 @@ export default function TimetablePage() {
       setGenerating(false);
     }
   }
+    async function clearTimetable() {
+    if (!selectedDegreeId) {
+      setScheduleError("Please select a degree programme first.");
+      return;
+    }
 
+    const degreeName = degrees.find(
+      (item) => String(item.id) === String(selectedDegreeId)
+    )?.name || "the selected degree programme";
+
+    if (!window.confirm(`Are you sure you want to clear the timetable for ${degreeName}?`)) {
+      return;
+    }
+
+    setScheduleError("");
+
+    try {
+      await request(
+        `/timetable/sessions?degree_id=${encodeURIComponent(Number(selectedDegreeId))}`,
+        { method: "DELETE" }
+      );
+
+      setSessions(await fetchAllSessions(request));
+      setGenerationResult(null);
+      setLastGenerationResult(null);
+
+      try {
+        window.localStorage.removeItem(GENERATION_RESULT_STORAGE_KEY);
+      } catch {
+        // Ignore local storage errors.
+      }
+    } catch (error) {
+      setScheduleError(`Could not clear the timetable: ${error.message}`);
+    }
+  }
   async function confirmGeneration() {
     closeGenerationConfirmation();
     await generateTimetable(selectedDegreeId);
@@ -387,6 +421,14 @@ export default function TimetablePage() {
                 disabled={!selectedDegreeId || generating}>
                 {generating ? "Generating…" : "Generate timetable"}
               </button>
+              <button
+              type="button"
+              className="btn btn-outline-danger"
+              onClick={clearTimetable}
+              disabled={!selectedDegreeId || generating}
+            >
+              Clear timetable
+            </button>
               {lastGenerationResult && !generationResult && <button type="button"
                 className="btn btn-outline-secondary" onClick={() => setGenerationResult(lastGenerationResult)}>
                 View last result

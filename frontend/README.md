@@ -37,6 +37,22 @@ Replace the example URL as needed, then restart the frontend server.
 
 - `/` — Manage degree programmes. View the programme list and course counts,
   inspect years and semesters, and create, edit, or delete degrees.
+- `/calendar` — View scheduled classes by month, week, or day, inspect a class's
+  room and teacher details, and generate a timetable for a degree programme.
+
+### Calendar and timetable generation
+
+The Calendar displays saved sessions and lets you switch between monthly,
+weekly, and daily views. Select a class to open its details. Its color can be
+customized individually from that panel; these preferences are stored in the
+current browser and do not change the shared timetable data.
+
+Generating a timetable requires confirmation because it replaces the saved
+schedule for the selected degree programme. The result shows the number of
+sessions placed and lists any unscheduled courses with readable explanations,
+such as the largest lab available and its capacity, a teacher's availability,
+or the semester's required hours compared with the grid capacity. The Calendar
+keeps the latest generation summary available in the same browser.
 
 ## API endpoints used
 
@@ -57,6 +73,8 @@ for backend setup and API details.
 npm run dev    # Start the development server
 npm run build  # Build the production application
 npm run start  # Serve the production build
+npm test       # Run the frontend test suite
+npm run lint   # Check frontend code with ESLint
 ```
 
 Run `npm run build` before `npm run start`.

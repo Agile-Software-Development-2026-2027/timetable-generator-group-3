@@ -44,6 +44,7 @@ function readableTextColor(hexColor) {
 export default function TimetablePage() {
   const [degrees, setDegrees] = useState([]);
   const [selectedDegreeId, setSelectedDegreeId] = useState("");
+  const [selectedSemesterId, setSelectedSemesterId] = useState("");
   const [calendarView, setCalendarView] = useState("timeGridWeek");
   const [courses, setCourses] = useState([]);
   const [rooms, setRooms] = useState([]);
@@ -259,7 +260,10 @@ export default function TimetablePage() {
     try {
       const result = await request("/timetable/generate", {
         method: "POST",
-        body: JSON.stringify({ degree_id: Number(degreeId) }),
+        body: JSON.stringify({
+        degree_id: Number(degreeId),
+        semester_id: selectedSemesterId ? Number(selectedSemesterId) : null,
+        }),
       });
       if (!["ok", "partial", "infeasible"].includes(result?.status)
         || !Number.isInteger(result.sessions_created)

@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.database import get_session
 from app.engine.engine import solve
 from app.engine.facts import build_problem
+from app.engine.reasons import unscheduled_course_reason
 from app.engine.validation import validate_solution
 from app.models import Degree, Room, ScheduleSession, Semester
 
@@ -55,7 +56,7 @@ def generate_timetable(payload: GenerateInput, session: Database):
         return GenerateResult(
             status="infeasible", sessions_created=0,
             unscheduled=[Unscheduled(course_id=c.id, name=c.name,
-                                     reason="No rooms or timetable slots available.")
+                                     reason=unscheduled_course_reason(problem, c, None))
                          for c in problem.courses],
         )
 
@@ -66,7 +67,7 @@ def generate_timetable(payload: GenerateInput, session: Database):
             return GenerateResult(
                 status="infeasible", sessions_created=0,
                 unscheduled=[Unscheduled(course_id=c.id, name=c.name,
-                         reason="No solution found (constraints may be infeasible or the solver time limit was reached).")
+                         reason=unscheduled_course_reason(problem, c, None))
                          for c in problem.courses],
             )
 
@@ -77,7 +78,7 @@ def generate_timetable(payload: GenerateInput, session: Database):
             return GenerateResult(
                 status="infeasible", sessions_created=0,
                 unscheduled=[Unscheduled(course_id=c.id, name=c.name,
-                                         reason="Could not allocate all required slots under hard constraints.")
+                                         reason=unscheduled_course_reason(problem, c, solution))
                              for c in missing],
             )
 
@@ -96,9 +97,7 @@ def generate_timetable(payload: GenerateInput, session: Database):
             sessions_created=len(solution.assignments),
             unscheduled=[Unscheduled(
                 course_id=c.id, name=c.name,
-                reason=("Solver time limit reached before every course could be scheduled."
-                        if solution.timed_out else
-                        "Insufficient free slots or eligible rooms under scheduling constraints.")
+                reason=unscheduled_course_reason(problem, c, solution),
             ) for c in missing],
         )
     except Exception:

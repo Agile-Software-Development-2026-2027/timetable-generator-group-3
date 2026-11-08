@@ -14,8 +14,15 @@ export default function TimetablePage() {
   const [courses, setCourses] = useState([]);
   const [rooms, setRooms] = useState([]);
   const [sessions, setSessions] = useState([]);
+  const [degrees, setDegrees] = useState([]);
+  const [selectedDegreeId, setSelectedDegreeId] = useState("");
   const [courseError, setCourseError] = useState("");
   const [scheduleError, setScheduleError] = useState("");
+  const [degreeError, setDegreeError] = useState("");
+  const [generationError, setGenerationError] = useState("");
+  const [generationMessage, setGenerationMessage] = useState("");
+  const [confirmationOpen, setConfirmationOpen] = useState(false);
+  const [generating, setGenerating] = useState(false);
 
   async function request(path, options) {
     const response = await fetch(`${API}${path}`, {
@@ -33,11 +40,20 @@ export default function TimetablePage() {
     return body;
   }
 
+  async function refreshSessions() {
+    try {
+      setSessions(await fetchAllSessions(request));
+      setScheduleError("");
+    } catch (error) {
+      setScheduleError(error.message);
+    }
+  }
+
   useEffect(() => {
     let active = true;
     async function loadData() {
-      const [courseResult, roomResult, sessionResult] = await Promise.allSettled([
-        request("/courses"), request("/rooms"), fetchAllSessions(request),
+      const [courseResult, roomResult, sessionResult, degreeResult] = await Promise.allSettled([
+        request("/courses"), request("/rooms"), fetchAllSessions(request), request("/degrees"),
       ]);
       if (!active) return;
       if (courseResult.status === "fulfilled") {
@@ -53,6 +69,13 @@ export default function TimetablePage() {
       } else {
         setScheduleError(sessionResult.reason.message);
       }
+      if (degreeResult.status === "fulfilled") {
+        setDegrees(degreeResult.value);
+        setDegreeError("");
+        setSelectedDegreeId((current) => current || String(degreeResult.value[0]?.id ?? ""));
+      } else {
+        setDegreeError(degreeResult.reason.message);
+      }
     }
     loadData();
     const timer = window.setInterval(loadData, 30000);
@@ -66,6 +89,40 @@ export default function TimetablePage() {
       document.removeEventListener("visibilitychange", refreshOnFocus);
     };
   }, []);
+
+  const selectedDegree = degrees.find((degree) => String(degree.id) === selectedDegreeId);
+  const degreeCourses = courses.filter((course) => String(course.degree_id) === selectedDegreeId);
+  const degreeSessions = sessions.filter((session) =>
+    degreeCourses.some((course) => course.id === session.course_id));
+
+  async function generateTimetable() {
+    if (!selectedDegreeId || generating) return;
+    setConfirmationOpen(false);
+    setGenerating(true);
+    setGenerationError("");
+    setGenerationMessage("");
+    try {
+      const result = await request("/timetable/generate", {
+        method: "POST", body: JSON.stringify({ degree_id: Number(selectedDegreeId) }),
+      });
+      if (!["ok", "partial", "infeasible"].includes(result?.status)) {
+        throw new Error("The server returned an unrecognized generation status.");
+      }
+      const placed = Number(result.sessions_created ?? 0);
+      if (result.status === "ok") {
+        setGenerationMessage(`Timetable generated: ${placed} sessions placed.`);
+      } else if (result.status === "partial") {
+        setGenerationMessage(`Partial timetable: ${placed} sessions placed. Some courses could not be scheduled.`);
+      } else {
+        setGenerationMessage("Timetable infeasible: required sessions could not be scheduled.");
+      }
+      await refreshSessions();
+    } catch (error) {
+      setGenerationError(error.message);
+    } finally {
+      setGenerating(false);
+    }
+  }
 
   const events = sessions.map((item) => {
     const course = courses.find((entry) => entry.id === item.course_id);
@@ -95,6 +152,41 @@ export default function TimetablePage() {
           <p className="text-secondary mb-0">Your weekly classes, all in one place.</p></div>
         <div className="schedule-count"><strong>{sessions.length}</strong><span>scheduled classes</span></div>
       </header>
+      <section className="card campus-card p-3 mb-3" aria-label="Timetable generation">
+        <div className="d-flex flex-wrap align-items-end gap-3">
+          <div className="flex-grow-1">
+            <label className="form-label" htmlFor="degree-programme">Degree programme</label>
+            <select id="degree-programme" className="form-select" value={selectedDegreeId}
+              onChange={(event) => setSelectedDegreeId(event.target.value)} disabled={generating}>
+              {!degrees.length && <option value="">No degree programmes available</option>}
+              {degrees.map((degree) => <option key={degree.id} value={degree.id}>{degree.name}</option>)}
+            </select>
+          </div>
+          <button type="button" className="btn btn-primary" disabled={!selectedDegreeId || generating}
+            onClick={() => { setGenerationError(""); setGenerationMessage(""); setConfirmationOpen(true); }}>
+            {generating ? "Generating…" : "Generate timetable"}
+          </button>
+        </div>
+      </section>
+      {degreeError && <div className="alert alert-warning" role="alert">Could not load degrees: {degreeError}</div>}
+      {generationError && <div className="alert alert-danger" role="alert">{generationError}</div>}
+      {generationMessage && <div className="alert alert-info" role="status">{generationMessage}</div>}
+      {generating && <div role="status" aria-live="polite">Generating timetable, please wait…</div>}
+      {confirmationOpen && <div role="dialog" aria-modal="true" aria-labelledby="generation-confirm-title"
+        className="card campus-card p-4 mb-3 border-warning">
+        <h2 id="generation-confirm-title" className="h5">Generate a new timetable?</h2>
+        <p>Generate a timetable for <strong>{selectedDegree?.name}</strong>?</p>
+        <p>This will replace existing sessions for this degree ({degreeSessions.length} scheduled classes).
+          The scheduler checks room, teacher, and student-group constraints.</p>
+        <div className="d-flex gap-2">
+          <button type="button" className="btn btn-secondary" onClick={() => setConfirmationOpen(false)}>
+            Keep current timetable
+          </button>
+          <button type="button" className="btn btn-primary" onClick={generateTimetable}>
+            Confirm generation
+          </button>
+        </div>
+      </div>}
       {courseError && <div className="alert alert-warning timetable-alert" role="status">Could not load courses: {courseError}</div>}
       {scheduleError && <div className="alert alert-warning timetable-alert" role="status">
         Could not load timetable data: {scheduleError}

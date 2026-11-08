@@ -1,7 +1,26 @@
 import { describe, it, expect, vi } from "vitest";
-import { SESSION_PAGE_SIZE, fetchAllSessions } from "../sessions.mjs";
+import { getCalendarTimeRange, SESSION_PAGE_SIZE, fetchAllSessions } from "../sessions.mjs";
 
 const sessions = (count, start = 1) => Array.from({ length: count }, (_, index) => ({ id: start + index }));
+
+describe("getCalendarTimeRange", () => {
+  it("uses a default week view range when there are no sessions", () => {
+    expect(getCalendarTimeRange([])).toEqual({ min: "07:00:00", max: "22:00:00" });
+  });
+
+  it("fits the visible week hours around the earliest and latest sessions", () => {
+    expect(getCalendarTimeRange([
+      { start_time: "09:15:00", end_time: "10:00:00" },
+      { start_time: "14:00:00", end_time: "16:30:00" },
+    ])).toEqual({ min: "08:00:00", max: "18:00:00" });
+  });
+
+  it("keeps the visible range within the start and end of the day", () => {
+    expect(getCalendarTimeRange([
+      { start_time: "00:00:00", end_time: "23:59:00" },
+    ])).toEqual({ min: "00:00:00", max: "24:00:00" });
+  });
+});
 
 describe("fetchAllSessions", () => {
   it("asks for the largest page the API allows", async () => {

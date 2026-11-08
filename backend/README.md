@@ -116,6 +116,16 @@ store weekday (Monday=0), start/end times, course, and optional room. Apply the
 `schedule_session` table definition from `schema.sql` to Supabase before using
 the calendar there. SQLite creates missing tables on startup.
 
+`POST /timetable/generate` accepts a `degree_id` and optional `semester_id`.
+Its response reports `ok`, `partial`, or `infeasible`, the number of sessions
+created, and an `unscheduled` list. Each unscheduled course includes a readable
+reason categorized by the blocking constraint, with database-derived details
+such as the largest available lab and its capacity, teacher names and available
+slots, or the semester's required hours compared with grid capacity. Generated
+sessions are checked against hard constraints before they are saved. Reasons
+begin with labels such as `Lab capacity`, `Teacher availability`, or `Grid
+capacity`.
+
 `GET /timetable/sessions` accepts optional filters, combined with AND:
 `?degree_id=`, `?year_id=`, `?semester_id=`, `?teacher_id=`, `?room_id=`, and
 `?weekday=` (0–6). Without filters it returns every session. Results are sorted

@@ -49,7 +49,7 @@ def _room_constraint_reason(course: Course, rooms: list[Room]) -> str:
                 f"No projector-equipped room fits: {_room_list(capacity_rooms)}.",
             )
 
-    return _reason("Room suitability", "No room meets the course requirements.")
+    return _reason("Room suitability", "No suitable room available.")
 
 
 def _solution_assignments(solution: Solution | None):
@@ -74,6 +74,8 @@ def unscheduled_course_reason(
         and (not course.requires_projector or room.has_projector)
     ]
     if not eligible_rooms:
+        # Give the most specific sub-reason we can; fall back to the ticket
+        # wording ("No suitable room available") when no clearer diagnosis fits.
         return _room_constraint_reason(course, problem.rooms)
 
     slots = set(problem.slots)

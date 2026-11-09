@@ -30,8 +30,10 @@ class Solution:
 
 def _run_model(problem: Problem, mode: str, remaining: float) -> Solution | None:
     clingo = import_module("clingo")
-    model_limit = "1" if mode == "strict" else "0"
-    ctl = clingo.Control([f"--models={model_limit}", "--warn=none"])
+    # Use --models=0 for both modes so Clingo searches for the optimal solution
+    # (i.e. the room-preference minimisation in model.lp is actually honoured).
+    # The on_model callback keeps the last (best) model seen within the time budget.
+    ctl = clingo.Control(["--models=0", "--warn=none"])
     ctl.add("base", [], problem.facts + f"\nmode({mode}).\n" + MODEL_PATH.read_text(encoding="utf-8"))
     ctl.ground([("base", [])])
 

@@ -1,8 +1,9 @@
-% KAN-15 — ASP timetable: dynamic facts are supplied by facts.py.
+% KAN-15/KAN-16 — ASP timetable: dynamic facts are supplied by facts.py.
 % strict schedules all courses; partial schedules complete courses only.
 scheduled(C) :- course(C,_), mode(strict).
 { scheduled(C) } :- course(C,_), mode(partial).
 
+% Room eligibility: hard constraints on capacity, lab and projector requirements.
 invalid_room(C,R) :- students(C,N), room(R,Capacity), N > Capacity.
 invalid_room(C,R) :- requires_lab(C), room(R,_), not is_lab(R).
 invalid_room(C,R) :- requires_projector(C), room(R,_), not has_projector(R).
@@ -27,7 +28,15 @@ H { assign(C,R,D,S) : eligible(C,R), slot(D,S) } H :-
 :- assign(C,_,D,S), teaches(T,C), busy_teacher(T,D,S).
 :- assign(C,_,D,S), group(C,G), busy_group(G,D,S).
 
+% KAN-16 soft preference: prefer the smallest eligible room that still fits the group.
+% For each assignment, penalise by the room's capacity minus the number of enrolled
+% students.  Priority @1 is lower than the scheduling maximisation (@2), so the solver
+% always prefers to schedule more courses before trying to tighten room fit.
+wasted_seats(C,R,W) :- assign(C,R,_,_), students(C,N), room(R,Cap), W = Cap - N.
+#minimize { W@1,C,R : wasted_seats(C,R,W) }.
+
 % Maximize fully scheduled hours when the strict model is infeasible.
-#maximize { H@1,C : scheduled(C), course(C,H), mode(partial) }.
+% Priority @2 ensures scheduling completeness dominates room preference.
+#maximize { H@2,C : scheduled(C), course(C,H), mode(partial) }.
 #show assign/4.
 #show scheduled/1.

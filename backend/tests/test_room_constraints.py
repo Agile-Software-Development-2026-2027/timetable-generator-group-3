@@ -5,8 +5,6 @@ from __future__ import annotations
 from datetime import time
 from types import SimpleNamespace
 
-import pytest
-
 from app.engine.facts import Problem
 from app.engine.reasons import unscheduled_course_reason
 from app.models import Course, Degree, Room, Semester, Year

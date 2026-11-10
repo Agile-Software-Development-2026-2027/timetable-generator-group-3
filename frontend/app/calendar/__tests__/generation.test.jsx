@@ -28,9 +28,9 @@ describe("Timetable generation", () => {
     mockApi({ status: "ok", sessions_created: 2 });
     render(<TimetablePage />);
 
-    const select = await screen.findByRole("combobox", { name: "Degree programme" });
-    await screen.findByRole("option", { name: "Computer Science" });
-    fireEvent.change(select, { target: { value: "7" } });
+    //const select = await screen.findByRole("combobox", { name: "Degree programme" });
+   // await screen.findByRole("option", { name: "Computer Science" });
+    //fireEvent.change(select, { target: { value: "7" } });
 
     const generateButton = screen.getByRole("button", { name: "Generate timetable" });
     await waitFor(() => expect(generateButton).toBeEnabled());
@@ -39,6 +39,11 @@ describe("Timetable generation", () => {
 
     fireEvent.click(generateButton);
     const dialog = await screen.findByRole("dialog", { name: "Generate a new timetable?" });
+    const select = within(dialog).getByRole("combobox", {
+  name: "Degree programme *",
+});
+await screen.findByRole("option", { name: "Computer Science" });
+fireEvent.change(select, { target: { value: "7" } });
     expect(dialog).toHaveTextContent("Computer Science");
 
     fireEvent.click(within(dialog).getByRole("button", { name: "Keep current timetable" }));

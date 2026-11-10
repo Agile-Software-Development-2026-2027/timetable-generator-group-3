@@ -65,7 +65,10 @@ describe("Timetable generation", () => {
 
     await waitFor(() => {
       const call = global.fetch.mock.calls.find(([, options]) => options?.method === "POST");
-      expect(JSON.parse(call[1].body)).toEqual({ degree_id: 7 });
+      expect(JSON.parse(call[1].body)).toEqual({
+  degree_id: 7,
+  semester_id: null,
+});
     });
   });
 });

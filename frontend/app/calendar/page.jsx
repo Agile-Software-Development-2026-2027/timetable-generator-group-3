@@ -500,7 +500,7 @@ export default function TimetablePage() {
           eventWillUnmount={unmountCalendarEvent}
           datesSet={(info) => setCalendarView(info.view.type)} />
       </section>
-      {generationResult && ( && <div className="generation-result-backdrop" role="presentation"
+      {generationResult && ( <div className="generation-result-backdrop" role="presentation"
         onMouseDown={(event) => {
           if (event.target === event.currentTarget) setGenerationResult(null);
         }}>

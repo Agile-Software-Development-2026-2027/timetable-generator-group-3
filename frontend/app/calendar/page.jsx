@@ -573,7 +573,7 @@ export default function TimetablePage() {
               onClick={() => setGenerationResult(null)}>View timetable</button>
           </div>
         </section>
-      </div>}
+      </div>
       {selectedSession && <div className="session-details-backdrop" role="presentation"
         onMouseDown={(event) => {
           if (event.target === event.currentTarget) setSelectedSession(null);

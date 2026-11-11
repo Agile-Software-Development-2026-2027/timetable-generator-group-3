@@ -42,8 +42,8 @@ describe("Timetable generation", () => {
     const select = within(dialog).getByRole("combobox", {
   name: "Degree programme *",
 });
-await screen.findByRole("option", { name: "Computer Science" });
-fireEvent.change(select, { target: { value: "7" } });
+    await within(dialog).findByRole("option", { name: "Computer Science" });
+    fireEvent.change(select, { target: { value: "7" } });
     expect(dialog).toHaveTextContent("Computer Science");
 
     fireEvent.click(within(dialog).getByRole("button", { name: "Keep current timetable" }));

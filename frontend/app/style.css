@@ -539,3 +539,6 @@ body { background: linear-gradient(180deg, #f4f7f8 0%, #eef4f5 100%); color: #17
   .degrees-main:has(.degree-table) .degree-year-inline { padding: .65rem; }
   .degrees-main:has(.degree-table) .degree-details-inline { padding-right: .65rem; padding-left: .65rem; }
 }
+.settings-panel { padding: 1.4rem 1.3rem; }
+.settings-days { display: flex; flex-wrap: wrap; gap: .25rem .5rem; }
+.settings-preview { margin: 0; padding: .8rem 1rem; border: 1px solid #dce8e6; border-radius: 10px; background: #f6faf9; color: #245c58; font-weight: 600; font-variant-numeric: tabular-nums; }

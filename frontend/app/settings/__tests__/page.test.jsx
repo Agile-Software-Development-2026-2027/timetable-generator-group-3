@@ -70,6 +70,18 @@ describe("SettingsPage", () => {
     expect(screen.getByText("The time range is shorter than one block.")).toBeInTheDocument();
   });
 
+  it("checks the range against a block length typed by the user", async () => {
+    mockApi();
+    render(<SettingsPage />);
+    fireEvent.change(await screen.findByLabelText("Block length (minutes)"), { target: { value: "120" } });
+    fireEvent.change(screen.getByLabelText("End time"), { target: { value: "10:00" } });
+
+    expect(screen.getByText("The time range is shorter than one block.")).toBeInTheDocument();
+    expect(screen.getByLabelText("Block length (minutes)")).toHaveAttribute("aria-describedby", "block_minutes-error");
+    expect(screen.getByLabelText("Start time")).not.toHaveAttribute("aria-describedby");
+    expect(screen.getByRole("button", { name: "Save configuration" })).toBeDisabled();
+  });
+
   it("saves with PUT /slot-config and shows a success notification", async () => {
     mockApi({ put: (body) => jsonResponse({ ...config, ...body, start_time: "08:00", end_time: "18:00", block_minutes: 120 }) });
     render(<SettingsPage />);

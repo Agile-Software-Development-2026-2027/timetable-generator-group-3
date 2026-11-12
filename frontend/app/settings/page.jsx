@@ -45,6 +45,8 @@ export default function SettingsPage() {
   }
 
   const fieldClass = (field) => `form-control ${errors[field] ? "is-invalid" : ""}`;
+  // Point to the error message only while it is shown, so screen readers never reference a missing element.
+  const describedBy = (field) => (errors[field] ? { "aria-describedby": `${field}-error` } : {});
   const feedback = (field) => errors[field] && <div id={`${field}-error`} className="invalid-feedback d-block">{errors[field]}</div>;
 
   return <div className="campus-app">
@@ -63,7 +65,7 @@ export default function SettingsPage() {
       {loadState === "error" && <p className="fw-semibold">The configuration could not be loaded. Check that the API is running, then refresh the page.</p>}
       {loadState === "ready" && <section className="room-table-panel settings-panel">
         <form onSubmit={submit} className="d-grid gap-3" noValidate>
-          <fieldset aria-describedby="working_days-error">
+          <fieldset {...describedBy("working_days")}>
             <legend className="form-label">Working days</legend>
             <div className="settings-days">
               {weekdays.map(({ value, short }) => <div className="form-check form-check-inline" key={value}>
@@ -78,13 +80,13 @@ export default function SettingsPage() {
             {[["start_time", "Start time"], ["end_time", "End time"]].map(([field, label]) => <div className="col-sm-4" key={field}>
               <label className="form-label" htmlFor={field}>{label}</label>
               <input id={field} type="time" className={fieldClass(field)} value={form[field]} aria-invalid={Boolean(errors[field])}
-                aria-describedby={`${field}-error`} onChange={(e) => updateField(field, e.target.value)} />
+                {...describedBy(field)} onChange={(e) => updateField(field, e.target.value)} />
               {feedback(field)}
             </div>)}
             <div className="col-sm-4">
               <label className="form-label" htmlFor="block_minutes">Block length (minutes)</label>
               <input id="block_minutes" type="number" min="1" step="1" className={fieldClass("block_minutes")} value={form.block_minutes}
-                aria-invalid={Boolean(errors.block_minutes)} aria-describedby="block_minutes-error" onChange={(e) => updateField("block_minutes", e.target.value)} />
+                aria-invalid={Boolean(errors.block_minutes)} {...describedBy("block_minutes")} onChange={(e) => updateField("block_minutes", e.target.value)} />
               {feedback("block_minutes")}
             </div>
           </div>

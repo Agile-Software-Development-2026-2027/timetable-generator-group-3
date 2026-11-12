@@ -12,6 +12,8 @@ describe("slot configuration helpers", () => {
   it("converts HH:MM to minutes", () => {
     expect(toMinutes("09:30")).toBe(570);
     expect(toMinutes("25:00")).toBeNull();
+    expect(toMinutes("09:30:00")).toBeNull();
+    expect(toMinutes("09:30abc")).toBeNull();
     expect(toMinutes("")).toBeNull();
   });
 
@@ -28,6 +30,7 @@ describe("slot configuration helpers", () => {
     [{ block_minutes: "1.5" }, "block_minutes", "Block length must be a whole number greater than 0."],
     [{ end_time: "09:45" }, "block_minutes", "The time range is shorter than one block."],
     [{ start_time: "" }, "start_time", "Enter a start time."],
+    [{ end_time: "" }, "end_time", "Enter an end time."],
   ])("rejects %o", (change, field, message) => {
     expect(slotFormErrors({ ...valid, ...change })[field]).toBe(message);
   });
@@ -36,6 +39,7 @@ describe("slot configuration helpers", () => {
     expect(formatDays([0, 1, 2, 3, 4])).toBe("Mon–Fri");
     expect(formatDays([4, 2, 0])).toBe("Mon, Wed, Fri");
     expect(formatDays([0, 1])).toBe("Mon, Tue");
+    expect(formatDays([5, 6])).toBe("Sat, Sun");
     expect(formatDays([6])).toBe("Sun");
   });
 

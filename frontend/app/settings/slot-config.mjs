@@ -11,9 +11,9 @@ export function slotFormFromConfig(config) {
   };
 }
 
-// "09:30" -> 570; null when the text is not a valid HH:MM time.
+// "09:30" -> 570; null unless the whole text is a valid HH:MM time.
 export function toMinutes(text) {
-  const match = /^(\d{2}):(\d{2})/.exec(text ?? "");
+  const match = /^(\d{2}):(\d{2})$/.exec(text ?? "");
   if (!match || Number(match[1]) > 23 || Number(match[2]) > 59) return null;
   return Number(match[1]) * 60 + Number(match[2]);
 }
@@ -40,6 +40,7 @@ export function slotFormErrors(form) {
 }
 
 // [0,1,2,3,4] -> "Mon–Fri"; [0,2,4] -> "Mon, Wed, Fri".
+// Only runs of three or more days use a dash: two days read better as a list ("Sat, Sun").
 export function formatDays(days) {
   const sorted = [...days].sort((a, b) => a - b);
   const contiguous = sorted.every((day, index) => index === 0 || day === sorted[index - 1] + 1);

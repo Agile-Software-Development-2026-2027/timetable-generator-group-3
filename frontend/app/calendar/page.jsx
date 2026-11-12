@@ -132,9 +132,11 @@ export default function TimetablePage() {
       if (!active) return;
       if (degreeResult.status === "fulfilled") {
         setDegrees(degreeResult.value);
-        setSelectedDegreeId((current) => degreeResult.value.some((degree) => String(degree.id) === current)
-          ? current
-          : degreeResult.value[0] ? String(degreeResult.value[0].id) : "");
+        setSelectedDegreeId((current) =>
+  degreeResult.value.some((degree) => String(degree.id) === String(current))
+    ? current
+    : ""
+);
         setDegreeError("");
       } else {
         setDegreeError(degreeResult.reason.message);

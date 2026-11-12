@@ -356,14 +356,6 @@ export default function TimetablePage() {
       return;
     }
 
-    const degreeName = degrees.find(
-      (item) => String(item.id) === String(selectedDegreeId)
-    )?.name || "the selected degree programme";
-
-    if (!window.confirm(`Are you sure you want to clear the timetable for ${degreeName}?`)) {
-      return;
-    }
-
     setScheduleError("");
 
     try {

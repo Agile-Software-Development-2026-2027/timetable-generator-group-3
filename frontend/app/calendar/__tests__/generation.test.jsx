@@ -28,10 +28,6 @@ describe("Timetable generation", () => {
     mockApi({ status: "ok", sessions_created: 2 });
     render(<TimetablePage />);
 
-    //const select = await screen.findByRole("combobox", { name: "Degree programme" });
-   // await screen.findByRole("option", { name: "Computer Science" });
-    //fireEvent.change(select, { target: { value: "7" } });
-
     const generateButton = screen.getByRole("button", { name: "Generate timetable" });
     await waitFor(() => expect(generateButton).toBeEnabled());
 

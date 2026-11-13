@@ -449,7 +449,7 @@ export default function TimetablePage() {
           <div className="timetable-controls-footer">
             <div className="timetable-actions">
               <button ref={generateButtonRef} type="submit" className="btn btn-campus"
-                disabled={!selectedDegreeId || generating}>
+                disabled={generating}>
                 {generating ? "Generating…" : "Generate timetable"}
               </button>
               <button

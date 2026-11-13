@@ -74,7 +74,8 @@ export default function TimetablePage() {
         return;
       }
       setLastGenerationResult(result);
-    } catch {
+      setGenerationResult(result);
+  } catch {
       setGenerationError("The saved generation summary could not be read from this browser.");
     }
   }, []);
@@ -323,9 +324,8 @@ export default function TimetablePage() {
           .reduce((total, course) => total + course.weekly_hours, 0),
         generated_at: new Date().toISOString(),
       };
-      setGenerationResult(completedResult);
-      if (result.status === "ok") {
-  setGenerationConfirmationOpen(false);
+     setGenerationResult(completedResult);
+setGenerationConfirmationOpen(false);
 }
       setLastGenerationResult(completedResult);
       try {

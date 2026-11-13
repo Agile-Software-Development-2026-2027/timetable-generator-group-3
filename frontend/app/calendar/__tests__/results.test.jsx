@@ -15,6 +15,7 @@ vi.mock("@fullcalendar/react", () => ({
 }));
 vi.mock("@fullcalendar/react/daygrid", () => ({ default: {} }));
 vi.mock("@fullcalendar/react/timegrid", () => ({ default: {} }));
+vi.mock("@fullcalendar/react/list", () => ({ default: {} }));
 vi.mock("@fullcalendar/react/themes/breezy", () => ({ default: {} }));
 
 const reply = (data) =>
@@ -26,6 +27,10 @@ const reply = (data) =>
 
 function mockApi(result) {
   global.fetch = vi.fn((url, options) => {
+    if (url.endsWith("/degrees/7")) {
+      return reply({ id: 7, name: "Computer Science", years: [] });
+    }
+
     if (url.endsWith("/degrees")) {
       return reply([{ id: 7, name: "Computer Science" }]);
     }

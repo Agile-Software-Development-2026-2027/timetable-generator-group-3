@@ -74,7 +74,6 @@ export default function TimetablePage() {
         return;
       }
       setLastGenerationResult(result);
-      setGenerationResult(result);
   } catch {
       setGenerationError("The saved generation summary could not be read from this browser.");
     }

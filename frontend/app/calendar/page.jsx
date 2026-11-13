@@ -325,8 +325,7 @@ export default function TimetablePage() {
         generated_at: new Date().toISOString(),
       };
      setGenerationResult(completedResult);
-setGenerationConfirmationOpen(false);
-}
+    setGenerationConfirmationOpen(false);
       setLastGenerationResult(completedResult);
       try {
         window.localStorage.setItem(

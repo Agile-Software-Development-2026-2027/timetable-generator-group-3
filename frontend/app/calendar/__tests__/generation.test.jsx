@@ -136,6 +136,16 @@ describe("Timetable generation", () => {
       name: "Generate a new timetable?",
     });
 
+    const select = within(confirmation).getByRole("combobox", {
+  name: "Degree programme *",
+});
+
+await within(confirmation).findByRole("option", {
+  name: "Computer Science",
+});
+
+fireEvent.change(select, { target: { value: "7" } });
+
     fireEvent.click(
       within(confirmation).getByRole("button", {
         name: "Generate timetable",

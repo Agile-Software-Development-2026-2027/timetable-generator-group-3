@@ -52,6 +52,8 @@ function readableTextColor(hexColor) {
 export default function TimetablePage() {
   const [degrees, setDegrees] = useState([]);
   const [selectedDegreeId, setSelectedDegreeId] = useState("");
+  const [semesters, setSemesters] = useState([]);
+  const [selectedSemesterId, setSelectedSemesterId] = useState("");
   const [calendarDegreeId, setCalendarDegreeId] = useState("");
   const [calendarYearId, setCalendarYearId] = useState("");
   const [calendarSemesterId, setCalendarSemesterId] = useState("");
@@ -282,7 +284,7 @@ export default function TimetablePage() {
     return () => {
       active = false;
     };
-  }, [selectedDegreeId]);
+  }, [selectedDegreeId, request]);
 
   function requestGeneration(event) {
     event.preventDefault();

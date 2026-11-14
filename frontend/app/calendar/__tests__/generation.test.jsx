@@ -26,17 +26,26 @@ const response = (data, ok = true, status = 200) =>
     text: () => Promise.resolve(JSON.stringify(data)),
   });
 
-function mockApi(result, sessionAfterGeneration = null) {
+function mockApi(result, {
+  sessionAfterGeneration = null,
+  failClear = false,
+  degrees = [{ id: 7, name: "Computer Science" }],
+} = {}) {
   let generationComplete = false;
   global.fetch = vi.fn((url, options) => {
     if (url.endsWith("/degrees/7")) return response({
       id: 7, name: "Computer Science", years: [],
     });
-    if (url.endsWith("/degrees")) return response([{ id: 7, name: "Computer Science" }]);
+    if (url.endsWith("/degrees")) return response(degrees);
     if (url.endsWith("/courses")) return response([
       { id: 1, degree_id: 7, name: "Algorithms", weekly_hours: 2 },
     ]);
     if (url.endsWith("/rooms")) return response([]);
+    if (url.includes("/timetable/sessions") && options?.method === "DELETE") {
+      return failClear
+        ? response({ detail: "Clear failed" }, false, 500)
+        : response({});
+    }
     if (url.includes("/timetable/sessions")) {
       return response(generationComplete && sessionAfterGeneration ? [sessionAfterGeneration] : []);
     }
@@ -59,16 +68,18 @@ describe("Timetable generation", () => {
     mockApi(
       { status: "ok", sessions_created: 1, unscheduled: [] },
       {
-        id: 41,
-        course_id: 1,
-        room_id: null,
-        weekday: 0,
-        start_time: "09:00:00",
-        end_time: "10:00:00",
-        course_name: "Algorithms",
-        degree_name: "Computer Science",
-        room_code: null,
-        teacher_names: [],
+        sessionAfterGeneration: {
+          id: 41,
+          course_id: 1,
+          room_id: null,
+          weekday: 0,
+          start_time: "09:00:00",
+          end_time: "10:00:00",
+          course_name: "Algorithms",
+          degree_name: "Computer Science",
+          room_code: null,
+          teacher_names: [],
+        },
       }
     );
     render(<TimetablePage />);
@@ -90,6 +101,7 @@ describe("Timetable generation", () => {
     render(<TimetablePage />);
 
     const select = await screen.findByRole("combobox", { name: "Degree programme" });
+    const generateButton = await screen.findByRole("button", { name: "Generate timetable" });
     expect(within(select).getByRole("option", { name: "Computer Science" })).toBeInTheDocument();
     fireEvent.change(select, { target: { value: "7" } });
 
@@ -105,7 +117,7 @@ describe("Timetable generation", () => {
       name: "Generate a new timetable?",
     });
 
-    const select = within(dialog).getByRole("combobox", {
+    const dialogDegreeSelect = within(dialog).getByRole("combobox", {
       name: "Degree programme *",
     });
 
@@ -113,7 +125,7 @@ describe("Timetable generation", () => {
       name: "Computer Science",
     });
 
-    fireEvent.change(select, { target: { value: "7" } });
+    fireEvent.change(dialogDegreeSelect, { target: { value: "7" } });
 
     expect(dialog).toHaveTextContent("Computer Science");
 
@@ -190,7 +202,7 @@ fireEvent.change(select, { target: { value: "7" } });
 
 describe("Clear timetable", () => {
   it("does not allow clearing when no degree is selected", async () => {
-    mockApi({});
+    mockApi({}, { degrees: [] });
     render(<TimetablePage />);
 
     const clearButton = await screen.findByRole("button", {
@@ -252,7 +264,7 @@ describe("Clear timetable", () => {
   });
 
   it("shows an error when clearing fails", async () => {
-    mockApi({}, true);
+    mockApi({}, { failClear: true });
     render(<TimetablePage />);
 
     fireEvent.click(

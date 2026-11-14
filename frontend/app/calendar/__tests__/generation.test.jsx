@@ -10,10 +10,13 @@ import {
 import TimetablePage from "../page.jsx";
 
 vi.mock("@fullcalendar/react", () => ({
-  default: () => <div data-testid="calendar" />,
+  default: ({ events }) => <div data-testid="calendar">
+    {events.map((event) => <span key={event.id}>{event.title}</span>)}
+  </div>,
 }));
 vi.mock("@fullcalendar/react/daygrid", () => ({ default: {} }));
 vi.mock("@fullcalendar/react/timegrid", () => ({ default: {} }));
+vi.mock("@fullcalendar/react/list", () => ({ default: {} }));
 vi.mock("@fullcalendar/react/themes/breezy", () => ({ default: {} }));
 
 const response = (data, ok = true, status = 200) =>
@@ -23,39 +26,34 @@ const response = (data, ok = true, status = 200) =>
     text: () => Promise.resolve(JSON.stringify(data)),
   });
 
-function mockApi(result, deleteFails = false) {
+function mockApi(result, {
+  sessionAfterGeneration = null,
+  failClear = false,
+  degrees = [{ id: 7, name: "Computer Science" }],
+} = {}) {
+  let generationComplete = false;
   global.fetch = vi.fn((url, options) => {
-    if (url.endsWith("/degrees")) {
-      return response([{ id: 7, name: "Computer Science" }]);
+    if (url.endsWith("/degrees/7")) return response({
+      id: 7, name: "Computer Science", years: [],
+    });
+    if (url.endsWith("/degrees")) return response(degrees);
+    if (url.endsWith("/courses")) return response([
+      { id: 1, degree_id: 7, name: "Algorithms", weekly_hours: 2 },
+    ]);
+    if (url.endsWith("/rooms")) return response([]);
+    if (url.includes("/timetable/sessions") && options?.method === "DELETE") {
+      return failClear
+        ? response({ detail: "Clear failed" }, false, 500)
+        : response({});
     }
-
-    if (url.endsWith("/courses")) {
-      return response([{ id: 1, degree_id: 7, name: "Algorithms" }]);
+    if (url.includes("/timetable/sessions")) {
+      return response(generationComplete && sessionAfterGeneration ? [sessionAfterGeneration] : []);
     }
-
-    if (
-      url.includes("/timetable/sessions") &&
-      options?.method === "DELETE"
-    ) {
-      return deleteFails
-        ? response({ detail: "Server error" }, false, 500)
-        : response([]);
-    }
-
-    if (
-      url.endsWith("/rooms") ||
-      url.includes("/timetable/sessions")
-    ) {
-      return response([]);
-    }
-
-    if (
-      url.endsWith("/timetable/generate") &&
-      options?.method === "POST"
-    ) {
+    if (url.endsWith("/slot-config")) return response({ working_days: [0, 1, 2, 3, 4], start_time: "09:00:00", end_time: "18:00:00", block_minutes: 60 });
+    if (url.endsWith("/timetable/generate") && options?.method === "POST") {
+      generationComplete = true;
       return response(result);
     }
-
     return response([]);
   });
 }
@@ -66,13 +64,46 @@ afterEach(() => {
 });
 
 describe("Timetable generation", () => {
-  it("does not generate when confirmation is cancelled", async () => {
+  it("refreshes the calendar sessions after generation without reloading the page", async () => {
+    mockApi(
+      { status: "ok", sessions_created: 1, unscheduled: [] },
+      {
+        sessionAfterGeneration: {
+          id: 41,
+          course_id: 1,
+          room_id: null,
+          weekday: 0,
+          start_time: "09:00:00",
+          end_time: "10:00:00",
+          course_name: "Algorithms",
+          degree_name: "Computer Science",
+          room_code: null,
+          teacher_names: [],
+        },
+      }
+    );
+    render(<TimetablePage />);
+
+    const generateButton = await screen.findByRole("button", { name: "Generate timetable" });
+    await waitFor(() => expect(generateButton).toBeEnabled());
+    expect(screen.getByTestId("calendar")).not.toHaveTextContent("Algorithms");
+    fireEvent.click(generateButton);
+
+    const confirmation = await screen.findByRole("dialog", { name: "Generate a new timetable?" });
+    fireEvent.click(within(confirmation).getByRole("button", { name: "Generate timetable" }));
+
+    await waitFor(() => expect(screen.getByTestId("calendar")).toHaveTextContent("Algorithms"));
+    expect(global.fetch.mock.calls.filter(([url]) => url.includes("/timetable/sessions"))).toHaveLength(2);
+  });
+
+  it("does not generate when a degree is selected or confirmation is cancelled", async () => {
     mockApi({ status: "ok", sessions_created: 2 });
     render(<TimetablePage />);
 
-    const generateButton = await screen.findByRole("button", {
-      name: "Generate timetable",
-    });
+    const select = await screen.findByRole("combobox", { name: "Degree programme" });
+    const generateButton = await screen.findByRole("button", { name: "Generate timetable" });
+    expect(within(select).getByRole("option", { name: "Computer Science" })).toBeInTheDocument();
+    fireEvent.change(select, { target: { value: "7" } });
 
     await waitFor(() => expect(generateButton).toBeEnabled());
 
@@ -86,7 +117,7 @@ describe("Timetable generation", () => {
       name: "Generate a new timetable?",
     });
 
-    const select = within(dialog).getByRole("combobox", {
+    const dialogDegreeSelect = within(dialog).getByRole("combobox", {
       name: "Degree programme *",
     });
 
@@ -94,7 +125,7 @@ describe("Timetable generation", () => {
       name: "Computer Science",
     });
 
-    fireEvent.change(select, { target: { value: "7" } });
+    fireEvent.change(dialogDegreeSelect, { target: { value: "7" } });
 
     expect(dialog).toHaveTextContent("Computer Science");
 
@@ -171,7 +202,7 @@ fireEvent.change(select, { target: { value: "7" } });
 
 describe("Clear timetable", () => {
   it("does not allow clearing when no degree is selected", async () => {
-    mockApi({});
+    mockApi({}, { degrees: [] });
     render(<TimetablePage />);
 
     const clearButton = await screen.findByRole("button", {
@@ -233,7 +264,7 @@ describe("Clear timetable", () => {
   });
 
   it("shows an error when clearing fails", async () => {
-    mockApi({}, true);
+    mockApi({}, { failClear: true });
     render(<TimetablePage />);
 
     fireEvent.click(

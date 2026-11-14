@@ -1,24 +1,51 @@
 import { describe, it, expect, vi } from "vitest";
-import { getCalendarTimeRange, SESSION_PAGE_SIZE, fetchAllSessions } from "../sessions.mjs";
+import {
+  getCalendarTimeRange,
+  getCalendarWeekSettings,
+  getResponsiveCalendarView,
+  SESSION_PAGE_SIZE,
+  fetchAllSessions,
+} from "../sessions.mjs";
 
 const sessions = (count, start = 1) => Array.from({ length: count }, (_, index) => ({ id: start + index }));
 
 describe("getCalendarTimeRange", () => {
-  it("uses a default week view range when there are no sessions", () => {
-    expect(getCalendarTimeRange([])).toEqual({ min: "07:00:00", max: "22:00:00" });
+  it("uses the default UniCal slot range when there are no sessions", () => {
+    expect(getCalendarTimeRange([])).toEqual({ min: "09:00:00", max: "18:00:00" });
   });
 
-  it("fits the visible week hours around the earliest and latest sessions", () => {
+  it("keeps the visible range aligned with the configured slot range", () => {
     expect(getCalendarTimeRange([
       { start_time: "09:15:00", end_time: "10:00:00" },
       { start_time: "14:00:00", end_time: "16:30:00" },
-    ])).toEqual({ min: "08:00:00", max: "18:00:00" });
+    ], { working_days: [0, 1, 2, 3, 4], start_time: "09:00:00", end_time: "18:00:00", block_minutes: 60 })).toEqual({ min: "08:00:00", max: "19:00:00" });
   });
 
-  it("keeps the visible range within the start and end of the day", () => {
+  it("keeps the visible range within the configured day window", () => {
     expect(getCalendarTimeRange([
       { start_time: "00:00:00", end_time: "23:59:00" },
-    ])).toEqual({ min: "00:00:00", max: "24:00:00" });
+    ], { working_days: [0], start_time: "09:00:00", end_time: "18:00:00", block_minutes: 60 })).toEqual({ min: "00:00:00", max: "24:00:00" });
+  });
+});
+
+describe("getCalendarWeekSettings", () => {
+  it("maps UniCal Monday-first weekdays to FullCalendar and hides the weekend", () => {
+    expect(getCalendarWeekSettings([0, 1, 2, 3, 4])).toEqual({
+      firstDay: 1,
+      hiddenDays: [0, 6],
+    });
+  });
+});
+
+describe("getResponsiveCalendarView", () => {
+  it("uses an agenda for the weekly view on narrow screens and restores the grid on wide screens", () => {
+    expect(getResponsiveCalendarView("timeGridWeek", true)).toBe("listWeek");
+    expect(getResponsiveCalendarView("listWeek", false)).toBe("timeGridWeek");
+  });
+
+  it("leaves explicitly selected day and month views unchanged", () => {
+    expect(getResponsiveCalendarView("timeGridDay", true)).toBeNull();
+    expect(getResponsiveCalendarView("dayGridMonth", false)).toBeNull();
   });
 });
 

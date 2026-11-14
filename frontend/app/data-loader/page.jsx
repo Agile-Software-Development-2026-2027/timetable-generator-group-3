@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import SeedImporter from "./components/SeedImporter";
 import "./data-loader.css";
@@ -74,7 +75,7 @@ export default function DataLoaderPage() {
 
   return <div className="campus-app">
     <nav className="navbar campus-nav"><div className="container d-flex justify-content-between align-items-center flex-wrap gap-2">
-      <Link className="navbar-brand" href="/">UNICAL <span>UNIVERSITY OF CALABRIA</span></Link>
+      <Link className="navbar-brand" href="/"><Image src="/unical-logo-white.svg" alt="University of Calabria" width={294} height={24} className="navbar-logo" /></Link>
       <div className="nav-actions">
         <Link className="btn btn-outline-light btn-sm" href="/">Degree programmes</Link>
         <Link className="btn btn-outline-light btn-sm" href="/rooms">Rooms</Link>

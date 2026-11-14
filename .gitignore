@@ -1,1 +1,5 @@
 backend/uv.lock
+node_modules/
+timetable.db
+.env
+.env.local

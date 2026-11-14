@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import { emptyRoomForm, featureFlags, roomFeatures, roomFormErrors, roomFormFromRoom, roomPayload, roomsPath } from "./room-form.mjs";
 import { defaultSort, nextSort, pageNumbers, pageSizes, paginate, searchRooms, sortRooms } from "./room-table.mjs";
@@ -172,7 +173,7 @@ export default function RoomsPage() {
 
   return <div className="campus-app">
     <nav className="navbar campus-nav">
-      <div className="container"><Link className="navbar-brand" href="/">UNICAL <span>UNIVERSITY OF CALABRIA</span></Link>
+      <div className="container"><Link className="navbar-brand" href="/"><Image src="/unical-logo-white.svg" alt="University of Calabria" width={294} height={24} className="navbar-logo" /></Link>
         <div className="nav-actions">
           <Link className="btn btn-outline-light btn-sm" href="/">Degree programmes</Link>
           <Link className="btn btn-outline-light btn-sm" href="/teachers">Teachers</Link>

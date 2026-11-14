@@ -12,6 +12,17 @@ router = APIRouter(prefix="/degrees", tags=["degrees"])
 Database = Annotated[Session, Depends(get_session)]
 
 
+def ensure_unique_degree_name(
+    name: str, session: Session, degree_id: int | None = None
+) -> None:
+    name = name.strip()
+    query = select(Degree.id).where(func.lower(Degree.name) == name.lower())
+    if degree_id is not None:
+        query = query.where(Degree.id != degree_id)
+    if session.scalar(query):
+        raise HTTPException(409, "A degree with this name already exists.")
+
+
 class DegreeInput(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     years: int = Field(ge=1, le=6)
@@ -55,7 +66,7 @@ def list_degrees(session: Database) -> list[DegreeSummary]:
         select(Degree, func.count(Course.id))
         .outerjoin(Course, Course.degree_id == Degree.id)
         .group_by(Degree.id)
-        .order_by(Degree.name)
+        .order_by(func.lower(Degree.name), Degree.id)
     )
     return [
         DegreeSummary(
@@ -70,8 +81,7 @@ def list_degrees(session: Database) -> list[DegreeSummary]:
 
 @router.post("", response_model=DegreeView, status_code=201)
 def create_degree(data: DegreeInput, session: Database) -> DegreeView:
-    if session.scalar(select(Degree.id).where(Degree.name == data.name)):
-        raise HTTPException(409, "A degree with this name already exists.")
+    ensure_unique_degree_name(data.name, session)
     degree = Degree(name=data.name)
     degree.years = [
         Year(
@@ -148,11 +158,7 @@ def update_degree(degree_id: int, data: DegreeInput, session: Database) -> Degre
     degree = session.get(Degree, degree_id)
     if degree is None:
         raise HTTPException(404, "Degree not found.")
-    duplicate = session.scalar(
-        select(Degree.id).where(Degree.name == data.name, Degree.id != degree_id)
-    )
-    if duplicate:
-        raise HTTPException(409, "A degree with this name already exists.")
+    ensure_unique_degree_name(data.name, session, degree_id)
     removed_years = [year for year in degree.years if year.number > data.years]
     if removed_years:
         course_exists = session.scalar(
@@ -182,18 +188,18 @@ def update_degree(degree_id: int, data: DegreeInput, session: Database) -> Degre
                 raise HTTPException(409, "Semesters containing courses cannot be removed.")
     degree.name = data.name
     degree.years = [year for year in degree.years if year.number <= data.years]
-    present = {year.number for year in degree.years}
-    degree.years.extend(
-        Year(
-            number=number,
-            semesters=[
-                Semester(number=semester_number)
-                for semester_number in range(1, data.semesters_per_year + 1)
-            ],
-        )
-        for number in range(1, data.years + 1)
-        if number not in present
-    )
+    for number in range(1, data.years + 1):
+        if not any(year.number == number for year in degree.years):
+            degree.years.append(
+                Year(
+                    number=number,
+                    semesters=[
+                        Semester(number=semester_number)
+                        for semester_number in range(1, data.semesters_per_year + 1)
+                    ],
+                )
+            )
+    degree.years.sort(key=lambda year: year.number)
     for year in degree.years:
         year.semesters = [
             semester
@@ -201,11 +207,10 @@ def update_degree(degree_id: int, data: DegreeInput, session: Database) -> Degre
             if semester.number <= data.semesters_per_year
         ]
         present_semesters = {semester.number for semester in year.semesters}
-        year.semesters.extend(
-            Semester(number=number)
-            for number in range(1, data.semesters_per_year + 1)
-            if number not in present_semesters
-        )
+        for number in range(1, data.semesters_per_year + 1):
+            if number not in present_semesters:
+                year.semesters.append(Semester(number=number))
+        year.semesters.sort(key=lambda semester: semester.number)
     session.commit()
     return get_degree(degree_id, session)
 

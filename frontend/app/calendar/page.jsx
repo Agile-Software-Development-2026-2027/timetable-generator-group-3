@@ -1,23 +1,31 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
+import { useCallback, useEffect, useRef, useState } from "react";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/react/daygrid";
 import timeGridPlugin from "@fullcalendar/react/timegrid";
+import listPlugin from "@fullcalendar/react/list";
 import breezyThemePlugin from "@fullcalendar/react/themes/breezy";
-import { fetchAllSessions, getCalendarTimeRange } from "./sessions.mjs";
+import {
+  DEFAULT_SLOT_CONFIG,
+  fetchAllSessions,
+  getCalendarWeekSettings,
+  getResponsiveCalendarView,
+} from "./sessions.mjs";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 const GENERATION_RESULT_STORAGE_KEY = "timetable-generator:last-generation-result";
 const SESSION_COLORS_STORAGE_KEY = "timetable-generator:session-colors";
-const DEFAULT_SESSION_COLOR = "#176b68";
+const DEFAULT_SESSION_COLOR = "#f4dedc";
 const DEFAULT_CALENDAR_EVENT_COLOR = "var(--fc-breezy-event)";
 const DEFAULT_CALENDAR_EVENT_CONTRAST = "var(--fc-breezy-event-contrast)";
 const CALENDAR_VIEW_TITLES = {
   dayGridMonth: "Monthly schedule",
   timeGridWeek: "Weekly schedule",
   timeGridDay: "Daily schedule",
+  listWeek: "Weekly agenda",
 };
 
 function isStoredGenerationResult(value) {
@@ -44,12 +52,19 @@ function readableTextColor(hexColor) {
 export default function TimetablePage() {
   const [degrees, setDegrees] = useState([]);
   const [selectedDegreeId, setSelectedDegreeId] = useState("");
-  const [selectedSemesterId, setSelectedSemesterId] = useState("");
   const [semesters, setSemesters] = useState([]);
+  const [selectedSemesterId, setSelectedSemesterId] = useState("");
+  const [calendarDegreeId, setCalendarDegreeId] = useState("");
+  const [calendarYearId, setCalendarYearId] = useState("");
+  const [calendarSemesterId, setCalendarSemesterId] = useState("");
+  const [calendarSearch, setCalendarSearch] = useState("");
   const [calendarView, setCalendarView] = useState("timeGridWeek");
   const [courses, setCourses] = useState([]);
+  const [calendarDegreeStructure, setCalendarDegreeStructure] = useState(null);
+  const [calendarStructureError, setCalendarStructureError] = useState("");
   const [rooms, setRooms] = useState([]);
   const [sessions, setSessions] = useState([]);
+  const [slotConfig, setSlotConfig] = useState(DEFAULT_SLOT_CONFIG);
   const [sessionColors, setSessionColors] = useState({});
   const [sessionColorError, setSessionColorError] = useState("");
   const [degreeError, setDegreeError] = useState("");
@@ -61,8 +76,24 @@ export default function TimetablePage() {
   const [generationConfirmationOpen, setGenerationConfirmationOpen] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [selectedSession, setSelectedSession] = useState(null);
+  const calendarRef = useRef(null);
+  const calendarScopeInitializedRef = useRef(false);
+  const calendarDegreeStructureRef = useRef(null);
   const generateButtonRef = useRef(null);
   const sessionEventElementsRef = useRef(new Map());
+
+  useEffect(() => {
+    function syncWeeklyViewToViewport() {
+      const calendar = calendarRef.current?.getApi();
+      if (!calendar) return;
+      const nextView = getResponsiveCalendarView(calendar.view.type, window.innerWidth < 768);
+      if (nextView) calendar.changeView(nextView);
+    }
+
+    syncWeeklyViewToViewport();
+    window.addEventListener("resize", syncWeeklyViewToViewport);
+    return () => window.removeEventListener("resize", syncWeeklyViewToViewport);
+  }, []);
 
   useEffect(() => {
     try {
@@ -107,7 +138,7 @@ export default function TimetablePage() {
     }
   }, []);
 
-  async function request(path, options) {
+  const request = useCallback(async (path, options) => {
     const response = await fetch(`${API}${path}`, {
       ...options, headers: { "Content-Type": "application/json", ...options?.headers },
     });
@@ -121,22 +152,30 @@ export default function TimetablePage() {
       throw new Error(detail || `Request failed (${response.status}).`);
     }
     return body;
-  }
+  }, []);
 
   useEffect(() => {
     let active = true;
     async function loadData() {
-      const [degreeResult, courseResult, roomResult, sessionResult] = await Promise.allSettled([
-        request("/degrees"), request("/courses"), request("/rooms"), fetchAllSessions(request),
+      const [degreeResult, courseResult, roomResult, slotConfigResult, sessionResult] = await Promise.allSettled([
+        request("/degrees"), request("/courses"), request("/rooms"), request("/slot-config"), fetchAllSessions(request),
       ]);
       if (!active) return;
       if (degreeResult.status === "fulfilled") {
         setDegrees(degreeResult.value);
-        setSelectedDegreeId((current) =>
-  degreeResult.value.some((degree) => String(degree.id) === String(current))
-    ? current
-    : ""
-);
+        setSelectedDegreeId((current) => degreeResult.value.some((degree) => String(degree.id) === current)
+          ? current
+          : degreeResult.value[0] ? String(degreeResult.value[0].id) : "");
+        if (degreeResult.value.length > 0) {
+          if (!calendarScopeInitializedRef.current) {
+            setCalendarDegreeId(String(degreeResult.value[0].id));
+            calendarScopeInitializedRef.current = true;
+          } else {
+            setCalendarDegreeId((current) => current && !degreeResult.value.some(
+              (degree) => String(degree.id) === current
+            ) ? String(degreeResult.value[0].id) : current);
+          }
+        }
         setDegreeError("");
       } else {
         setDegreeError(degreeResult.reason.message);
@@ -148,6 +187,16 @@ export default function TimetablePage() {
         setCourseError(courseResult.reason.message);
       }
       if (roomResult.status === "fulfilled") setRooms(roomResult.value);
+      if (slotConfigResult.status === "fulfilled" && slotConfigResult.value && Array.isArray(slotConfigResult.value.working_days)) {
+        setSlotConfig({
+          working_days: [...slotConfigResult.value.working_days].sort((a, b) => a - b),
+          start_time: slotConfigResult.value.start_time.includes(":") ? slotConfigResult.value.start_time : `${slotConfigResult.value.start_time}:00`,
+          end_time: slotConfigResult.value.end_time.includes(":") ? slotConfigResult.value.end_time : `${slotConfigResult.value.end_time}:00`,
+          block_minutes: Number(slotConfigResult.value.block_minutes),
+        });
+      } else if (slotConfigResult.status === "fulfilled") {
+        setSlotConfig(DEFAULT_SLOT_CONFIG);
+      }
       if (sessionResult.status === "fulfilled") {
         setSessions(sessionResult.value);
         setScheduleError("");
@@ -166,7 +215,37 @@ export default function TimetablePage() {
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", refreshOnFocus);
     };
-  }, []);
+  }, [request]);
+
+  useEffect(() => {
+    let active = true;
+    if (!calendarDegreeId || String(calendarDegreeStructureRef.current?.id) === calendarDegreeId) {
+      setCalendarStructureError("");
+      return () => { active = false; };
+    }
+    setCalendarStructureError("");
+
+    async function loadDegreeStructure() {
+      try {
+        const structure = await request(`/degrees/${calendarDegreeId}`);
+        if (!Array.isArray(structure?.years)
+          || structure.years.some((year) => !year || !Array.isArray(year.semesters))) {
+          throw new Error("The degree year and semester data is invalid.");
+        }
+        if (active) {
+          calendarDegreeStructureRef.current = structure;
+          setCalendarDegreeStructure(structure);
+        }
+      } catch (error) {
+        if (active) {
+          setCalendarStructureError(error.message);
+        }
+      }
+    }
+
+    loadDegreeStructure();
+    return () => { active = false; };
+  }, [calendarDegreeId, calendarDegreeStructureRef, request]);
 
     useEffect(() => {
     if (!selectedDegreeId) {
@@ -205,7 +284,7 @@ export default function TimetablePage() {
     return () => {
       active = false;
     };
-  }, [selectedDegreeId]);
+  }, [selectedDegreeId, request]);
 
   function requestGeneration(event) {
     event.preventDefault();
@@ -244,6 +323,7 @@ export default function TimetablePage() {
 
   function mountCalendarEvent(eventInfo) {
     const sessionId = String(eventInfo.event.id);
+    eventInfo.el.title = eventInfo.event.title;
     const entry = {
       element: eventInfo.el,
       defaultColor: DEFAULT_CALENDAR_EVENT_COLOR,
@@ -390,26 +470,114 @@ export default function TimetablePage() {
   const selectedDegreeSessionCount = sessions.filter(
     (item) => selectedDegreeCourseIds.has(item.course_id)
   ).length;
+  const calendarDegreeCourses = courses.filter(
+    (course) => !calendarDegreeId || String(course.degree_id) === calendarDegreeId
+  );
+  const selectedDegreeStructure = String(calendarDegreeStructure?.id) === calendarDegreeId
+    ? calendarDegreeStructure
+    : null;
+  const calendarYears = (selectedDegreeStructure
+    ? selectedDegreeStructure.years.map((year) => ({ id: year.id, number: year.number }))
+    : [...new Map(
+      calendarDegreeCourses
+        .filter((course) => course.year_id != null && Number.isFinite(course.year))
+        .map((course) => [course.year_id, { id: course.year_id, number: course.year }])
+    ).values()]
+  ).sort((first, second) => first.number - second.number);
+  const calendarSemesterCourses = calendarDegreeCourses.filter(
+    (course) => !calendarYearId || String(course.year_id) === calendarYearId
+  );
+  const calendarSemesters = (selectedDegreeStructure
+    ? selectedDegreeStructure.years
+      .filter((year) => !calendarYearId || String(year.id) === calendarYearId)
+      .flatMap((year) => year.semesters.map((semester) => ({
+        id: semester.id, number: semester.number, year: year.number, yearId: year.id,
+      })))
+    : [...new Map(
+      calendarSemesterCourses
+        .filter((course) => course.semester_id != null && Number.isFinite(course.semester)
+          && Number.isFinite(course.year))
+        .map((course) => [
+          course.semester_id,
+          { id: course.semester_id, number: course.semester, year: course.year, yearId: course.year_id },
+        ])
+    ).values()]
+  ).sort((first, second) => first.year - second.year || first.number - second.number);
+  const calendarCourseIds = new Set(
+    calendarSemesterCourses
+      .filter((course) => !calendarSemesterId || String(course.semester_id) === calendarSemesterId)
+      .map((course) => course.id)
+  );
+  const hasCalendarFilter = Boolean(calendarDegreeId || calendarYearId || calendarSemesterId);
+  const normalizedCalendarSearch = calendarSearch.trim().toLowerCase();
+  const visibleSessions = sessions.filter((item) => {
+    if (hasCalendarFilter && !calendarCourseIds.has(item.course_id)) return false;
+    if (!normalizedCalendarSearch) return true;
+    const course = courses.find((entry) => entry.id === item.course_id);
+    const room = rooms.find((entry) => entry.id === item.room_id);
+    const searchableValues = [
+      item.course_name,
+      course?.name,
+      course?.code,
+      item.room_code,
+      room?.code,
+      ...(Array.isArray(item.teacher_names) ? item.teacher_names : []),
+    ];
+    return searchableValues.some((value) => (
+      typeof value === "string" && value.toLowerCase().includes(normalizedCalendarSearch)
+    ));
+  });
+  const selectedCalendarDegree = degrees.find((degree) => String(degree.id) === calendarDegreeId);
+  const selectedCalendarYear = calendarYears.find((year) => String(year.id) === calendarYearId);
+  const selectedCalendarSemester = calendarSemesters.find(
+    (semester) => String(semester.id) === calendarSemesterId
+  );
+  const calendarScope = [
+    selectedCalendarDegree?.name,
+    selectedCalendarYear && `Year ${selectedCalendarYear.number}`,
+    selectedCalendarSemester && `Semester ${selectedCalendarSemester.number}`,
+  ].filter(Boolean).join(", ") || "the selected scope";
   const placedSessionCount = generationResult
     ? Math.min(generationResult.sessions_created, generationResult.total_required_sessions)
     : 0;
   const generationProgress = generationResult?.total_required_sessions > 0
     ? Math.round((placedSessionCount / generationResult.total_required_sessions) * 100)
     : 0;
-  const calendarTimeRange = getCalendarTimeRange(sessions);
-  const events = sessions.map((item) => {
+  const { firstDay, hiddenDays } = getCalendarWeekSettings(slotConfig.working_days);
+  const events = visibleSessions.map((item) => {
     const course = courses.find((entry) => entry.id === item.course_id);
     const room = rooms.find((entry) => entry.id === item.room_id);
+    const courseName = item.course_name || course?.name || "Course";
+    const assignedRoomCode = item.room_code || room?.code;
+    const roomCode = assignedRoomCode || "Room not assigned";
+    const hasTeachers = Array.isArray(item.teacher_names) && item.teacher_names.length > 0;
+    const teacherNames = hasTeachers
+      ? item.teacher_names.join(", ")
+      : "Teacher not assigned";
+    const startTime = item.start_time.slice(0, 5);
+    const endTime = item.end_time.slice(0, 5);
+    const timeRange = `${startTime}–${endTime}`;
     return {
-      id: String(item.id), title: `${course?.name || "Course"}${room ? ` · ${room.code}` : ""}`,
+      id: String(item.id),
+      title: `${courseName} · ${roomCode} · ${timeRange} · ${teacherNames}`,
       daysOfWeek: [(item.weekday + 1) % 7], startTime: item.start_time, endTime: item.end_time,
-      extendedProps: { course_id: item.course_id, room_id: item.room_id, session: item },
+      extendedProps: {
+        course_id: item.course_id,
+        room_id: item.room_id,
+        session: item,
+        courseName,
+        roomCode,
+        hasRoom: Boolean(assignedRoomCode),
+        hasTeachers,
+        timeRange,
+        teacherNames,
+      },
     };
   });
 
-  return <div className="campus-app">
+  return <div className="campus-app calendar-page">
     <nav className="navbar campus-nav"><div className="container">
-      <Link className="navbar-brand" href="/">UNICAL <span>UNIVERSITY OF CALABRIA</span></Link>
+      <Link className="navbar-brand" href="/"><Image src="/unical-logo-white.svg" alt="University of Calabria" width={294} height={24} className="navbar-logo" /></Link>
       <div className="nav-actions">
         <Link className="btn btn-outline-light btn-sm" href="/">Degree programmes</Link>
         <Link className="btn btn-outline-light btn-sm" href="/data-loader">Data Loader</Link>
@@ -425,6 +593,9 @@ export default function TimetablePage() {
       </div>}
       {degreeError && <div className="alert alert-warning timetable-alert" role="status">
         Could not load degree programmes: {degreeError}
+      </div>}
+      {calendarStructureError && <div className="alert alert-warning timetable-alert" role="status">
+        Could not load years and semesters: {calendarStructureError}
       </div>}
       {sessionColorError && !selectedSession
         && <div className="alert alert-warning timetable-alert" role="status">{sessionColorError}</div>}
@@ -444,6 +615,19 @@ export default function TimetablePage() {
           </div>
         </div>
         <div className="timetable-controls">
+          <div className="timetable-degree-field">
+            <label className="form-label" htmlFor="generation-degree">Degree programme</label>
+            <select id="generation-degree" className="form-select" value={selectedDegreeId}
+              disabled={generating}
+              onChange={(event) => {
+                setSelectedDegreeId(event.target.value);
+                setGenerationResult(null);
+                setGenerationError("");
+              }} required>
+              <option key="select-degree" value="" disabled>Select a degree programme</option>
+              {degrees.map((degree) => <option key={degree.id} value={degree.id}>{degree.name}</option>)}
+            </select>
+          </div>
           <div className="timetable-controls-footer">
             <div className="timetable-actions">
               <button ref={generateButtonRef} type="submit" className="btn btn-campus"
@@ -468,7 +652,8 @@ export default function TimetablePage() {
       </form>
       {!scheduleError && !sessions.length && <div className="empty-calendar mb-3">
         <span className="empty-calendar-icon" aria-hidden="true">▦</span>
-        <span><strong>Your timetable is clear</strong><small>Scheduled classes will appear here.</small></span>
+        <span><strong>No timetable has been generated for {calendarScope}</strong>
+          <small>There are no scheduled classes yet.</small></span>
       </div>}
       <section className="card campus-card timetable-card"
         aria-label={`${CALENDAR_VIEW_TITLES[calendarView] || "Timetable"} view`}>
@@ -477,16 +662,111 @@ export default function TimetablePage() {
             <h2>{CALENDAR_VIEW_TITLES[calendarView] || "Timetable"}</h2>
             <p>Select any class to see its room and teacher details.</p>
           </div>
-          <div className="schedule-count" aria-live="polite" aria-label={`${sessions.length} scheduled classes`}>
-            <strong>{sessions.length}</strong>
-            <span>{sessions.length === 1 ? "scheduled class" : "scheduled classes"}</span>
+          <div className="timetable-calendar-tools">
+            <div className="schedule-count" aria-live="polite" aria-label={`${visibleSessions.length} scheduled classes`}>
+              <strong>{visibleSessions.length}</strong>
+              <span>{visibleSessions.length === 1 ? "scheduled class" : "scheduled classes"}</span>
+            </div>
+            {calendarView !== "listWeek" && <div className="calendar-legend" aria-label="Calendar key">
+              <span><i className="calendar-legend-swatch calendar-legend-empty" aria-hidden="true" />Empty slot</span>
+              <span><i className="calendar-legend-swatch calendar-legend-occupied" aria-hidden="true" />Scheduled class</span>
+            </div>}
           </div>
         </div>
-        <FullCalendar plugins={[dayGridPlugin, timeGridPlugin, breezyThemePlugin]}
-          firstDay={1} initialView="timeGridWeek"
-          headerToolbar={{ left: "prev,next today", center: "title", right: "dayGridMonth,timeGridWeek,timeGridDay" }}
-          events={events} allDaySlot={false} slotMinTime={calendarTimeRange.min}
-          slotMaxTime={calendarTimeRange.max} height="auto" nowIndicator
+        <div className="timetable-filters">
+          <div>
+            <label className="form-label" htmlFor="calendar-degree-filter">Filter by degree</label>
+            <select id="calendar-degree-filter" className="form-select" value={calendarDegreeId}
+              onChange={(event) => {
+                setCalendarDegreeId(event.target.value);
+                setCalendarYearId("");
+                setCalendarSemesterId("");
+              }}>
+              <option key="all-degrees" value="">All degree programmes</option>
+              {degrees.map((degree) => <option key={degree.id} value={degree.id}>{degree.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="form-label" htmlFor="calendar-year-filter">Filter by year</label>
+            <select id="calendar-year-filter" className="form-select" value={calendarYearId}
+              disabled={!calendarDegreeId}
+              onChange={(event) => {
+                setCalendarYearId(event.target.value);
+                setCalendarSemesterId("");
+              }}>
+              <option key="all-years" value="">All years</option>
+              {calendarYears.map((year) => <option key={year.id} value={year.id}>Year {year.number}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="form-label" htmlFor="calendar-semester-filter">Filter by semester</label>
+            <select id="calendar-semester-filter" className="form-select" value={calendarSemesterId}
+              disabled={!calendarDegreeId}
+              onChange={(event) => {
+                const semesterId = event.target.value;
+                setCalendarSemesterId(semesterId);
+                const selectedSemester = calendarSemesters.find(
+                  (semester) => String(semester.id) === semesterId
+                );
+                if (selectedSemester) setCalendarYearId(String(selectedSemester.yearId));
+              }}>
+              <option key="all-semesters" value="">All semesters</option>
+              {calendarSemesters.map((semester) => (
+                <option key={semester.id} value={semester.id}>
+                  Year {semester.year}, Semester {semester.number}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="timetable-search-field">
+            <label className="form-label" htmlFor="calendar-search">Search classes</label>
+            <input id="calendar-search" className="form-control" type="search"
+              value={calendarSearch} onChange={(event) => setCalendarSearch(event.target.value)}
+              placeholder="Course, teacher, or room" autoComplete="off" />
+          </div>
+        </div>
+        {!scheduleError && sessions.length > 0 && visibleSessions.length === 0 && <div className="empty-calendar mb-3">
+          <span className="empty-calendar-icon" aria-hidden="true">▦</span>
+          <span><strong>{normalizedCalendarSearch ? "No classes match your search" : "No timetable for this selection"}</strong>
+            <small>{normalizedCalendarSearch
+              ? "Try a different course, teacher, or room."
+              : "There are no scheduled classes for the selected degree, year, or semester."}</small></span>
+        </div>}
+        <FullCalendar ref={calendarRef} plugins={[dayGridPlugin, timeGridPlugin, listPlugin, breezyThemePlugin]}
+          firstDay={firstDay} initialView="timeGridWeek"
+          hiddenDays={hiddenDays}
+          headerToolbar={{ left: "prev,next today", center: "title", right: "dayGridMonth,timeGridWeek,timeGridDay,listWeek" }}
+          events={events} allDaySlot={false} slotMinTime={slotConfig.start_time}
+          slotMaxTime={slotConfig.end_time} slotMinHeight={48}
+          slotDuration={`${String(Math.floor(slotConfig.block_minutes / 60)).padStart(2, "0")}:${String(slotConfig.block_minutes % 60).padStart(2, "0")}:00`}
+          eventClass="timetable-session-event" slotLaneClass="calendar-empty-slot"
+          height="auto" nowIndicator
+          eventContent={(info) => {
+            const { courseName, roomCode, hasRoom, timeRange, teacherNames, hasTeachers } = info.event.extendedProps;
+            const showTimeInCard = !["timeGridWeek", "timeGridDay"].includes(info.view?.type);
+            return <div className="calendar-event-content">
+              <strong className="calendar-event-title" title={courseName}>{courseName}</strong>
+              {hasRoom && <span className="calendar-event-detail" title={roomCode}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"
+                  strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z" />
+                  <circle cx="12" cy="10" r="2.5" />
+                </svg>
+                <span>{roomCode}</span>
+              </span>}
+              {showTimeInCard && <span className="calendar-event-detail" title={timeRange}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"
+                  strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M12 7v5l3 2" />
+                </svg>
+                <span>{timeRange}</span>
+              </span>}
+              {hasTeachers && <span className="calendar-event-teachers" title={teacherNames}>
+                {teacherNames}
+              </span>}
+            </div>;
+          }}
           eventClick={showSessionDetails}
           eventDidMount={mountCalendarEvent}
           eventWillUnmount={unmountCalendarEvent}

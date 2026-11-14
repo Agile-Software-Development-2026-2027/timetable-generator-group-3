@@ -42,17 +42,28 @@ Replace the example URL as needed, then restart the frontend server.
 
 ### Calendar and timetable generation
 
-The Calendar displays saved sessions and lets you switch between monthly,
-weekly, and daily views. Select a class to open its details. Its color can be
-customized individually from that panel; these preferences are stored in the
-current browser and do not change the shared timetable data.
+The Calendar displays saved sessions on a time grid that follows the configured
+working days, daily time range, and block length from `SlotConfig`. The default
+UniCal grid is Monday–Friday, 09:00–18:00, with 60-minute blocks. You can switch
+between monthly, weekly, and daily views, and filter sessions by degree, year,
+and semester. By default, the first available degree is selected; choose
+“All degree programmes” to combine schedules. Each scheduled block shows the
+course, room, and teacher names;
+select a class to open its details. Empty slots are visually distinct from
+scheduled classes. When no sessions exist for the selected scope, the Calendar
+shows an explanatory empty-state message.
+
+A class's color can be customized individually from its details panel; these
+preferences are stored in the current browser and do not change the shared
+timetable data.
 
 Generating a timetable requires confirmation because it replaces the saved
 schedule for the selected degree programme. The result shows the number of
 sessions placed and lists any unscheduled courses with readable explanations,
 such as the largest lab available and its capacity, a teacher's availability,
 or the semester's required hours compared with the grid capacity. The Calendar
-keeps the latest generation summary available in the same browser.
+refreshes its sessions after generation without a full page reload and keeps
+the latest generation summary available in the same browser.
 
 ## API endpoints used
 
@@ -63,8 +74,10 @@ The degree page uses:
 - `GET /degrees/{id}` — view a degree's structure
 - `PUT /degrees/{id}` — update a degree
 - `DELETE /degrees/{id}` — delete a degree
-The calendar page reads from `GET /courses`, `GET /rooms`, and
-`GET /timetable/sessions`, requesting every page of sessions so none are left out. Refer to the [backend README](../backend/README.md)
+The calendar page reads from `GET /degrees`, `GET /courses`, `GET /rooms`,
+`GET /slot-config`, and `GET /timetable/sessions`, requesting every page of
+sessions so none are left out. It generates timetables with
+`POST /timetable/generate`. Refer to the [backend README](../backend/README.md)
 for backend setup and API details.
 
 ## Available scripts

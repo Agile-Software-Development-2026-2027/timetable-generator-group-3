@@ -30,7 +30,8 @@ def test_create_degree_rejects_case_insensitive_duplicate_after_trimming(client)
 
 
 def test_update_degree_rejects_case_insensitive_duplicate_name(client):
-    created = client.post("/degrees", json={"name": "Chemistry", "years": 2}).json()
+    client.post("/degrees", json={"name": "Chemistry", "years": 2})
+    created = client.post("/degrees", json={"name": "Physics", "years": 2}).json()
     updated = client.put(
         f"/degrees/{created['id']}",
         json={"name": "chemistry", "years": 2},

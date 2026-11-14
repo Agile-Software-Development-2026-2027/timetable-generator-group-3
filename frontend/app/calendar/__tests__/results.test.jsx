@@ -87,6 +87,15 @@ async function generate() {
     name: "Generate a new timetable?",
   });
 
+  const select = within(confirm).getByRole("combobox", {
+  name: "Degree programme *",
+});
+
+await within(confirm).findByRole("option", {
+  name: "Computer Science",
+});
+
+fireEvent.change(select, { target: { value: "7" } });
   fireEvent.click(
     within(confirm).getByRole("button", {
       name: "Generate timetable",

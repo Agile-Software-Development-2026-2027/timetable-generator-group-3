@@ -103,7 +103,7 @@ export default function TimetablePage() {
         return;
       }
       setLastGenerationResult(result);
-    } catch {
+  } catch {
       setGenerationError("The saved generation summary could not be read from this browser.");
     }
   }, []);
@@ -245,6 +245,45 @@ export default function TimetablePage() {
     return () => { active = false; };
   }, [calendarDegreeId, calendarDegreeStructureRef, request]);
 
+    useEffect(() => {
+    if (!selectedDegreeId) {
+      setSemesters([]);
+      setSelectedSemesterId("");
+      return;
+    }
+
+    let active = true;
+
+    async function loadSemesters() {
+      try {
+        const degree = await request(`/degrees/${selectedDegreeId}`);
+        const availableSemesters = (degree.years || []).flatMap((year) =>
+          (year.semesters || []).map((semester) => ({
+            ...semester,
+            year_number: year.number,
+          }))
+        );
+
+        if (active) {
+          setSemesters(availableSemesters);
+          setSelectedSemesterId("");
+        }
+      } catch (error) {
+        if (active) {
+          setSemesters([]);
+          setSelectedSemesterId("");
+          setGenerationError(`Could not load semesters: ${error.message}`);
+        }
+      }
+    }
+
+    loadSemesters();
+
+    return () => {
+      active = false;
+    };
+  }, [selectedDegreeId]);
+
   function requestGeneration(event) {
     event.preventDefault();
     setGenerationConfirmationOpen(true);
@@ -341,7 +380,10 @@ export default function TimetablePage() {
     try {
       const result = await request("/timetable/generate", {
         method: "POST",
-        body: JSON.stringify({ degree_id: Number(degreeId) }),
+        body: JSON.stringify({
+        degree_id: Number(degreeId),
+        semester_id: selectedSemesterId ? Number(selectedSemesterId) : null,
+        }),
       });
       if (!["ok", "partial", "infeasible"].includes(result?.status)
         || !Number.isInteger(result.sessions_created)
@@ -359,7 +401,8 @@ export default function TimetablePage() {
           .reduce((total, course) => total + course.weekly_hours, 0),
         generated_at: new Date().toISOString(),
       };
-      setGenerationResult(completedResult);
+     setGenerationResult(completedResult);
+    setGenerationConfirmationOpen(false);
       setLastGenerationResult(completedResult);
       try {
         window.localStorage.setItem(
@@ -372,14 +415,47 @@ export default function TimetablePage() {
       setSessions(await fetchAllSessions(request));
       setScheduleError("");
     } catch (error) {
-      setGenerationError(error.message);
+      setGenerationResult(null);
+      setLastGenerationResult(null);
+      try {
+  window.localStorage.removeItem(GENERATION_RESULT_STORAGE_KEY);
+} catch {
+  // Ignore local storage errors.
+}
+      setGenerationConfirmationOpen(true);
+      setGenerationError(`Timetable generation failed: ${error.message}`);
     } finally {
       setGenerating(false);
     }
   }
+    async function clearTimetable() {
+    if (!selectedDegreeId) {
+      setScheduleError("Please select a degree programme first.");
+      return;
+    }
 
+    setScheduleError("");
+
+    try {
+      await request(
+        `/timetable/sessions?degree_id=${encodeURIComponent(Number(selectedDegreeId))}`,
+        { method: "DELETE" }
+      );
+
+      setSessions(await fetchAllSessions(request));
+      setGenerationResult(null);
+      setLastGenerationResult(null);
+
+      try {
+        window.localStorage.removeItem(GENERATION_RESULT_STORAGE_KEY);
+      } catch {
+        // Ignore local storage errors.
+      }
+    } catch (error) {
+      setScheduleError(`Could not clear the timetable: ${error.message}`);
+    }
+  }
   async function confirmGeneration() {
-    closeGenerationConfirmation();
     await generateTimetable(selectedDegreeId);
   }
 
@@ -553,9 +629,17 @@ export default function TimetablePage() {
           <div className="timetable-controls-footer">
             <div className="timetable-actions">
               <button ref={generateButtonRef} type="submit" className="btn btn-campus"
-                disabled={!selectedDegreeId || generating}>
+                disabled={generating}>
                 {generating ? "Generating…" : "Generate timetable"}
               </button>
+              <button
+              type="button"
+              className="btn btn-outline-danger"
+              onClick={clearTimetable}
+              disabled={!selectedDegreeId || generating}
+            >
+              Clear timetable
+            </button>
               {lastGenerationResult && !generationResult && <button type="button"
                 className="btn btn-outline-secondary" onClick={() => setGenerationResult(lastGenerationResult)}>
                 View last result
@@ -686,7 +770,7 @@ export default function TimetablePage() {
           eventWillUnmount={unmountCalendarEvent}
           datesSet={(info) => setCalendarView(info.view.type)} />
       </section>
-      {generationResult && <div className="generation-result-backdrop" role="presentation"
+      {generationResult && ( <div className="generation-result-backdrop" role="presentation"
         onMouseDown={(event) => {
           if (event.target === event.currentTarget) setGenerationResult(null);
         }}>
@@ -759,7 +843,7 @@ export default function TimetablePage() {
               onClick={() => setGenerationResult(null)}>View timetable</button>
           </div>
         </section>
-      </div>}
+      </div>)}
       {selectedSession && <div className="session-details-backdrop" role="presentation"
         onMouseDown={(event) => {
           if (event.target === event.currentTarget) setSelectedSession(null);
@@ -822,6 +906,46 @@ export default function TimetablePage() {
               <p className="generation-confirm-intro">Take a moment to review what will change.</p>
             </div>
           </div>
+          <div className="generation-confirm-degree mb-3">
+  <label className="form-label" htmlFor="modal-degree">
+    Degree programme *
+  </label>
+  <select
+    id="modal-degree"
+    className="form-select"
+    value={selectedDegreeId}
+    onChange={(event) => {
+      setSelectedDegreeId(event.target.value);
+      setGenerationError("");
+    }}
+    required
+  >
+    <option value="">Select a degree programme</option>
+    {degrees.map((degree) => (
+      <option key={degree.id} value={degree.id}>
+        {degree.name}
+      </option>
+    ))}
+  </select>
+
+  <label className="form-label mt-3" htmlFor="modal-semester">
+    Semester (optional)
+  </label>
+  <select
+    id="modal-semester"
+    className="form-select"
+    value={selectedSemesterId}
+    onChange={(event) => setSelectedSemesterId(event.target.value)}
+    disabled={!semesters.length}
+  >
+    <option value="">All semesters</option>
+    {semesters.map((semester) => (
+      <option key={semester.id} value={semester.id}>
+        Year {semester.year_number} – Semester {semester.number}
+      </option>
+    ))}
+  </select>
+</div>
           <div className="generation-confirm-summary">
             <div className="generation-confirm-degree">
               <span className="generation-confirm-summary-label">Selected programme</span>
@@ -838,6 +962,27 @@ export default function TimetablePage() {
               </div>
             </div>
           </div>
+          {generationResult && ["partial", "infeasible"].includes(generationResult.status) && (
+  <div className="alert alert-warning" role="alert">
+    <h3>
+      {generationResult.status === "partial"
+        ? "Timetable partially generated"
+        : "Timetable could not be generated"}
+    </h3>
+    <p>Unscheduled courses:</p>
+    {generationResult.unscheduled.length > 0 ? (
+      <ul>
+        {generationResult.unscheduled.map((course) => (
+          <li key={course.course_id}>
+            <strong>{course.name}</strong>: {course.reason}
+          </li>
+        ))}
+      </ul>
+    ) : (
+      <p>No unscheduled course details were provided.</p>
+    )}
+  </div>
+)}
           <div className="generation-confirm-warning" role="note">
             <span className="generation-confirm-warning-icon" aria-hidden="true">!</span>
             <div>
@@ -852,7 +997,8 @@ export default function TimetablePage() {
             <button type="button" className="btn btn-light" autoFocus
               onClick={closeGenerationConfirmation}>Keep current timetable</button>
             <button type="button" className="btn btn-campus generation-confirm-submit"
-              disabled={generating} onClick={confirmGeneration}>Generate timetable</button>
+              disabled={generating || !selectedDegreeId}
+onClick={confirmGeneration}>Generate timetable</button>
           </div>
         </section>
       </div>}

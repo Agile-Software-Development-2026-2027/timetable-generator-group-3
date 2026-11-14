@@ -16,6 +16,28 @@ def test_create_degree_rejects_duplicate(client):
     assert duplicate.status_code == 409
 
 
+def test_create_degree_rejects_case_insensitive_duplicate_after_trimming(client):
+    created = client.post(
+        "/degrees",
+        json={"name": "  Computer Science  ", "years": 2},
+    )
+    assert created.status_code == 201
+    duplicate = client.post(
+        "/degrees",
+        json={"name": "computer science", "years": 2},
+    )
+    assert duplicate.status_code == 409
+
+
+def test_update_degree_rejects_case_insensitive_duplicate_name(client):
+    created = client.post("/degrees", json={"name": "Chemistry", "years": 2}).json()
+    updated = client.put(
+        f"/degrees/{created['id']}",
+        json={"name": "chemistry", "years": 2},
+    )
+    assert updated.status_code == 409
+
+
 def test_create_degree_rejects_invalid_year_count(client):
     too_many = client.post("/degrees", json={"name": "X", "years": 99})
     assert too_many.status_code == 422

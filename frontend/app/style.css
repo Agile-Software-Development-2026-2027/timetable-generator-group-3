@@ -592,3 +592,60 @@ body { background: linear-gradient(180deg, #f4f7f8 0%, #eef4f5 100%); color: #17
 .settings-panel { padding: 1.4rem 1.3rem; }
 .settings-days { display: flex; flex-wrap: wrap; gap: .25rem .5rem; }
 .settings-preview { margin: 0; padding: .8rem 1rem; border: 1px solid #dce8e6; border-radius: 10px; background: #f6faf9; color: #245c58; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+body { background: var(--unical-pale-grey); color: var(--unical-dark-grey); }
+.campus-app { background: var(--unical-pale-grey); }
+.campus-nav { background: linear-gradient(135deg, var(--unical-darker-bordeaux), var(--unical-bordeaux)); }
+.form-control:focus,
+.form-select:focus,
+.room-search:focus-within { border-color: var(--unical-bordeaux); box-shadow: 0 0 0 .2rem rgba(183, 25, 24, .14); }
+.btn-edit { border-color: #d3d2cf; background: #eff3f4; color: var(--unical-darker-bordeaux); }
+.btn-edit:hover { background: #d3d2cf; color: var(--unical-darker-bordeaux); }
+.catalogue-total,
+.semester-pill,
+.page-title-context,
+.degree-stat { background: var(--unical-pale-grey); color: var(--unical-dark-grey); }
+.degree-card.is-selected { border-color: var(--unical-bordeaux); }
+.degree-card-main:focus-visible,
+.filter-chip:focus-visible,
+.room-sort:focus-visible,
+.degrees-main:has(.degree-table) .degree-table-name:focus-visible { outline-color: var(--unical-lighter-bordeaux); }
+.empty-state > span,
+.schedule-count,
+.room-sort:hover,
+.room-sort.is-active,
+.degrees-main:has(.degree-table) .degree-table-name:hover { color: var(--unical-bordeaux); }
+.filter-chip { border-color: #d3d2cf; color: var(--unical-dark-grey); }
+.filter-chip:hover { border-color: var(--unical-bordeaux); }
+.filter-chip.is-active,
+.btn-page-size.is-active,
+.btn-page-size.is-active:hover { border-color: var(--unical-bordeaux); background: var(--unical-bordeaux); }
+.btn-page-size { border-color: #d3d2cf; color: var(--unical-dark-grey); }
+.btn-page-size:hover { border-color: var(--unical-bordeaux); color: var(--unical-dark-grey); }
+.room-pagination {
+  --bs-pagination-color: var(--unical-dark-grey);
+  --bs-pagination-border-color: #d3d2cf;
+  --bs-pagination-hover-color: var(--unical-darker-bordeaux);
+  --bs-pagination-hover-bg: var(--unical-pale-grey);
+  --bs-pagination-hover-border-color: #d3d2cf;
+  --bs-pagination-focus-color: var(--unical-darker-bordeaux);
+  --bs-pagination-focus-bg: var(--unical-pale-grey);
+  --bs-pagination-focus-box-shadow: 0 0 0 .2rem rgba(183, 25, 24, .14);
+  --bs-pagination-active-bg: var(--unical-bordeaux);
+  --bs-pagination-active-border-color: var(--unical-bordeaux);
+}
+.degrees-main:has(.degree-table) .degree-table-name,
+.degrees-main:has(.degree-table) .degree-year-semesters .degree-semester-pill,
+.degrees-main:has(.course-table) .course-table .room-actions .btn-light,
+.settings-preview { color: var(--unical-dark-grey); }
+.degree-name,
+.degree-stat strong,
+.degrees-heading h1,
+.room-table .room-code,
+.room-table .room-number,
+.degrees-main:has(.degree-table, .course-table) .degrees-heading h1,
+.degrees-main:has(.degree-table, .course-table) .row > section > .d-flex > .h4,
+.degrees-main:has(.degree-table, .course-table) > .d-flex > .h4 { color: var(--unical-dark-grey); }
+.degrees-main:has(.course-table) .course-table .room-actions .btn-light:hover { border-color: var(--unical-bordeaux); }
+.navbar-brand { display: inline-flex; align-items: center; flex: 0 0 auto; }
+.navbar-logo { display: block; width: 220px; max-width: calc(100vw - 2rem); height: auto; }

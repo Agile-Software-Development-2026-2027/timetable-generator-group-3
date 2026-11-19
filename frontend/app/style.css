@@ -143,12 +143,14 @@ body { background: linear-gradient(180deg, #f4f7f8 0%, #eef4f5 100%); color: #17
 .timetable-card .fc-breezy-n5m { border-radius: 10px; }
 .timetable-card .timetable-session-event { min-width: 0; overflow: hidden; border: 1px solid rgba(183,25,24,.35); border-left: 3px solid var(--unical-bordeaux); border-radius: 6px; box-shadow: 0 2px 5px rgba(56,56,56,.12); text-align: left; }
 .timetable-card .calendar-empty-slot { background: var(--unical-pale-grey); }
-.calendar-event-content { display: grid; min-width: 0; align-content: start; gap: 0; overflow: hidden; padding: 2px 4px; color: var(--unical-dark-grey); font-size: .58rem; line-height: 1; }
-.calendar-event-content .calendar-event-title { display: -webkit-box; min-width: 0; overflow: hidden; color: var(--unical-darker-bordeaux); font-size: .75rem; font-weight: 850; line-height: 1.05; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
-.calendar-event-detail { display: flex; min-width: 0; align-items: flex-start; gap: 3px; overflow: hidden; }
-.calendar-event-detail svg { flex: 0 0 .75rem; width: .75rem; height: .75rem; margin-top: 1px; }
-.calendar-event-detail span { display: -webkit-box; min-width: 0; overflow: hidden; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
-.calendar-event-teachers { display: -webkit-box; min-width: 0; overflow: hidden; color: rgba(56,56,56,.85); overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+/* Content is pinned to the top of the card so overflow is cut at the bottom, never mid-title. */
+.timetable-card .timetable-session-event { justify-content: flex-start; align-items: stretch; }
+.calendar-event-content { display: grid; align-self: stretch; height: 100%; min-width: 0; align-content: start; grid-auto-rows: max-content; gap: 3px; overflow: hidden; padding: 4px 6px; color: var(--unical-dark-grey); font-size: .68rem; line-height: 1.2; }
+.calendar-event-content .calendar-event-title { display: -webkit-box; min-width: 0; overflow: hidden; color: var(--unical-darker-bordeaux); font-size: .78rem; font-weight: 800; line-height: 1.15; overflow-wrap: break-word; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.calendar-event-detail { display: flex; min-width: 0; align-items: center; gap: 3px; overflow: hidden; }
+.calendar-event-detail svg { flex: 0 0 .75rem; width: .75rem; height: .75rem; }
+.calendar-event-detail span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.calendar-event-teachers { min-width: 0; overflow: hidden; color: rgba(56,56,56,.85); text-overflow: ellipsis; white-space: nowrap; }
 .timetable-card .fc-breezy-n5m button { transition: background-color .15s, box-shadow .15s; }
 .calendar-page .timetable-card .fc-breezy-n5m button[aria-selected="true"] { border-color: var(--unical-bordeaux); background: var(--unical-bordeaux); color: #fff; }
 .calendar-page .timetable-card .fc-breezy-n5m button:focus-visible { outline: 3px solid var(--unical-lighter-bordeaux); outline-offset: 2px; }

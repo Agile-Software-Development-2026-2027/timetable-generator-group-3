@@ -3,7 +3,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, Field, model_validator
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session, contains_eager, joinedload
 
 from app.database import get_session
@@ -169,6 +169,25 @@ def update_session(
     session.commit()
 
     return get_session_view(session_id, session)
+
+
+@router.delete("/timetable/sessions", status_code=204)
+def clear_sessions(
+    session: Database,
+    degree_id: Annotated[int, Query(gt=0)],
+) -> None:
+    # degree_id is required so a bare DELETE can never wipe every timetable.
+    if session.get(Degree, degree_id) is None:
+        raise HTTPException(404, "Degree not found.")
+
+    session.execute(
+        delete(ScheduleSession).where(
+            ScheduleSession.course_id.in_(
+                select(Course.id).where(Course.degree_id == degree_id)
+            )
+        )
+    )
+    session.commit()
 
 
 @router.delete("/timetable/sessions/{session_id}", status_code=204)

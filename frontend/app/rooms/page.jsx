@@ -1,8 +1,7 @@
 "use client";
 
-import Link from "next/link";
-import Image from "next/image";
 import { useEffect, useState } from "react";
+import { AppNav } from "../components/app-shell.jsx";
 import { emptyRoomForm, featureFlags, roomFeatures, roomFormErrors, roomFormFromRoom, roomPayload, roomsPath } from "./room-form.mjs";
 import { defaultSort, nextSort, pageNumbers, pageSizes, paginate, searchRooms, sortRooms } from "./room-table.mjs";
 
@@ -172,17 +171,7 @@ export default function RoomsPage() {
   }
 
   return <div className="campus-app">
-    <nav className="navbar campus-nav">
-      <div className="container"><Link className="navbar-brand" href="/"><Image src="/unical-logo-white.svg" alt="University of Calabria" width={294} height={24} className="navbar-logo" /></Link>
-        <div className="nav-actions">
-          <Link className="btn btn-outline-light btn-sm" href="/">Degree programmes</Link>
-          <Link className="btn btn-outline-light btn-sm" href="/teachers">Teachers</Link>
-          <Link className="btn btn-outline-light btn-sm" href="/courses">Courses</Link>
-          <Link className="btn btn-outline-light btn-sm" href="/data-loader">Data Loader</Link>
-          <Link className="btn btn-outline-light btn-sm" href="/calendar">Open timetable</Link>
-        </div>
-      </div>
-    </nav>
+    <AppNav current="/rooms" />
     <main className="container degrees-main py-4">
       <header className="degrees-heading mb-3">
         <p className="eyebrow mb-2">ACADEMIC PLANNING</p>

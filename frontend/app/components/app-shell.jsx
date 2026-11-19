@@ -4,12 +4,17 @@ import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useState } from "react";
 
+// Single source of truth for the header: every page renders all of these, in
+// this order, so buttons never shift or disappear when navigating.
+export const NAV_LINKS = [["/", "Degree programmes"], ["/rooms", "Rooms"], ["/teachers", "Teachers"], ["/courses", "Courses"], ["/data-loader", "Data Loader"], ["/calendar", "Open timetable"], ["/settings", "Slot configuration"]];
+
 export function AppNav({ current }) {
-  const links = [["/", "Degree programmes"], ["/rooms", "Rooms"], ["/teachers", "Teachers"], ["/courses", "Courses"], ["/data-loader", "Data Loader"], ["/calendar", "Open timetable"], ["/settings", "Slot configuration"]];
   return <nav className="navbar campus-nav">
     <div className="container"><Link className="navbar-brand" href="/"><Image src="/unical-logo-white.svg" alt="University of Calabria" width={294} height={24} className="navbar-logo" /></Link>
       <div className="nav-actions">
-        {links.filter(([href]) => href !== current).map(([href, label]) => <Link key={href} className="btn btn-outline-light btn-sm" href={href}>{label}</Link>)}
+        {NAV_LINKS.map(([href, label]) => <Link key={href}
+          className={`btn btn-outline-light btn-sm${href === current ? " active" : ""}`}
+          aria-current={href === current ? "page" : undefined} href={href}>{label}</Link>)}
       </div>
     </div>
   </nav>;

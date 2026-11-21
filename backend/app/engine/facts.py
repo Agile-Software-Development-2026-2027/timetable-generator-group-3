@@ -52,7 +52,9 @@ def build_problem(session: Session, degree_id: int, semester_id: int | None) -> 
                 time.fromisoformat(block.start), time.fromisoformat(block.end)
             )
 
-    lines: list[str] = []
+    # KAN-53: minimum 15-minute travel buffer, rounded up to whole slots.
+    buffer_slots = (15 + config.block_minutes - 1) // config.block_minutes
+    lines: list[str] = [f"buffer_slots({buffer_slots})."]
     for c in courses:
         lines.extend((
             f"course({c.id},{c.weekly_hours}).",

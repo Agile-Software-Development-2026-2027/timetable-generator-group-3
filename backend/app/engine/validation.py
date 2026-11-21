@@ -1,6 +1,7 @@
 """Independent validation of an ASP solution before replacing database rows."""
 from __future__ import annotations
 
+import re
 from collections import Counter
 
 from app.engine.engine import Solution
@@ -25,7 +26,12 @@ def validate_solution(problem: Problem, solution: Solution) -> None:
     if not solution.scheduled_ids <= courses.keys():
         raise InvalidScheduleError("Solution contains an unknown scheduled course.")
 
+    # Read the buffer emitted by facts.py; default to zero for legacy fixtures.
+    buffer_match = re.search(r"(?m)^buffer_slots\((\d+)\)\.$", problem.facts)
+    buffer_slots = int(buffer_match.group(1)) if buffer_match else 0
+
     counts: Counter[int] = Counter()
+    group_day_assignments: dict[tuple[int, int], list[tuple[int, int]]] = {}
     occupied_rooms: set[tuple[int, int, int]] = set()
     occupied_groups: set[tuple[int, int, int]] = set()
     occupied_teachers: set[tuple[int, int, int]] = set()
@@ -64,6 +70,23 @@ def validate_solution(problem: Problem, solution: Solution) -> None:
         occupied_groups.add(group_slot)
         occupied_teachers.update(teacher_slots)
         counts[course.id] += 1
+        group_day_assignments.setdefault(
+            (course.semester_id, a.day), []
+        ).append((a.slot, room.id))
+
+    # Different rooms require enough intervening slots for the room transition.
+    for (semester_id, day), group_assignments in group_day_assignments.items():
+        ordered = sorted(group_assignments)
+        for index, (first_slot, first_room) in enumerate(ordered):
+            for second_slot, second_room in ordered[index + 1:]:
+                if (
+                    first_room != second_room
+                    and second_slot - first_slot <= buffer_slots
+                ):
+                    raise InvalidScheduleError(
+                        f"Student group {semester_id} violates the room-transition "
+                        f"buffer on day {day} between slots {first_slot} and {second_slot}."
+                    )
 
     for course in problem.courses:
         expected = course.weekly_hours if course.id in solution.scheduled_ids else 0

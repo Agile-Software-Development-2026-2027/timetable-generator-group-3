@@ -1,8 +1,7 @@
 "use client";
 
-import Link from "next/link";
-import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { AppNav } from "../components/app-shell.jsx";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/react/daygrid";
 import timeGridPlugin from "@fullcalendar/react/timegrid";
@@ -11,6 +10,7 @@ import breezyThemePlugin from "@fullcalendar/react/themes/breezy";
 import {
   DEFAULT_SLOT_CONFIG,
   fetchAllSessions,
+  getCalendarVisibleRange,
   getCalendarWeekSettings,
   getResponsiveCalendarView,
 } from "./sessions.mjs";
@@ -544,6 +544,7 @@ export default function TimetablePage() {
     ? Math.round((placedSessionCount / generationResult.total_required_sessions) * 100)
     : 0;
   const { firstDay, hiddenDays } = getCalendarWeekSettings(slotConfig.working_days);
+  const visibleRange = getCalendarVisibleRange(slotConfig);
   const events = visibleSessions.map((item) => {
     const course = courses.find((entry) => entry.id === item.course_id);
     const room = rooms.find((entry) => entry.id === item.room_id);
@@ -576,16 +577,7 @@ export default function TimetablePage() {
   });
 
   return <div className="campus-app calendar-page">
-    <nav className="navbar campus-nav"><div className="container">
-      <Link className="navbar-brand" href="/"><Image src="/unical-logo-white.svg" alt="University of Calabria" width={294} height={24} className="navbar-logo" /></Link>
-      <div className="nav-actions">
-        <Link className="btn btn-outline-light btn-sm" href="/">Degree programmes</Link>
-        <Link className="btn btn-outline-light btn-sm" href="/data-loader">Data Loader</Link>
-        <Link className="btn btn-outline-light btn-sm" href="/rooms">Rooms</Link>
-        <Link className="btn btn-outline-light btn-sm" href="/teachers">Teachers</Link>
-        <Link className="btn btn-outline-light btn-sm" href="/courses">Courses</Link>
-      </div>
-    </div>    </nav>
+    <AppNav current="/calendar" />
     <main className="container timetable-main">
       {courseError && <div className="alert alert-warning timetable-alert" role="status">Could not load courses: {courseError}</div>}
       {scheduleError && <div className="alert alert-warning timetable-alert" role="status">
@@ -736,9 +728,9 @@ export default function TimetablePage() {
           firstDay={firstDay} initialView="timeGridWeek"
           hiddenDays={hiddenDays}
           headerToolbar={{ left: "prev,next today", center: "title", right: "dayGridMonth,timeGridWeek,timeGridDay,listWeek" }}
-          events={events} allDaySlot={false} slotMinTime={slotConfig.start_time}
-          slotMaxTime={slotConfig.end_time} slotMinHeight={48}
-          slotDuration={`${String(Math.floor(slotConfig.block_minutes / 60)).padStart(2, "0")}:${String(slotConfig.block_minutes % 60).padStart(2, "0")}:00`}
+          events={events} allDaySlot={false} slotMinTime={visibleRange.min}
+          slotMaxTime={visibleRange.max} slotDuration="00:30:00" slotHeaderInterval="01:00:00"
+          slotMinHeight={34} slotEventOverlap={false}
           eventClass="timetable-session-event" slotLaneClass="calendar-empty-slot"
           height="auto" nowIndicator
           eventContent={(info) => {

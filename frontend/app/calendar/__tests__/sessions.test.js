@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import {
   getCalendarTimeRange,
+  getCalendarVisibleRange,
   getCalendarWeekSettings,
   getResponsiveCalendarView,
   SESSION_PAGE_SIZE,
@@ -8,6 +9,17 @@ import {
 } from "../sessions.mjs";
 
 const sessions = (count, start = 1) => Array.from({ length: count }, (_, index) => ({ id: start + index }));
+
+describe("getCalendarVisibleRange", () => {
+  it("shows 07:00 to 20:00 for the default slot configuration", () => {
+    expect(getCalendarVisibleRange()).toEqual({ min: "07:00:00", max: "20:00:00" });
+  });
+
+  it("widens to whole hours when the configured day is longer", () => {
+    expect(getCalendarVisibleRange({ start_time: "06:30:00", end_time: "21:15:00" }))
+      .toEqual({ min: "06:00:00", max: "22:00:00" });
+  });
+});
 
 describe("getCalendarTimeRange", () => {
   it("uses the default UniCal slot range when there are no sessions", () => {

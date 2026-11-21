@@ -138,3 +138,36 @@ def test_generation_preserves_outside_scope(client, session, course):
 def test_missing_degree_returns_404(client):
     result = client.post("/timetable/generate", json={"degree_id": 99999})
     assert result.status_code == 404
+
+
+def test_clear_removes_only_selected_degree_and_allows_regenerate(client, session, course):
+    other_degree = Degree(name="Different degree")
+    other_year = Year(number=1, degree=other_degree)
+    other_sem = Semester(number=1, year=other_year)
+    session.add_all([other_degree, other_year, other_sem])
+    session.flush()
+    other = Course(name="Other course", degree_id=other_degree.id,
+                   year_id=other_year.id, semester_id=other_sem.id,
+                   weekly_hours=1, enrolled_students=20)
+    session.add_all([other, Room(code="MT1", capacity=110)])
+    session.flush()
+    session.add(ScheduleSession(course_id=other.id, weekday=0,
+                                start_time=time(9), end_time=time(10)))
+    session.commit()
+
+    generated = client.post("/timetable/generate", json={"degree_id": course.degree_id})
+    assert generated.json()["sessions_created"] == 4
+    assert len(client.get("/timetable/sessions").json()) == 5
+
+    cleared = client.delete(f"/timetable/sessions?degree_id={course.degree_id}")
+    assert cleared.status_code == 204
+    remaining = client.get("/timetable/sessions").json()
+    assert [s["course_id"] for s in remaining] == [other.id]
+
+    regenerated = client.post("/timetable/generate", json={"degree_id": course.degree_id})
+    assert regenerated.json() == {"status": "ok", "sessions_created": 4, "unscheduled": []}
+
+
+def test_clear_requires_existing_degree(client):
+    assert client.delete("/timetable/sessions").status_code == 422
+    assert client.delete("/timetable/sessions?degree_id=99999").status_code == 404

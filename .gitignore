@@ -3,3 +3,5 @@ node_modules/
 timetable.db
 .env
 .env.local
+# Local review notes
+semantic-review/

@@ -30,6 +30,17 @@ function formatHour(hour) {
   return `${String(hour).padStart(2, "0")}:00:00`;
 }
 
+// The calendar always shows at least a full 07:00–20:00 day, widened to whole
+// hours if the slot configuration starts earlier or ends later.
+export const CALENDAR_DAY_START = "07:00:00";
+export const CALENDAR_DAY_END = "20:00:00";
+
+export function getCalendarVisibleRange(config = DEFAULT_SLOT_CONFIG) {
+  const start = Math.min(minutesFromTime(CALENDAR_DAY_START), minutesFromTime(config.start_time));
+  const end = Math.max(minutesFromTime(CALENDAR_DAY_END), minutesFromTime(config.end_time));
+  return { min: formatHour(Math.floor(start / 60)), max: formatHour(Math.min(24, Math.ceil(end / 60))) };
+}
+
 export function getCalendarTimeRange(sessions, config = DEFAULT_SLOT_CONFIG) {
   const startMinutes = minutesFromTime(config.start_time);
   const endMinutes = minutesFromTime(config.end_time);

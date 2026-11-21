@@ -183,10 +183,22 @@ it("explains when no timetable has been generated for the selected degree", asyn
   });
 
   render(<TimetablePage />);
-  fireEvent.change(await screen.findByRole("combobox", { name: "Filter by degree" }), {
-    target: { value: "7" },
+
+  const degreeSelect = await screen.findByRole("combobox", {
+    name: "Filter by degree",
   });
 
-  expect(await screen.findByText("No timetable has been generated for Computer Science"))
-    .toBeInTheDocument();
+  // Wait for degree data to load before checking the empty state.
+  await waitFor(() => {
+    expect(degreeSelect).toHaveValue("7");
+    expect(
+      degreeSelect.querySelector('option[value="7"]')
+    ).toHaveTextContent("Computer Science");
+  });
+
+  expect(
+    await screen.findByText(
+      "No timetable has been generated for Computer Science"
+    )
+  ).toBeInTheDocument();
 });

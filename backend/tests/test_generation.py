@@ -218,3 +218,23 @@ def test_generation_preserves_other_semesters_in_same_degree(client, session, co
     assert len(other_sessions) == 1
     assert other_sessions[0]["weekday"] == 4
     assert other_sessions[0]["start_time"] == "14:00:00"
+
+
+def test_generation_rejects_semester_from_another_degree(client, session, course):
+    other_degree = Degree(name="Mathematics")
+    other_year = Year(number=1, degree=other_degree)
+    other_semester = Semester(number=1, year=other_year)
+
+    session.add(other_degree)
+    session.commit()
+
+    response = client.post(
+        "/timetable/generate",
+        json={
+            "degree_id": course.degree_id,
+            "semester_id": other_semester.id,
+        },
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Semester not found in selected degree."

@@ -19,6 +19,13 @@ H { assign(C,R,D,S) : eligible(C,R), slot(D,S) } H :-
 :- assign(C1,_,D,S), assign(C2,_,D,S), C1 < C2,
    group(C1,G), group(C2,G).
 
+% KAN-53: leave enough travel time when a student group changes rooms.
+% Slots are consecutive integers within each day. Same-room transitions
+% do not require a buffer. This also covers two blocks of the same course.
+:- assign(C1,R1,D,S1), assign(C2,R2,D,S2),
+   group(C1,G), group(C2,G), R1 != R2,
+   buffer_slots(B), S1 < S2, S2 - S1 <= B.
+
 % Teachers may teach multiple courses but never simultaneously.
 :- assign(C1,_,D,S), assign(C2,_,D,S), C1 < C2,
    teaches(T,C1), teaches(T,C2).

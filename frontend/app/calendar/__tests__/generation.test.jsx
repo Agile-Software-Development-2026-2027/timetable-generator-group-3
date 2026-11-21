@@ -84,9 +84,30 @@ describe("Timetable generation", () => {
     );
     render(<TimetablePage />);
 
-    const generateButton = await screen.findByRole("button", { name: "Generate timetable" });
+    const degreeSelect = await screen.findByRole("combobox", {
+      name: "Degree programme",
+    });
+
+    await waitFor(() => {
+      expect(
+        within(degreeSelect).getByRole("option", {
+          name: "Computer Science",
+        })
+      ).toBeInTheDocument();
+    });
+
+    fireEvent.change(degreeSelect, {
+      target: { value: "7" },
+    });
+
+    const generateButton = await screen.findByRole("button", {
+      name: "Generate timetable",
+    });
+
     await waitFor(() => expect(generateButton).toBeEnabled());
+
     expect(screen.getByTestId("calendar")).not.toHaveTextContent("Algorithms");
+
     fireEvent.click(generateButton);
 
     const confirmation = await screen.findByRole("dialog", { name: "Generate a new timetable?" });

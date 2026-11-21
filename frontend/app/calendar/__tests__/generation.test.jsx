@@ -212,7 +212,9 @@ describe("Clear timetable", () => {
     expect(clearButton).toBeDisabled();
 
     expect(
-      global.fetch.mock.calls.some(([, options]) => options?.method === "DELETE")
+      global.fetch.mock.calls.some(
+        ([, options]) => options?.method === "DELETE"
+      )
     ).toBe(false);
   });
 
@@ -220,46 +222,48 @@ describe("Clear timetable", () => {
     mockApi({});
     render(<TimetablePage />);
 
-    fireEvent.click(
-      await screen.findByRole("button", { name: "Generate timetable" })
-    );
-
-    const dialog = await screen.findByRole("dialog", {
-      name: "Generate a new timetable?",
+    // Select the degree directly from the calendar page.
+    const degreeSelect = await screen.findByRole("combobox", {
+      name: "Degree programme",
     });
 
-    const select = within(dialog).getByRole("combobox", {
-      name: "Degree programme *",
+    await waitFor(() => {
+      expect(
+        within(degreeSelect).getByRole("option", {
+          name: "Computer Science",
+        })
+      ).toBeInTheDocument();
     });
 
-    await within(dialog).findByRole("option", {
-      name: "Computer Science",
+    fireEvent.change(degreeSelect, {
+      target: { value: "7" },
     });
 
-    fireEvent.change(select, { target: { value: "7" } });
-
-    fireEvent.click(
-      within(dialog).getByRole("button", {
-        name: "Keep current timetable",
-      })
-    );
-
-    const clearButton = await screen.findByRole("button", {
+    const clearButton = screen.getByRole("button", {
       name: "Clear timetable",
     });
 
-    await waitFor(() => expect(clearButton).toBeEnabled());
+    await waitFor(() => {
+      expect(clearButton).toBeEnabled();
+    });
+
+    // No DELETE request should happen before clicking Clear.
+    expect(
+      global.fetch.mock.calls.some(
+        ([, options]) => options?.method === "DELETE"
+      )
+    ).toBe(false);
 
     fireEvent.click(clearButton);
 
     await waitFor(() => {
-      expect(
-        global.fetch.mock.calls.some(
-          ([url, options]) =>
-            url.includes("/timetable/sessions?degree_id=7") &&
-            options?.method === "DELETE"
-        )
-      ).toBe(true);
+      const deleteCall = global.fetch.mock.calls.find(
+        ([url, options]) =>
+          url.includes("/timetable/sessions?degree_id=7") &&
+          options?.method === "DELETE"
+      );
+
+      expect(deleteCall).toBeDefined();
     });
   });
 
@@ -267,36 +271,44 @@ describe("Clear timetable", () => {
     mockApi({}, { failClear: true });
     render(<TimetablePage />);
 
-    fireEvent.click(
-      await screen.findByRole("button", { name: "Generate timetable" })
-    );
-
-    const dialog = await screen.findByRole("dialog", {
-      name: "Generate a new timetable?",
+    // Select a valid degree before requesting deletion.
+    const degreeSelect = await screen.findByRole("combobox", {
+      name: "Degree programme",
     });
 
-    const select = within(dialog).getByRole("combobox", {
-      name: "Degree programme *",
+    await waitFor(() => {
+      expect(
+        within(degreeSelect).getByRole("option", {
+          name: "Computer Science",
+        })
+      ).toBeInTheDocument();
     });
 
-    await within(dialog).findByRole("option", {
-      name: "Computer Science",
+    fireEvent.change(degreeSelect, {
+      target: { value: "7" },
     });
 
-    fireEvent.change(select, { target: { value: "7" } });
+    const clearButton = screen.getByRole("button", {
+      name: "Clear timetable",
+    });
 
-    fireEvent.click(
-      within(dialog).getByRole("button", {
-        name: "Keep current timetable",
-      })
-    );
+    await waitFor(() => {
+      expect(clearButton).toBeEnabled();
+    });
 
-    fireEvent.click(
-      await screen.findByRole("button", { name: "Clear timetable" })
-    );
+    fireEvent.click(clearButton);
 
+    // API failure must be shown to the user.
     expect(
       await screen.findByText(/Could not clear the timetable/i)
     ).toBeInTheDocument();
+
+    expect(
+      global.fetch.mock.calls.some(
+        ([url, options]) =>
+          url.includes("/timetable/sessions?degree_id=7") &&
+          options?.method === "DELETE"
+      )
+    ).toBe(true);
   });
 });

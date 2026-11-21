@@ -112,3 +112,24 @@ CREATE TABLE schedule_session (
 	FOREIGN KEY(course_id) REFERENCES course (id) ON DELETE CASCADE, 
 	FOREIGN KEY(room_id) REFERENCES room (id) ON DELETE SET NULL
 );
+
+-- Platform role of each Supabase Auth user (KAN-44). `id` is auth.users.id.
+-- The FK to auth.users and the RLS policy exist only here: the `auth` schema
+-- is not available in the SQLite test database used by the backend tests.
+CREATE TABLE app_user (
+	id UUID NOT NULL, 
+	role VARCHAR(16) NOT NULL, 
+	created_at TIMESTAMP WITH TIME ZONE DEFAULT now() NOT NULL, 
+	PRIMARY KEY (id), 
+	CONSTRAINT ck_app_user_role CHECK (role IN ('director', 'teacher', 'student')), 
+	FOREIGN KEY(id) REFERENCES auth.users (id) ON DELETE CASCADE
+);
+
+-- Through the Supabase Data API a logged-in user can only read their own row.
+-- No insert/update/delete policies: roles are assigned by the backend, which
+-- connects as the table owner and is therefore not limited by these policies.
+ALTER TABLE app_user ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY app_user_select_own ON app_user
+	FOR SELECT TO authenticated
+	USING ((SELECT auth.uid()) = id);

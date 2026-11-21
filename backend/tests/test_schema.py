@@ -1,8 +1,10 @@
+import uuid
+
 import pytest
 from sqlalchemy import inspect
 from sqlalchemy.exc import IntegrityError
 
-from app.models import Course, Degree, Room, Semester, Teacher, Year
+from app.models import AppUser, Course, Degree, Room, Semester, Teacher, Year
 
 EXPECTED_TABLES = {
     "degree",
@@ -13,7 +15,22 @@ EXPECTED_TABLES = {
     "room",
     "course_teacher",
     "schedule_session",
+    "app_user",
 }
+
+
+def test_app_user_role_must_be_known(session):
+    session.add(AppUser(id=uuid.uuid4(), role="admin"))
+    with pytest.raises(IntegrityError):
+        session.commit()
+
+
+def test_app_user_gets_created_at_by_default(session):
+    user = AppUser(id=uuid.uuid4(), role="teacher")
+    session.add(user)
+    session.commit()
+    session.refresh(user)
+    assert user.created_at is not None
 
 
 def test_models_create_all_tables(engine):

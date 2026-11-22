@@ -3,18 +3,22 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useState } from "react";
+import { homeFor, navLinksFor } from "../../lib/auth-rules.js";
+import { useAuth } from "./auth-provider.jsx";
 
-// Single source of truth for the header: every page renders all of these, in
-// this order, so buttons never shift or disappear when navigating.
-export const NAV_LINKS = [["/", "Degree programmes"], ["/rooms", "Rooms"], ["/teachers", "Teachers"], ["/courses", "Courses"], ["/data-loader", "Data Loader"], ["/calendar", "Open timetable"], ["/settings", "Slot configuration"]];
-
+// Shows only the links of the signed-in user's role, plus their email and Log out.
 export function AppNav({ current }) {
+  const { role, email, logOut } = useAuth();
   return <nav className="navbar campus-nav">
-    <div className="container"><Link className="navbar-brand" href="/"><Image src="/unical-logo-white.svg" alt="University of Calabria" width={294} height={24} className="navbar-logo" /></Link>
+    <div className="container"><Link className="navbar-brand" href={role ? homeFor(role) : "/"}><Image src="/unical-logo-white.svg" alt="University of Calabria" width={294} height={24} className="navbar-logo" /></Link>
       <div className="nav-actions">
-        {NAV_LINKS.map(([href, label]) => <Link key={href}
+        {navLinksFor(role).map(([href, label]) => <Link key={href}
           className={`btn btn-outline-light btn-sm${href === current ? " active" : ""}`}
           aria-current={href === current ? "page" : undefined} href={href}>{label}</Link>)}
+        {email && <div className="nav-user">
+          <span className="nav-user-email" title={email}>{email}</span>
+          <button type="button" className="btn btn-light btn-sm" onClick={logOut}>Log out</button>
+        </div>}
       </div>
     </div>
   </nav>;

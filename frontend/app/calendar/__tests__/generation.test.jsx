@@ -23,7 +23,7 @@ const response = (data, ok = true, status = 200) =>
   Promise.resolve({
     ok,
     status,
-    text: () => Promise.resolve(JSON.stringify(data)),
+    json: () => Promise.resolve(data),
   });
 
 function mockApi(result, {

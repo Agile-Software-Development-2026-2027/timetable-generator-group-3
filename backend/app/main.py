@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
+from app.auth import router as auth_router
 from app.database import Base, engine
 from app.degrees import router as degrees_router
 from app.rooms import router as rooms_router
@@ -40,6 +41,7 @@ app.add_middleware(
     expose_headers=["X-Total-Count"],
 )
 
+app.include_router(auth_router)
 app.include_router(degrees_router)
 app.include_router(rooms_router)
 app.include_router(teachers_router)

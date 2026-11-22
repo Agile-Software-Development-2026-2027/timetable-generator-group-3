@@ -18,7 +18,7 @@ source of truth.
 
 ## Data model
 
-Six entities and one association table (see `app/models.py`):
+The main entities and one association table (see `app/models.py`):
 
 | Entity   | Key fields                                                                 |
 |----------|----------------------------------------------------------------------------|
@@ -28,6 +28,7 @@ Six entities and one association table (see `app/models.py`):
 | Course   | `name`, `weekly_hours` (>0), `enrolled_students` (>0), `requires_lab`      |
 | Teacher  | `name`, `identifier` (unique)                                              |
 | Room     | `code` (unique), `capacity` (>0), `has_projector`, `has_computers`, `is_lab` |
+| AppUser  | `id` (= Supabase `auth.users.id`), `role` (`director`/`teacher`/`student`) |
 
 Relationships / cardinalities:
 
@@ -135,6 +136,36 @@ by weekday, start time, then id, and paginated with `?page=` (from 1) and
 pages. Every session (also from `POST` and `PUT`) includes `course_name`,
 `degree_name`, `room_code` (`null` without a room), and `teacher_names`, the
 course's teachers from `course_teacher`, sorted by name.
+
+## Authentication
+
+Users log in with Supabase Auth (email + password) in the frontend, which then
+sends the access token to the API as `Authorization: Bearer <JWT>`. Each user's
+role (`director`, `teacher` or `student`) is stored in the `app_user` table,
+whose `id` is the user's `auth.users.id`.
+
+`GET /auth/me` returns `{"id": "<uuid>", "role": "director"}` for the caller.
+It answers `401` when the token is missing, expired or invalid, and `403` when
+the user has no `app_user` row yet.
+
+Protected endpoints add the `get_current_user` dependency from `app/auth.py`,
+which verifies the token's signature, expiry and audience (`authenticated`)
+and, when `SUPABASE_URL` is set, that the token was issued by that project.
+Configure it with `SUPABASE_JWT_SECRET` (legacy HS256 secret) or
+`SUPABASE_JWKS_URL` (asymmetric signing keys); see `.env.example`. The values
+are shared privately by the project maintainer.
+
+To give someone a role, create the user in the Supabase dashboard
+(Authentication -> Users) and add their row:
+
+```sql
+INSERT INTO app_user (id, role)
+SELECT id, 'director' FROM auth.users WHERE email = 'someone@example.com';
+```
+
+In tests, the `make_token` fixture signs tokens with a local test secret and
+`auth_client("teacher")` returns a client logged in as a new user with that
+role, so no test calls Supabase.
 
 ## Manual Data Loader
 

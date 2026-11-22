@@ -1,17 +1,21 @@
 from __future__ import annotations
 
-from datetime import time
+import uuid
+from datetime import datetime, time
 
 from sqlalchemy import (
     Boolean,
     CheckConstraint,
     Column,
+    DateTime,
     ForeignKey,
     Integer,
     String,
     Table,
     Time,
     UniqueConstraint,
+    Uuid,
+    func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -232,4 +236,27 @@ class SlotConfig(Base):
     __table_args__ = (
         CheckConstraint("block_minutes > 0", name="ck_slot_block_minutes_positive"),
         CheckConstraint("id = 1", name="ck_slot_config_singleton"),
+    )
+
+
+class AppUser(Base):
+    """Role of a Supabase Auth user in this platform.
+
+    `id` is the same UUID as `auth.users.id` in Supabase. The foreign key to
+    `auth.users` and the Row Level Security policy only exist in schema.sql:
+    the `auth` schema is not available in the SQLite test database.
+    """
+
+    __tablename__ = "app_user"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True)
+    role: Mapped[str] = mapped_column(String(16), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "role IN ('director', 'teacher', 'student')", name="ck_app_user_role"
+        ),
     )

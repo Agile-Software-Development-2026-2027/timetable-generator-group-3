@@ -4,8 +4,7 @@ import { useEffect, useState } from "react";
 import { AppNav } from "../components/app-shell.jsx";
 import { emptyRoomForm, featureFlags, roomFeatures, roomFormErrors, roomFormFromRoom, roomPayload, roomsPath } from "./room-form.mjs";
 import { defaultSort, nextSort, pageNumbers, pageSizes, paginate, searchRooms, sortRooms } from "./room-table.mjs";
-
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+import { apiRequest as request } from "../../lib/api.js";
 const noFilters = { has_projector: false, has_computers: false, is_lab: false };
 const sortIndicators = { asc: "▲", desc: "▼" };
 
@@ -43,21 +42,6 @@ export default function RoomsPage() {
     const timeout = window.setTimeout(() => setNotification(null), 5000);
     return () => window.clearTimeout(timeout);
   }, [notification]);
-
-  async function request(path, options) {
-    const response = await fetch(`${API}${path}`, {
-      ...options,
-      headers: { "Content-Type": "application/json", ...options?.headers },
-    });
-    if (!response.ok) {
-      const body = await response.json();
-      const detail = Array.isArray(body.detail)
-        ? body.detail.map((issue) => issue.msg).join(" ")
-        : body.detail;
-      throw new Error(detail || "Request failed.");
-    }
-    return response.status === 204 ? null : response.json();
-  }
 
   async function refresh(activeFilters = filters) {
     try {

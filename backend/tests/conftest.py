@@ -1,12 +1,30 @@
+import time
+import uuid
+
+import jwt
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 
 from app import models  # noqa: F401  (register tables on Base.metadata)
+from app.config import Settings, get_settings
 from app.database import Base, get_session
 from app.main import app
-from app.models import Course, Degree, Semester, Year
+from app.models import AppUser, Course, Degree, Semester, Year
+
+# Tests sign their own tokens with this secret: no calls to Supabase.
+# 32+ bytes so PyJWT does not warn about a short HMAC key.
+TEST_JWT_SECRET = "test-only-jwt-secret-0123456789-abcdef"
+# Every auth setting is passed explicitly so a developer's .env or shell
+# variables (e.g. a real SUPABASE_URL) never change how tests verify tokens.
+TEST_SETTINGS = Settings(
+    _env_file=None,
+    supabase_url="",
+    supabase_jwt_secret=TEST_JWT_SECRET,
+    supabase_jwks_url="",
+    supabase_jwt_audience="authenticated",
+)
 
 
 @pytest.fixture()
@@ -49,9 +67,50 @@ def client(session_factory):
             db.close()
 
     app.dependency_overrides[get_session] = override_get_session
+    app.dependency_overrides[get_settings] = lambda: TEST_SETTINGS
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()
+
+
+@pytest.fixture()
+def make_token():
+    """Build a Supabase-like access token: make_token(user_id, expires_in=...)."""
+
+    def _make_token(
+        sub,
+        *,
+        secret=TEST_JWT_SECRET,
+        expires_in=3600,
+        audience="authenticated",
+        **extra_claims,
+    ):
+        now = int(time.time())
+        claims = {
+            "sub": str(sub),
+            "aud": audience,
+            "role": "authenticated",
+            "iat": now,
+            "exp": now + expires_in,
+            **extra_claims,
+        }
+        return jwt.encode(claims, secret, algorithm="HS256")
+
+    return _make_token
+
+
+@pytest.fixture()
+def auth_client(client, session, make_token):
+    """auth_client("director") -> a TestClient logged in as a new user with that role."""
+
+    def _auth_client(role):
+        user = AppUser(id=uuid.uuid4(), role=role)
+        session.add(user)
+        session.commit()
+        token = make_token(user.id)
+        return TestClient(app, headers={"Authorization": f"Bearer {token}"})
+
+    return _auth_client
 
 
 @pytest.fixture()

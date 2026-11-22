@@ -1,19 +1,4 @@
-export const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-
-export async function request(path, options) {
-  const response = await fetch(`${API}${path}`, {
-    ...options,
-    headers: { "Content-Type": "application/json", ...options?.headers },
-  });
-  if (!response.ok) {
-    const body = await response.json().catch(() => ({}));
-    const detail = Array.isArray(body.detail)
-      ? body.detail.map((issue) => issue.msg).join(" ")
-      : body.detail;
-    throw new Error(detail || "Request failed.");
-  }
-  return response.status === 204 ? null : response.json();
-}
+export { apiRequest as request } from "../../lib/api.js";
 
 export const emptyTeacherForm = { name: "", identifier: "", course_ids: [] };
 

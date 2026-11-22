@@ -9,6 +9,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.database import get_session
+from app.auth import require_role
 from app.engine.engine import solve
 from app.engine.facts import build_problem
 from app.engine.reasons import unscheduled_course_reason
@@ -35,7 +36,11 @@ class GenerateResult(BaseModel):
     unscheduled: list[Unscheduled]
 
 
-@router.post("/timetable/generate", response_model=GenerateResult)
+@router.post(
+    "/timetable/generate",
+    response_model=GenerateResult,
+    dependencies=[Depends(require_role("director"))],
+)
 def generate_timetable(payload: GenerateInput, session: Database):
     if session.get(Degree, payload.degree_id) is None:
         raise HTTPException(404, "Degree not found.")

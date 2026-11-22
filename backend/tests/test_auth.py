@@ -8,7 +8,7 @@ from cryptography.hazmat.primitives.asymmetric import ec
 from app import auth
 from app.config import Settings, get_settings
 from app.main import app
-from app.models import AppUser
+from app.models import AppUser, Degree
 
 
 def _use_settings(**overrides):
@@ -153,3 +153,15 @@ def test_missing_auth_configuration_returns_500(client, make_token):
     _use_settings()
 
     assert _get_me(client, make_token(uuid.uuid4())).status_code == 500
+
+def test_director_degree_relationship(session):
+    user = _add_user(session, role="director")
+    degree = Degree(name="Computer Science")
+
+    user.degrees.append(degree)
+    session.commit()
+
+    saved_user = session.get(AppUser, user.id)
+
+    assert len(saved_user.degrees) == 1
+    assert saved_user.degrees[0].name == "Computer Science"

@@ -46,7 +46,7 @@ const sessions = courses.map((course, index) => ({
 const response = (data) => Promise.resolve({
   ok: true,
   status: 200,
-  text: () => Promise.resolve(JSON.stringify(data)),
+  json: () => Promise.resolve(data),
 });
 
 afterEach(() => {

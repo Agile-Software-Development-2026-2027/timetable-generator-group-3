@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+import { apiRequest } from "../../../lib/api.js";
 const MAX_SIZE = 256 * 1024;
 
 // The API uses {file, database}; support older preview payloads as well.
@@ -87,14 +86,7 @@ export default function SeedImporter({ onImported }) {
   }
   async function send(endpoint) {
     const url = endpoint === "import" && reuseRooms ? "import?reuse_existing_rooms=true" : endpoint;
-    const response = await fetch(`${API}/seed/${url}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(dataset),
-    });
-    const body = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(body.detail || `Request failed (${response.status}).`);
-    return body;
+    return apiRequest(`/seed/${url}`, { method: "POST", body: JSON.stringify(dataset) });
   }
   async function verify() {
     setBusy(true); setError(""); setSuccess(""); setPreview(null);

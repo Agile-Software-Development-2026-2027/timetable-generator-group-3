@@ -105,6 +105,17 @@ def get_current_user(
 
     return CurrentUser(id=user.id, role=user.role)
 
+def require_role(*roles: Role):
+    """Require the current user to have one of the specified roles."""
+
+    def role_checker(
+        user: Annotated[CurrentUser, Depends(get_current_user)],
+    ) -> CurrentUser:
+        if user.role not in roles:
+            raise HTTPException(403, "Insufficient permissions")
+        return user
+
+    return role_checker
 
 @router.get("/me")
 def read_current_user(

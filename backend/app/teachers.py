@@ -6,6 +6,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.database import get_session
+from app.auth import require_role
 from app.models import Course, Semester, Teacher, Year
 
 router = APIRouter(tags=["teachers"])
@@ -111,7 +112,7 @@ def ensure_unique_identifier(
 teacher_courses = selectinload(Teacher.courses).joinedload(Course.semester)
 
 
-@router.get("/teachers", response_model=list[TeacherView])
+@router.get("/teachers", response_model=list[TeacherView], dependencies=[Depends(require_role("director", "teacher", "student"))])
 def list_teachers(session: Database) -> list[TeacherView]:
     query = (
         select(Teacher)
@@ -123,7 +124,7 @@ def list_teachers(session: Database) -> list[TeacherView]:
     return [teacher_view(teacher) for teacher in session.scalars(query)]
 
 
-@router.post("/teachers", response_model=TeacherView, status_code=201)
+@router.post("/teachers", response_model=TeacherView, status_code=201, dependencies=[Depends(require_role("director"))])
 def create_teacher(data: TeacherInput, session: Database) -> TeacherView:
     ensure_unique_identifier(data.identifier, session)
     teacher = Teacher(name=data.name, identifier=data.identifier)
@@ -133,12 +134,12 @@ def create_teacher(data: TeacherInput, session: Database) -> TeacherView:
     return get_teacher(teacher.id, session)
 
 
-@router.get("/teachers/{teacher_id}", response_model=TeacherView)
+@router.get("/teachers/{teacher_id}", response_model=TeacherView, dependencies=[Depends(require_role("director", "teacher", "student"))])
 def get_teacher(teacher_id: int, session: Database) -> TeacherView:
     return teacher_view(load_teacher(teacher_id, session))
 
 
-@router.put("/teachers/{teacher_id}", response_model=TeacherView)
+@router.put("/teachers/{teacher_id}", response_model=TeacherView, dependencies=[Depends(require_role("director"))])
 def update_teacher(
     teacher_id: int, data: TeacherInput, session: Database
 ) -> TeacherView:
@@ -152,7 +153,7 @@ def update_teacher(
     return get_teacher(teacher_id, session)
 
 
-@router.delete("/teachers/{teacher_id}", status_code=204)
+@router.delete("/teachers/{teacher_id}", status_code=204, dependencies=[Depends(require_role("director"))])
 def delete_teacher(teacher_id: int, session: Database, force: bool = False) -> None:
     teacher = load_teacher(teacher_id, session)
     assigned = len(teacher.courses)
@@ -174,12 +175,12 @@ def load_course(course_id: int, session: Session) -> Course:
     return course
 
 
-@router.get("/courses/{course_id}/teachers", response_model=CourseTeachersView)
+@router.get("/courses/{course_id}/teachers", response_model=CourseTeachersView, dependencies=[Depends(require_role("director", "teacher", "student"))])
 def get_course_teachers(course_id: int, session: Database) -> CourseTeachersView:
     return course_view(load_course(course_id, session))
 
 
-@router.put("/courses/{course_id}/teachers", response_model=CourseTeachersView)
+@router.put("/courses/{course_id}/teachers", response_model=CourseTeachersView, dependencies=[Depends(require_role("director"))])
 def assign_course_teachers(
     course_id: int, data: CourseAssignment, session: Database
 ) -> CourseTeachersView:

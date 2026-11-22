@@ -21,8 +21,8 @@ def test_get_returns_default_config(client):
     assert body["working_days"] == [0, 1, 2, 3, 4]
     assert body["start_time"] == "09:00"
     assert body["end_time"] == "18:00"
-    assert body["block_minutes"] == 60
-    assert body["blocks_per_day"] == 9
+    assert body["block_minutes"] == 30
+    assert body["blocks_per_day"] == 18
     assert body["working_day_names"] == [
         "Monday", "Tuesday", "Wednesday", "Thursday", "Friday"
     ]

@@ -6,6 +6,8 @@ from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session, joinedload
 
+from app.auth import require_role 
+
 from app.database import get_session
 from app.models import Course, Degree, Year, Semester, ScheduleSession
 
@@ -137,7 +139,11 @@ def ensure_unique_name(
         )
 
 
-@router.get("", response_model=list[CourseView])
+@router.get(
+    "",
+    response_model=list[CourseView],
+    dependencies=[Depends(require_role("director", "teacher", "student"))],
+)
 def list_courses(
     session: Database,
     degree_id: int | None = None,
@@ -170,7 +176,12 @@ def list_courses(
     return [course_view(course) for course in session.scalars(query)]
 
 
-@router.post("", response_model=CourseView, status_code=201)
+@router.post(
+    "",
+    response_model=CourseView,
+    status_code=201,
+    dependencies=[Depends(require_role("director"))],
+)
 def create_course(data: CourseInput, session: Database) -> CourseView:
 
     validate_academic_structure(data, session)
@@ -185,13 +196,21 @@ def create_course(data: CourseInput, session: Database) -> CourseView:
     return course_view(load_course(course.id, session))
 
 
-@router.get("/{course_id}", response_model=CourseView)
+@router.get(
+    "/{course_id}",
+    response_model=CourseView,
+    dependencies=[Depends(require_role("director", "teacher", "student"))],
+)
 def get_course(course_id: int, session: Database) -> CourseView:
 
     return course_view(load_course(course_id, session))
 
 
-@router.put("/{course_id}", response_model=CourseView)
+@router.put(
+    "/{course_id}",
+    response_model=CourseView,
+    dependencies=[Depends(require_role("director"))],
+)
 def update_course(
     course_id: int,
     data: CourseInput,
@@ -217,7 +236,11 @@ def update_course(
     return course_view(load_course(course_id, session))
 
 
-@router.delete("/{course_id}", status_code=204)
+@router.delete(
+    "/{course_id}",
+    status_code=204,
+    dependencies=[Depends(require_role("director"))],
+)
 def delete_course(
     course_id: int,
     session: Database,

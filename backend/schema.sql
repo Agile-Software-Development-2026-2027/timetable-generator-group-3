@@ -125,6 +125,14 @@ CREATE TABLE app_user (
 	FOREIGN KEY(id) REFERENCES auth.users (id) ON DELETE CASCADE
 );
 
+CREATE TABLE director_degree (
+    user_id UUID NOT NULL,
+    degree_id INTEGER NOT NULL,
+    PRIMARY KEY (user_id, degree_id),
+    FOREIGN KEY(user_id) REFERENCES app_user (id) ON DELETE CASCADE,
+    FOREIGN KEY(degree_id) REFERENCES degree (id) ON DELETE CASCADE
+);
+
 -- Through the Supabase Data API a logged-in user can only read their own row.
 -- No insert/update/delete policies: roles are assigned by the backend, which
 -- connects as the table owner and is therefore not limited by these policies.

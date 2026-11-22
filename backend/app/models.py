@@ -36,6 +36,20 @@ course_teacher = Table(
     ),
 )
 
+director_degree = Table(
+    "director_degree",
+    Base.metadata,
+    Column(
+        "user_id",
+        ForeignKey("app_user.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column(
+        "degree_id",
+        ForeignKey("degree.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+)
 
 class Degree(Base):
     __tablename__ = "degree"
@@ -48,6 +62,10 @@ class Degree(Base):
         cascade="all, delete-orphan",
         order_by="Year.number",
     )
+    directors: Mapped[list["AppUser"]] = relationship(
+    secondary=director_degree,
+    back_populates="degrees",
+)
 
     __table_args__ = (
         CheckConstraint("length(trim(name)) > 0", name="ck_degree_name_not_empty"),
@@ -125,7 +143,7 @@ class Course(Base):
 
     semester: Mapped["Semester"] = relationship(back_populates="courses")
     teachers: Mapped[list["Teacher"]] = relationship(
-        secondary=course_teacher,
+        secondary=,
         back_populates="courses",
     )
 
@@ -254,6 +272,11 @@ class AppUser(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+
+    degrees: Mapped[list["Degree"]] = relationship(
+    secondary=director_degree,
+    back_populates="directors",
+)
 
     __table_args__ = (
         CheckConstraint(

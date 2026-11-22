@@ -5,12 +5,20 @@ from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
+from app.auth import CurrentUser, require_role
 from app.database import get_session
 from app.models import Course, Degree, Semester, Year
 
 router = APIRouter(prefix="/degrees", tags=["degrees"])
 Database = Annotated[Session, Depends(get_session)]
-
+AllRoles = Annotated[
+    CurrentUser,
+    Depends(require_role("director", "teacher", "student")),
+]
+DirectorOnly = Annotated[
+    CurrentUser,
+    Depends(require_role("director")),
+]
 
 def ensure_unique_degree_name(
     name: str, session: Session, degree_id: int | None = None
@@ -60,7 +68,11 @@ class DegreeView(BaseModel):
     years: list[YearView]
 
 
-@router.get("", response_model=list[DegreeSummary])
+@router.get(
+    "",
+    response_model=list[DegreeSummary],
+    dependencies=[Depends(require_role("director", "teacher", "student"))],
+)
 def list_degrees(session: Database) -> list[DegreeSummary]:
     rows = session.execute(
         select(Degree, func.count(Course.id))
@@ -79,7 +91,12 @@ def list_degrees(session: Database) -> list[DegreeSummary]:
     ]
 
 
-@router.post("", response_model=DegreeView, status_code=201)
+@router.post(
+    "",
+    response_model=DegreeView,
+    status_code=201,
+    dependencies=[Depends(require_role("director"))],
+)
 def create_degree(data: DegreeInput, session: Database) -> DegreeView:
     ensure_unique_degree_name(data.name, session)
     degree = Degree(name=data.name)
@@ -98,7 +115,11 @@ def create_degree(data: DegreeInput, session: Database) -> DegreeView:
     return get_degree(degree.id, session)
 
 
-@router.get("/{degree_id}", response_model=DegreeView)
+@router.get(
+    "/{degree_id}",
+    response_model=DegreeView,
+    dependencies=[Depends(require_role("director", "teacher", "student"))],
+)
 def get_degree(degree_id: int, session: Database) -> DegreeView:
     degree = session.scalar(
         select(Degree)
@@ -153,7 +174,11 @@ def get_degree(degree_id: int, session: Database) -> DegreeView:
     )
 
 
-@router.put("/{degree_id}", response_model=DegreeView)
+@router.put(
+    "/{degree_id}",
+    response_model=DegreeView,
+    dependencies=[Depends(require_role("director"))],
+)
 def update_degree(degree_id: int, data: DegreeInput, session: Database) -> DegreeView:
     degree = session.get(Degree, degree_id)
     if degree is None:
@@ -215,7 +240,11 @@ def update_degree(degree_id: int, data: DegreeInput, session: Database) -> Degre
     return get_degree(degree_id, session)
 
 
-@router.delete("/{degree_id}", status_code=204)
+@router.delete(
+    "/{degree_id}",
+    status_code=204,
+    dependencies=[Depends(require_role("director"))],
+)
 def delete_degree(degree_id: int, session: Database) -> None:
     degree = session.get(Degree, degree_id)
     if degree is None:

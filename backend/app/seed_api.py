@@ -1,11 +1,12 @@
 """JSON seed preview and import endpoints for trusted local development only."""
 import json
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import inspect
 from sqlalchemy.exc import IntegrityError
 
 from app.database import SessionLocal, engine
+from app.auth import require_role
 from app.seed.seed_sample_data import REQUIRED_TABLES, load_dataset, room_differences, validate
 
 router = APIRouter(prefix="/seed", tags=["sample data"])
@@ -39,7 +40,10 @@ def summary(data):
     }
 
 
-@router.post("/validate")
+@router.post(
+    "/validate",
+    dependencies=[Depends(require_role("director"))],
+)
 async def preview(request: Request):
     data = await parse_dataset(request)
     with SessionLocal() as session:
@@ -49,7 +53,10 @@ async def preview(request: Request):
             "note": "Database room differences require explicit confirmation; existing room records are never overwritten."}
 
 
-@router.post("/import")
+@router.post(
+    "/import",
+    dependencies=[Depends(require_role("director"))],
+)
 async def import_dataset(request: Request, reuse_existing_rooms: bool = False):
     data = await parse_dataset(request)
     missing = REQUIRED_TABLES - set(inspect(engine).get_table_names())
@@ -69,7 +76,10 @@ async def import_dataset(request: Request, reuse_existing_rooms: bool = False):
 
 
 # Read-only catalogue for the Data Loader.
-@router.get("/records")
+@router.get(
+    "/records",
+    dependencies=[Depends(require_role("director"))],
+)
 def list_imported_records(degree_id: int | None = None):
     from sqlalchemy import select
     from sqlalchemy.orm import selectinload

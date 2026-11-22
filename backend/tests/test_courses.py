@@ -1,6 +1,6 @@
 import pytest
 
-from app.models import Course, ScheduleSession
+from app.models import Course, Degree, ScheduleSession, Semester, Year
 from datetime import time
 
 
@@ -236,3 +236,28 @@ def test_delete_unknown_course_returns_404(client):
 
     assert response.status_code == 404
 
+
+def test_update_course_rejects_year_from_another_degree(
+    client, session, course
+):
+    other_degree = Degree(name="Mathematics")
+    other_year = Year(number=1, degree=other_degree)
+    other_semester = Semester(number=1, year=other_year)
+
+    session.add(other_degree)
+    session.commit()
+
+    response = client.put(
+        f"/courses/{course.id}",
+        json=course_payload(
+            course,
+            year_id=other_year.id,
+            semester_id=other_semester.id,
+        ),
+    )
+
+    assert response.status_code == 400
+
+    unchanged = client.get(f"/courses/{course.id}")
+    assert unchanged.status_code == 200
+    assert unchanged.json()["degree_id"] == course.degree_id

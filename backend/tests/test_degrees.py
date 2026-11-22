@@ -93,3 +93,19 @@ def test_delete_degree(client):
     created = client.post("/degrees", json={"name": "History", "years": 1}).json()
     assert client.delete(f"/degrees/{created['id']}").status_code == 204
     assert client.get(f"/degrees/{created['id']}").status_code == 404
+
+
+def test_list_degrees_keeps_course_counts_separate(client, course):
+    created = client.post(
+        "/degrees",
+        json={"name": "Mathematics", "years": 1},
+    )
+    assert created.status_code == 201
+
+    response = client.get("/degrees")
+    assert response.status_code == 200
+
+    degrees = {degree["name"]: degree for degree in response.json()}
+
+    assert degrees["Computer Science"]["courses"] == 1
+    assert degrees["Mathematics"]["courses"] == 0

@@ -171,3 +171,70 @@ def test_clear_removes_only_selected_degree_and_allows_regenerate(client, sessio
 def test_clear_requires_existing_degree(client):
     assert client.delete("/timetable/sessions").status_code == 422
     assert client.delete("/timetable/sessions?degree_id=99999").status_code == 404
+
+
+def test_generation_preserves_other_semesters_in_same_degree(client, session, course):
+    room = Room(code="MT1", capacity=110, is_lab=False, has_projector=True)
+    other_semester = Semester(number=2, year_id=course.year_id)
+    session.add_all([room, other_semester])
+    session.flush()
+
+    other_course = Course(
+        name="Other semester course",
+        degree_id=course.degree_id,
+        year_id=course.year_id,
+        semester_id=other_semester.id,
+        weekly_hours=2,
+        enrolled_students=30,
+    )
+    session.add(other_course)
+    session.flush()
+
+    existing_session = ScheduleSession(
+        course_id=other_course.id,
+        room_id=room.id,
+        weekday=4,
+        start_time=time(14),
+        end_time=time(16),
+    )
+    session.add(existing_session)
+    session.commit()
+
+    result = client.post(
+        "/timetable/generate",
+        json={
+            "degree_id": course.degree_id,
+            "semester_id": course.semester_id,
+        },
+    )
+
+    assert result.status_code == 200, result.text
+
+    saved = client.get("/timetable/sessions").json()
+    other_sessions = [
+        item for item in saved if item["course_id"] == other_course.id
+    ]
+
+    assert len(other_sessions) == 1
+    assert other_sessions[0]["weekday"] == 4
+    assert other_sessions[0]["start_time"] == "14:00:00"
+
+
+def test_generation_rejects_semester_from_another_degree(client, session, course):
+    other_degree = Degree(name="Mathematics")
+    other_year = Year(number=1, degree=other_degree)
+    other_semester = Semester(number=1, year=other_year)
+
+    session.add(other_degree)
+    session.commit()
+
+    response = client.post(
+        "/timetable/generate",
+        json={
+            "degree_id": course.degree_id,
+            "semester_id": other_semester.id,
+        },
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Semester not found in selected degree."

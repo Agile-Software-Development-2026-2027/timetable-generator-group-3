@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session, contains_eager, joinedload
 
+from app.auth import CurrentUser, require_role
 from app.database import get_session
 from app.models import Course, Degree, Room, ScheduleSession, course_teacher
 
@@ -73,7 +74,11 @@ def get_session_view(session_id: int, session: Session) -> SessionView:
     return session_view(*row)
 
 
-@router.get("/timetable/sessions", response_model=list[SessionView])
+@router.get(
+    "/timetable/sessions",
+    response_model=list[SessionView],
+    dependencies=[Depends(require_role("director", "teacher", "student"))],
+)
 def list_sessions(
     session: Database,
     response: Response,
@@ -146,7 +151,12 @@ def save_session(
     return record
 
 
-@router.post("/timetable/sessions", response_model=SessionView, status_code=201)
+@router.post(
+    "/timetable/sessions",
+    response_model=SessionView,
+    status_code=201,
+    dependencies=[Depends(require_role("director"))],
+)
 def create_session(data: SessionInput, session: Database) -> SessionView:
     record = save_session(ScheduleSession(), data, session)
     session.add(record)
@@ -154,7 +164,11 @@ def create_session(data: SessionInput, session: Database) -> SessionView:
     return get_session_view(record.id, session)
 
 
-@router.put("/timetable/sessions/{session_id}", response_model=SessionView)
+@router.put(
+    "/timetable/sessions/{session_id}",
+    response_model=SessionView,
+    dependencies=[Depends(require_role("director"))],
+)
 def update_session(
     session_id: int,
     data: SessionInput,
@@ -171,7 +185,11 @@ def update_session(
     return get_session_view(session_id, session)
 
 
-@router.delete("/timetable/sessions", status_code=204)
+@router.delete(
+    "/timetable/sessions",
+    status_code=204,
+    dependencies=[Depends(require_role("director"))],
+)
 def clear_sessions(
     session: Database,
     degree_id: Annotated[int, Query(gt=0)],
@@ -190,7 +208,11 @@ def clear_sessions(
     session.commit()
 
 
-@router.delete("/timetable/sessions/{session_id}", status_code=204)
+@router.delete(
+    "/timetable/sessions/{session_id}",
+    status_code=204,
+    dependencies=[Depends(require_role("director"))],
+)
 def delete_session(session_id: int, session: Database) -> None:
     record = session.get(ScheduleSession, session_id)
 

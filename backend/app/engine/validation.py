@@ -1,7 +1,6 @@
 """Independent validation of an ASP solution before replacing database rows."""
 from __future__ import annotations
 
-import re
 from collections import Counter
 
 from app.engine.engine import Solution
@@ -26,9 +25,7 @@ def validate_solution(problem: Problem, solution: Solution) -> None:
     if not solution.scheduled_ids <= courses.keys():
         raise InvalidScheduleError("Solution contains an unknown scheduled course.")
 
-    # Read the buffer emitted by facts.py; default to zero for legacy fixtures.
-    buffer_match = re.search(r"(?m)^buffer_slots\((\d+)\)\.$", problem.facts)
-    buffer_slots = int(buffer_match.group(1)) if buffer_match else 0
+    buffer_slots = problem.buffer_slots
 
     counts: Counter[int] = Counter()
     group_day_assignments: dict[tuple[int, int], list[tuple[int, int]]] = {}

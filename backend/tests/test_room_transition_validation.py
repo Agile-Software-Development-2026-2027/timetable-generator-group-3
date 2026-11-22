@@ -1,4 +1,4 @@
-﻿from datetime import time
+from datetime import time
 from types import SimpleNamespace
 
 import pytest
@@ -42,7 +42,8 @@ def make_problem(courses, rooms, slot_count=3, buffer_slots=1, day_count=1):
         courses=courses,
         rooms=rooms,
         slots=slots,
-        facts=f"buffer_slots({buffer_slots}).",
+        facts="",
+        buffer_slots=buffer_slots,
         group_capacity={
             course.semester_id: len(slots)
             for course in courses

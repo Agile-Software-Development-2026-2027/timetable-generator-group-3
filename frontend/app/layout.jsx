@@ -3,6 +3,7 @@ import "@fullcalendar/react/skeleton.css";
 import "@fullcalendar/react/themes/breezy/theme.css";
 import "@fullcalendar/react/themes/breezy/palettes/emerald.css";
 import "./style.css";
+import { AuthProvider } from "./components/auth-provider.jsx";
 
 export const metadata = {
   title: "University of Calabria | Timetable Generator",
@@ -10,5 +11,5 @@ export const metadata = {
 };
 
 export default function RootLayout({ children }) {
-  return <html lang="en" suppressHydrationWarning><body>{children}</body></html>;
+  return <html lang="en" suppressHydrationWarning><body><AuthProvider>{children}</AuthProvider></body></html>;
 }

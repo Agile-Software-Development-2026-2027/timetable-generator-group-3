@@ -18,6 +18,7 @@ class Problem:
     slots: dict[tuple[int, int], tuple[time, time]]
     facts: str
     group_capacity: dict[int, int]
+    buffer_slots: int = 0
     busy_rooms: set[tuple[int, int, int]] = field(default_factory=set)
     busy_teachers: set[tuple[int, int, int]] = field(default_factory=set)
     busy_groups: set[tuple[int, int, int]] = field(default_factory=set)
@@ -107,4 +108,5 @@ def build_problem(session: Session, degree_id: int, semester_id: int | None) -> 
     return Problem(
         courses, rooms, slots, "\n".join(lines), group_capacity,
         busy_rooms=busy_rooms, busy_teachers=busy_teachers, busy_groups=busy_groups,
+        buffer_slots=buffer_slots,
     )

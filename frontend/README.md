@@ -24,14 +24,42 @@ npm run dev
 Open [http://localhost:3000](http://localhost:3000) in a browser. The frontend
 uses `http://localhost:8000` as its default backend API URL.
 
-To use a different backend URL, create a `.env.local` file in the `frontend`
-directory:
+Copy `.env.example` to `.env.local` in the `frontend` directory and fill it in:
 
 ```dotenv
 NEXT_PUBLIC_API_URL=http://localhost:8000
+NEXT_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
 ```
 
-Replace the example URL as needed, then restart the frontend server.
+The Supabase values are shared privately by the project maintainer; without
+them the login page explains that login is not configured. Restart the
+frontend server after changing `.env.local`.
+
+## Login and roles
+
+Every page except `/login` and `/set-password` needs a signed-in user.
+`/login` signs in with Supabase (`signInWithPassword`); the Supabase client in
+`lib/supabase.js` keeps the session and refreshes the token. The app then calls
+`GET /auth/me` and sends each role to its home page:
+
+| Role     | Home            | Can open                                                                               |
+|----------|-----------------|----------------------------------------------------------------------------------------|
+| director | `/`             | `/`, `/rooms`, `/courses`, `/calendar`, `/settings`, `/data-loader`, `/teachers`, `/users` |
+| teacher  | `/my-schedule`  | `/my-schedule` (placeholder until KAN-58)                                              |
+| student  | `/my-timetable` | `/my-timetable` (placeholder until KAN-59)                                             |
+
+Opening another role's page redirects to your own home; no session, an expired
+token (`401`) or an account without a role (`403`) redirects to `/login`. Wrong
+credentials always show "Email or password is incorrect". The header shows only
+your role's links, your email, and a Log out button.
+
+All API calls go through `apiRequest` in `lib/api.js`, which adds
+`Authorization: Bearer <access token>`. The rules for redirects and links are in
+`lib/auth-rules.js`; `app/components/auth-provider.jsx` applies them on every page.
+
+Invite emails should link to `/set-password`: Supabase signs the invited user in
+from the link, and they choose the password they log in with.
 
 ## Pages
 
@@ -39,6 +67,9 @@ Replace the example URL as needed, then restart the frontend server.
   inspect years and semesters, and create, edit, or delete degrees.
 - `/calendar` — View scheduled classes by month, week, or day, inspect a class's
   room and teacher details, and generate a timetable for a degree programme.
+- `/login` — Log in with email and password.
+- `/set-password` — Choose a password after accepting an invite.
+- `/my-schedule`, `/my-timetable` — Teacher and student home pages (placeholders).
 
 ### Calendar and timetable generation
 

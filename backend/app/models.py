@@ -143,7 +143,7 @@ class Course(Base):
 
     semester: Mapped["Semester"] = relationship(back_populates="courses")
     teachers: Mapped[list["Teacher"]] = relationship(
-        secondary=,
+        secondary=course_teacher,
         back_populates="courses",
     )
 

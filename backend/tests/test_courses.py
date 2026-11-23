@@ -241,7 +241,7 @@ def test_delete_unknown_course_returns_404(director_client):
 
 
 def test_update_course_rejects_year_from_another_degree(
-    client, session, course
+    director_client, session, course
 ):
     other_degree = Degree(name="Mathematics")
     other_year = Year(number=1, degree=other_degree)
@@ -250,7 +250,7 @@ def test_update_course_rejects_year_from_another_degree(
     session.add(other_degree)
     session.commit()
 
-    response = client.put(
+    response = director_client.put(
         f"/courses/{course.id}",
         json=course_payload(
             course,
@@ -261,6 +261,6 @@ def test_update_course_rejects_year_from_another_degree(
 
     assert response.status_code == 400
 
-    unchanged = client.get(f"/courses/{course.id}")
+    unchanged = director_client.get(f"/courses/{course.id}")
     assert unchanged.status_code == 200
     assert unchanged.json()["degree_id"] == course.degree_id

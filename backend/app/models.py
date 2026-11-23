@@ -249,7 +249,7 @@ class SlotConfig(Base):
     end_time: Mapped[time] = mapped_column(
         Time, nullable=False, default=time(18, 0)
     )
-    block_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=60)
+    block_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=30)
 
     __table_args__ = (
         CheckConstraint("block_minutes > 0", name="ck_slot_block_minutes_positive"),

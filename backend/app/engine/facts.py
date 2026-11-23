@@ -42,7 +42,7 @@ def build_problem(session: Session, degree_id: int, semester_id: int | None) -> 
         # Same defaults as KAN-14, 
         config = SlotConfig(id=1, working_days="[0,1,2,3,4]",
                             start_time=time(9, 0), end_time=time(18, 0),
-                            block_minutes=60)
+                            block_minutes=30)
         # Use in-memory defaults without inserting configuration during generation.
     grid = _build_grid(config)
     slots: dict[tuple[int, int], tuple[time, time]] = {}

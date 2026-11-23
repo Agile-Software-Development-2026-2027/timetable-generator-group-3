@@ -1,9 +1,8 @@
 """Human-readable explanations for courses omitted from a generated timetable."""
 from __future__ import annotations
 
-
 from app.engine.engine import Solution
-from app.engine.facts import Problem
+from app.engine.facts import Problem, start_slots
 from app.models import Course, Room
 
 Slot = tuple[int, int]
@@ -57,6 +56,32 @@ def _solution_assignments(solution: Solution | None):
     return solution.assignments if solution is not None else []
 
 
+def _covered(problem: Problem, assignment) -> list[Slot]:
+    """Every (day, slot) block of a scheduled session (KAN-52)."""
+    return problem.covered_slots(assignment.course_id, assignment.day, assignment.slot)
+
+
+def _need_text(problem: Problem, course: Course) -> str:
+    """How much grid time a course needs, in the clearest unit."""
+    blocks = problem.blocks_of(course.id)
+    sessions = problem.sessions_of(course)
+    if blocks == 1 and sessions == course.weekly_hours:
+        return f"{course.weekly_hours} weekly hours"
+    return f"{sessions * blocks} slots ({sessions} sessions of {blocks} slots)"
+
+
+def _fitting_sessions(problem: Problem, course: Course, starts: list[Slot]) -> int:
+    """Most non-overlapping sessions that can start in `starts` (greedy per day)."""
+    blocks = problem.blocks_of(course.id)
+    count = 0
+    next_free: dict[int, int] = {}
+    for day, slot in sorted(starts):
+        if slot >= next_free.get(day, slot):
+            count += 1
+            next_free[day] = slot + blocks
+    return count
+
+
 def unscheduled_course_reason(
     problem: Problem,
     course: Course,
@@ -79,11 +104,22 @@ def unscheduled_course_reason(
         # wording ("No suitable room available") when no clearer diagnosis fits.
         return _room_constraint_reason(course, problem.rooms)
 
+    # KAN-52: a session needs `blocks` consecutive slots on one day.
+    blocks = problem.blocks_of(course.id)
+    sessions = problem.sessions_of(course)
+    grid_starts = start_slots(problem.slots, blocks)
+    if not grid_starts:
+        return _reason(
+            "Session length",
+            f"A session of {blocks} consecutive slots does not fit in one day of the grid.",
+        )
+
     slots = set(problem.slots)
     semester_courses = [
         item for item in problem.courses if item.semester_id == course.semester_id
     ]
-    semester_required = sum(item.weekly_hours for item in semester_courses)
+    semester_required = sum(problem.required_blocks(item) for item in semester_courses)
+    semester_hours = sum(item.weekly_hours for item in semester_courses)
     externally_busy_group_slots: set[Slot] = {
         (day, slot)
         for semester_id, day, slot in problem.busy_groups
@@ -92,30 +128,38 @@ def unscheduled_course_reason(
     group_grid_capacity = len(slots - externally_busy_group_slots)
     if semester_required > group_grid_capacity:
         available_slot_label = "slot" if group_grid_capacity == 1 else "slots"
-        required_slot_label = "hour" if semester_required == 1 else "hours"
+        if semester_required == semester_hours:
+            required_label = "hour" if semester_required == 1 else "hours"
+            needed = f"{semester_required} weekly {required_label}"
+        else:
+            needed = f"{semester_required} slots"
         return _reason(
             "Grid capacity",
             f"Grid has {group_grid_capacity} {available_slot_label}; this semester "
-            f"needs {semester_required} weekly {required_slot_label}.",
+            f"needs {needed}.",
         )
 
     assignments = _solution_assignments(solution)
     courses_by_id = {item.id: item for item in problem.courses}
+    needed_blocks = problem.required_blocks(course)
 
-    for teacher in course.teachers:
+    def teacher_busy_slots(teacher) -> set[Slot]:
         busy_slots = {
             (day, slot)
             for teacher_id, day, slot in problem.busy_teachers
             if teacher_id == teacher.id
         }
-        busy_slots.update(
-            (assignment.day, assignment.slot)
-            for assignment in assignments
-            if assignment.course_id != course.id
-            and teacher in courses_by_id[assignment.course_id].teachers
-        )
-        free_count = len(slots - busy_slots)
-        if free_count < course.weekly_hours:
+        for assignment in assignments:
+            if (
+                assignment.course_id != course.id
+                and teacher in courses_by_id[assignment.course_id].teachers
+            ):
+                busy_slots.update(_covered(problem, assignment))
+        return busy_slots
+
+    for teacher in course.teachers:
+        free_count = len(slots - teacher_busy_slots(teacher))
+        if free_count < needed_blocks:
             if free_count == 0:
                 return _reason(
                     "Teacher availability",
@@ -124,22 +168,22 @@ def unscheduled_course_reason(
             return _reason(
                 "Teacher availability",
                 f"{teacher.name} has {free_count} free slots; course needs "
-                f"{course.weekly_hours} weekly hours.",
+                f"{_need_text(problem, course)}.",
             )
 
-    group_busy_slots = externally_busy_group_slots | {
-        (assignment.day, assignment.slot)
-        for assignment in assignments
-        if courses_by_id[assignment.course_id].semester_id == course.semester_id
-    }
+    group_busy_slots = set(externally_busy_group_slots)
+    for assignment in assignments:
+        if courses_by_id[assignment.course_id].semester_id == course.semester_id:
+            group_busy_slots.update(_covered(problem, assignment))
     group_free_slots = slots - group_busy_slots
-    if len(group_free_slots) < course.weekly_hours:
+    if len(group_free_slots) < needed_blocks:
         return _reason(
             "Grid capacity",
             f"Semester has {len(group_free_slots)} free slots; course needs "
-            f"{course.weekly_hours} weekly hours.",
+            f"{_need_text(problem, course)}.",
         )
 
+    room_busy: dict[int, set[Slot]] = {}
     room_free_slots: set[Slot] = set()
     room_free_counts: list[tuple[Room, int]] = []
     for room in eligible_rooms:
@@ -148,15 +192,14 @@ def unscheduled_course_reason(
             for room_id, day, slot in problem.busy_rooms
             if room_id == room.id
         }
-        busy_slots.update(
-            (assignment.day, assignment.slot)
-            for assignment in assignments
-            if assignment.room_id == room.id
-        )
+        for assignment in assignments:
+            if assignment.room_id == room.id:
+                busy_slots.update(_covered(problem, assignment))
+        room_busy[room.id] = busy_slots
         free_slots = slots - busy_slots
         room_free_slots.update(free_slots)
         room_free_counts.append((room, len(free_slots)))
-    if len(room_free_slots) < course.weekly_hours:
+    if len(room_free_slots) < needed_blocks:
         availability = ", ".join(
             f"{room.code} ({free_count} free)"
             for room, free_count in room_free_counts
@@ -168,70 +211,63 @@ def unscheduled_course_reason(
 
     mutually_free_slots = group_free_slots & room_free_slots
     for teacher in course.teachers:
-        teacher_busy = {
-            (day, slot)
-            for teacher_id, day, slot in problem.busy_teachers
-            if teacher_id == teacher.id
-        }
-        teacher_busy.update(
-            (assignment.day, assignment.slot)
-            for assignment in assignments
-            if assignment.course_id != course.id
-            and teacher in courses_by_id[assignment.course_id].teachers
-        )
-        mutually_free_slots -= teacher_busy
-    if len(mutually_free_slots) < course.weekly_hours:
+        mutually_free_slots -= teacher_busy_slots(teacher)
+    if len(mutually_free_slots) < needed_blocks:
         return _reason(
             "Combined availability",
             f"No common free slots for {course.name} across its teacher, room, "
             "and semester.",
         )
 
-    # Check whether the remaining candidate slots are blocked by room transitions.
+    # KAN-52: enough free slots in total, but are there enough consecutive ones?
+    def covered_from(day: int, slot: int) -> list[Slot]:
+        return problem.covered_slots(course.id, day, slot)
+
+    free_starts = [
+        (day, slot) for day, slot in grid_starts
+        if all(block in mutually_free_slots for block in covered_from(day, slot))
+    ]
+    if _fitting_sessions(problem, course, free_starts) < sessions:
+        return _reason(
+            "Session length",
+            f"Not enough free periods of {blocks} consecutive slots for "
+            f"{sessions} sessions of {course.name}.",
+        )
+
+    # Check whether the remaining candidate starts are blocked by room transitions.
     # Use the same buffer value as the ASP model and independent validator.
     buffer_slots = problem.buffer_slots
 
     if buffer_slots > 0 and solution is not None:
-        transition_available_slots: set[Slot] = set()
+        other_group_blocks = [
+            (day, slot, assignment.room_id)
+            for assignment in assignments
+            if assignment.course_id != course.id
+            and assignment.course_id in courses_by_id
+            and courses_by_id[assignment.course_id].semester_id == course.semester_id
+            for day, slot in _covered(problem, assignment)
+        ]
 
-        for day, slot in mutually_free_slots:
-            can_use_a_room = False
+        def room_fits(room, day: int, start: int) -> bool:
+            covered = covered_from(day, start)
+            # The room must be free for every block of the session.
+            if any(block in room_busy[room.id] for block in covered):
+                return False
+            # Another course of the same group in a different room must leave
+            # the travel buffer before and after the session.
+            first, last = covered[0][1], covered[-1][1]
+            return not any(
+                other_day == day
+                and other_room != room.id
+                and first - buffer_slots <= other_slot <= last + buffer_slots
+                for other_day, other_slot, other_room in other_group_blocks
+            )
 
-            for room in eligible_rooms:
-                # A room already occupied at this time cannot be used.
-                if (room.id, day, slot) in problem.busy_rooms:
-                    continue
-
-                room_is_occupied = any(
-                    assignment.room_id == room.id
-                    and assignment.day == day
-                    and assignment.slot == slot
-                    for assignment in assignments
-                )
-                if room_is_occupied:
-                    continue
-
-                # Check whether another course in the same semester
-                # requires a different room within the transition buffer.
-                room_is_blocked = any(
-                    assignment.course_id != course.id
-                    and courses_by_id[assignment.course_id].semester_id
-                    == course.semester_id
-                    and assignment.day == day
-                    and assignment.room_id != room.id
-                    and abs(assignment.slot - slot) <= buffer_slots
-                    for assignment in assignments
-                    if assignment.course_id in courses_by_id
-                )
-
-                if not room_is_blocked:
-                    can_use_a_room = True
-                    break
-
-            if can_use_a_room:
-                transition_available_slots.add((day, slot))
-
-        if len(transition_available_slots) < course.weekly_hours:
+        transition_starts = [
+            (day, slot) for day, slot in free_starts
+            if any(room_fits(room, day, slot) for room in eligible_rooms)
+        ]
+        if _fitting_sessions(problem, course, transition_starts) < sessions:
             return "Room transition: no slot leaves 15 minutes to change rooms."
 
     if solution is not None and solution.timed_out:

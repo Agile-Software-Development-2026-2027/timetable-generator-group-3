@@ -49,7 +49,7 @@ function mockApi(result, {
     if (url.includes("/timetable/sessions")) {
       return response(generationComplete && sessionAfterGeneration ? [sessionAfterGeneration] : []);
     }
-    if (url.endsWith("/slot-config")) return response({ working_days: [0, 1, 2, 3, 4], start_time: "09:00:00", end_time: "18:00:00", block_minutes: 60 });
+    if (url.endsWith("/slot-config")) return response({ working_days: [0, 1, 2, 3, 4], start_time: "09:00:00", end_time: "18:00:00", block_minutes: 30 });
     if (url.endsWith("/timetable/generate") && options?.method === "POST") {
       generationComplete = true;
       return response(result);

@@ -67,7 +67,7 @@ it("filters calendar sessions by degree, year, and semester", async () => {
       working_days: [0, 1, 2, 3, 4],
       start_time: "09:00:00",
       end_time: "18:00:00",
-      block_minutes: 60,
+      block_minutes: 30,
     });
     return response([]);
   });
@@ -139,7 +139,7 @@ it("searches visible sessions by course, room, or teacher and explains when ther
       working_days: [0, 1, 2, 3, 4],
       start_time: "09:00:00",
       end_time: "18:00:00",
-      block_minutes: 60,
+      block_minutes: 30,
     });
     return response([]);
   });
@@ -177,7 +177,7 @@ it("explains when no timetable has been generated for the selected degree", asyn
       working_days: [0, 1, 2, 3, 4],
       start_time: "09:00:00",
       end_time: "18:00:00",
-      block_minutes: 60,
+      block_minutes: 30,
     });
     return response([]);
   });

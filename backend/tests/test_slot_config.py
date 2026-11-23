@@ -18,8 +18,8 @@ def put(director_client, **kwargs):
 
 # ── GET: default config is created lazily ────────────────────────────────────
 
-def test_get_returns_default_config(client):
-    r = client.get("/slot-config")
+def test_get_returns_default_config(director_client):
+    r = director_client.get("/slot-config")
     assert r.status_code == 200
     body = r.json()
     assert body["working_days"] == [0, 1, 2, 3, 4]
@@ -32,9 +32,9 @@ def test_get_returns_default_config(client):
     ]
 
 
-def test_get_is_idempotent(client):
-    client.get("/slot-config")
-    r = client.get("/slot-config")
+def test_get_is_idempotent(director_client):
+    director_client.get("/slot-config")
+    r = director_client.get("/slot-config")
     assert r.status_code == 200
 
 

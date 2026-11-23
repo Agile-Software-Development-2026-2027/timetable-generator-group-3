@@ -1,3 +1,5 @@
+import pytest
+
 def session_payload(course_id, **overrides):
     return {
         "course_id": course_id,
@@ -66,3 +68,5 @@ def test_missing_session_returns_404(client, course):
 
     assert response.status_code == 404
     assert client.delete("/timetable/sessions/999").status_code == 404
+
+pytestmark = pytest.mark.usefixtures("legacy_director_client")

@@ -297,3 +297,63 @@ class AppUser(Base):
             "role IN ('director', 'teacher', 'student')", name="ck_app_user_role"
         ),
     )
+
+
+class PublishedSession(Base):
+    """Published timetable snapshot visible to teachers and students."""
+
+    __tablename__ = "published_session"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    degree_id: Mapped[int] = mapped_column(
+        ForeignKey("degree.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    course_id: Mapped[int] = mapped_column(
+        ForeignKey("course.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    room_id: Mapped[int | None] = mapped_column(
+        ForeignKey("room.id", ondelete="SET NULL"),
+    )
+    weekday: Mapped[int] = mapped_column(Integer, nullable=False)
+    start_time: Mapped[time] = mapped_column(Time, nullable=False)
+    end_time: Mapped[time] = mapped_column(Time, nullable=False)
+
+    course: Mapped["Course"] = relationship()
+    room: Mapped["Room | None"] = relationship()
+    degree: Mapped["Degree"] = relationship()
+
+    __table_args__ = (
+        CheckConstraint(
+            "weekday BETWEEN 0 AND 6",
+            name="ck_published_weekday",
+        ),
+        CheckConstraint(
+            "start_time < end_time",
+            name="ck_published_time_order",
+        ),
+    )
+
+
+class TimetablePublication(Base):
+    """Latest publication metadata for each degree."""
+
+    __tablename__ = "timetable_publication"
+
+    degree_id: Mapped[int] = mapped_column(
+        ForeignKey("degree.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    published_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    published_by: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("app_user.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+
+    degree: Mapped["Degree"] = relationship()
+    publisher: Mapped["AppUser"] = relationship()

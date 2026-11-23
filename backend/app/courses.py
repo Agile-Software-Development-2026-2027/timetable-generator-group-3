@@ -7,7 +7,8 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.database import get_session
-from app.models import Course, Degree, Year, Semester, ScheduleSession, SlotConfig
+from app.models import Course, Degree, Year, Semester, ScheduleSession
+from app.slot_config import get_block_minutes
 
 router = APIRouter(prefix="/courses", tags=["courses"])
 Database = Annotated[Session, Depends(get_session)]
@@ -120,8 +121,7 @@ def course_view(course: Course) -> CourseView:
 def validate_duration_against_grid(
     data: CourseInput, session: Session
 ) -> None:
-    config = session.get(SlotConfig, 1)
-    block_minutes = config.block_minutes if config else 30
+    block_minutes = get_block_minutes(session)
 
     if data.session_duration_minutes % block_minutes != 0:
         raise HTTPException(

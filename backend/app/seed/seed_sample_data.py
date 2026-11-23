@@ -14,7 +14,8 @@ from sqlalchemy import inspect, select
 from sqlalchemy.orm import Session
 
 from app.database import SessionLocal, engine
-from app.models import Course, Degree, Room, Semester, Teacher, Year, SlotConfig
+from app.models import Course, Degree, Room, Semester, Teacher, Year
+from app.slot_config import get_block_minutes
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
 REQUIRED_TABLES = {"degree", "year", "semester", "course", "teacher", "course_teacher", "room"}
@@ -141,8 +142,7 @@ def room_differences(session: Session, data: dict) -> list[dict]:
 
 
 def validate_course_grid(session: Session, data: dict):
-    config = session.get(SlotConfig, 1)
-    block_minutes = config.block_minutes if config else 30
+    block_minutes = get_block_minutes(session)
 
     for course in data["courses"]:
         duration = course.get("session_duration_minutes", 60)

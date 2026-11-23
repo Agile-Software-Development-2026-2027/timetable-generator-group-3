@@ -4,18 +4,27 @@ import json
 from datetime import time
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, field_validator, model_validator
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.database import get_session
-from app.models import SlotConfig
+from app.models import Course, SlotConfig
 
 router = APIRouter(prefix="/slot-config", tags=["slot-config"])
 Database = Annotated[Session, Depends(get_session)]
 
 WEEKDAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 CONFIG_ID = 1
+DEFAULT_BLOCK_MINUTES = 30
+
+
+def get_block_minutes(session: Session) -> int:
+    """Return the configured block size, or the default if unset."""
+    config = session.get(SlotConfig, CONFIG_ID)
+    return config.block_minutes if config else DEFAULT_BLOCK_MINUTES
+
 
 
 class SlotConfigInput(BaseModel):
@@ -85,7 +94,7 @@ def _load_or_create(session: Session) -> SlotConfig:
             working_days="[0,1,2,3,4]",
             start_time=time(9, 0),
             end_time=time(18, 0),
-            block_minutes=30,
+            block_minutes=DEFAULT_BLOCK_MINUTES,
         )
         session.add(config)
         session.commit()
@@ -135,6 +144,31 @@ def get_slot_config(session: Database) -> SlotConfigView:
 
 @router.put("", response_model=SlotConfigView)
 def update_slot_config(data: SlotConfigInput, session: Database) -> SlotConfigView:
+    incompatible = session.execute(
+        select(
+            Course.id,
+            Course.name,
+            Course.session_duration_minutes,
+        )
+        .where(
+            Course.session_duration_minutes % data.block_minutes != 0
+        )
+        .order_by(Course.id)
+        .limit(1)
+    ).first()
+
+    if incompatible is not None:
+        course_id, name, duration = incompatible
+        raise HTTPException(
+            status_code=422,
+            detail=(
+                f"Cannot set grid block to {data.block_minutes} minutes: "
+                f"course '{name}' (ID {course_id}) has a "
+                f"{duration}-minute session, which is not a "
+                "multiple of the proposed block size."
+            ),
+        )
+
     config = _load_or_create(session)
     config.working_days = json.dumps(data.working_days)
     config.start_time = data.start_time

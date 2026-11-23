@@ -2,6 +2,10 @@ import pytest
 
 from app.models import Room, ScheduleSession
 
+@pytest.fixture
+def director_client(auth_client):
+    return auth_client("director")
+    
 LECTURE_HALL = {
     "code": "MT1",
     "capacity": 110,
@@ -25,14 +29,14 @@ SEMINAR_ROOM = {
 }
 
 
-def create_room(client, **overrides):
-    response = client.post("/rooms", json={**LECTURE_HALL, **overrides})
+def create_room(director_client, **overrides):
+    response = director_client.post("/rooms", json={**LECTURE_HALL, **overrides})
     assert response.status_code == 201, response.text
     return response.json()
 
 
-def schedule(client, course_id, room_id):
-    response = client.post(
+def schedule(director_client, course_id, room_id):
+    response = director_client.post(
         "/timetable/sessions",
         json={
             "course_id": course_id,
@@ -56,8 +60,8 @@ def error_text(response) -> str:
 # --- Create -------------------------------------------------------------------
 
 
-def test_create_room_returns_all_fields(client):
-    response = client.post("/rooms", json=PC_LAB)
+def test_create_room_returns_all_fields(director_client):
+    response = director_client.post("/rooms", json=PC_LAB)
 
     assert response.status_code == 201
     body = response.json()
@@ -65,8 +69,8 @@ def test_create_room_returns_all_fields(client):
     assert body == {**PC_LAB, "scheduled_sessions": 0}
 
 
-def test_create_room_persists_it(client, session):
-    room = create_room(client)
+def test_create_room_persists_it(director_client, session):
+    room = create_room(director_client)
 
     stored = session.get(Room, room["id"])
     assert stored.code == "MT1"
@@ -74,8 +78,8 @@ def test_create_room_persists_it(client, session):
     assert stored.has_projector is True
 
 
-def test_feature_flags_default_to_false(client):
-    response = client.post("/rooms", json={"code": "MT2", "capacity": 48})
+def test_feature_flags_default_to_false(director_client):
+    response = director_client.post("/rooms", json={"code": "MT2", "capacity": 48})
 
     assert response.status_code == 201
     body = response.json()
@@ -84,27 +88,27 @@ def test_feature_flags_default_to_false(client):
     assert body["is_lab"] is False
 
 
-def test_room_code_is_trimmed(client):
-    room = create_room(client, code="  MT5bis  ")
+def test_room_code_is_trimmed(director_client):
+    room = create_room(director_client, code="  MT5bis  ")
 
     assert room["code"] == "MT5bis"
 
 
 @pytest.mark.parametrize("code", ["", "   "])
-def test_blank_room_code_is_rejected(client, code):
-    response = client.post("/rooms", json={**LECTURE_HALL, "code": code})
+def test_blank_room_code_is_rejected(director_client, code):
+    response = director_client.post("/rooms", json={**LECTURE_HALL, "code": code})
 
     assert response.status_code == 422
 
 
-def test_overlong_room_code_is_rejected(client):
-    response = client.post("/rooms", json={**LECTURE_HALL, "code": "X" * 256})
+def test_overlong_room_code_is_rejected(director_client):
+    response = director_client.post("/rooms", json={**LECTURE_HALL, "code": "X" * 256})
 
     assert response.status_code == 422
 
 
-def test_missing_capacity_is_rejected(client):
-    response = client.post("/rooms", json={"code": "MT2"})
+def test_missing_capacity_is_rejected(director_client):
+    response = director_client.post("/rooms", json={"code": "MT2"})
 
     assert response.status_code == 422
 
@@ -128,17 +132,17 @@ def test_missing_capacity_is_rejected(client):
         ([40], "Capacity must be a whole number."),
     ],
 )
-def test_invalid_capacity_is_rejected_with_clear_message(client, capacity, message):
-    response = client.post("/rooms", json={**LECTURE_HALL, "capacity": capacity})
+def test_invalid_capacity_is_rejected_with_clear_message(director_client, capacity, message):
+    response = director_client.post("/rooms", json={**LECTURE_HALL, "capacity": capacity})
 
     assert response.status_code == 422
     assert message in error_text(response)
-    assert client.get("/rooms").json() == []
+    assert director_client.get("/rooms").json() == []
 
 
 @pytest.mark.parametrize(("capacity", "stored"), [(1, 1), ("40", 40), (" 40 ", 40), (60.0, 60)])
-def test_numeric_capacity_is_accepted(client, capacity, stored):
-    room = create_room(client, capacity=capacity)
+def test_numeric_capacity_is_accepted(director_client, capacity, stored):
+    room = create_room(director_client, capacity=capacity)
 
     assert room["capacity"] == stored
 
@@ -146,21 +150,21 @@ def test_numeric_capacity_is_accepted(client, capacity, stored):
 # --- Duplicates ---------------------------------------------------------------
 
 
-def test_duplicate_room_code_is_rejected(client):
-    create_room(client)
+def test_duplicate_room_code_is_rejected(director_client):
+    create_room(director_client)
 
-    response = client.post("/rooms", json={**LECTURE_HALL, "capacity": 20})
+    response = director_client.post("/rooms", json={**LECTURE_HALL, "capacity": 20})
 
     assert response.status_code == 409
     assert response.json()["detail"] == "A room with this code already exists."
-    assert len(client.get("/rooms").json()) == 1
+    assert len(director_client.get("/rooms").json()) == 1
 
 
 @pytest.mark.parametrize("code", ["mt1", " MT1 ", "Mt1"])
-def test_duplicate_detection_ignores_case_and_spacing(client, code):
-    create_room(client)
+def test_duplicate_detection_ignores_case_and_spacing(director_client, code):
+    create_room(director_client)
 
-    response = client.post("/rooms", json={**LECTURE_HALL, "code": code})
+    response = director_client.post("/rooms", json={**LECTURE_HALL, "code": code})
 
     assert response.status_code == 409
 
@@ -168,18 +172,18 @@ def test_duplicate_detection_ignores_case_and_spacing(client, code):
 # --- List and filter ----------------------------------------------------------
 
 
-def test_list_is_empty_initially(client):
-    response = client.get("/rooms")
+def test_list_is_empty_initially(director_client):
+    response = director_client.get("/rooms")
 
     assert response.status_code == 200
     assert response.json() == []
 
 
-def test_list_shows_code_capacity_and_features_sorted_by_code(client):
+def test_list_shows_code_capacity_and_features_sorted_by_code(director_client):
     for room in (SEMINAR_ROOM, PC_LAB, LECTURE_HALL):
-        create_room(client, **room)
+        create_room(director_client, **room)
 
-    rooms = client.get("/rooms").json()
+    rooms = director_client.get("/rooms").json()
 
     assert [room["code"] for room in rooms] == ["LAB-A", "MT1", "MT8"]
     lab = rooms[0]
@@ -200,44 +204,44 @@ def test_list_shows_code_capacity_and_features_sorted_by_code(client):
         ("has_projector=false&has_computers=true", []),
     ],
 )
-def test_list_filters_by_feature(client, query, expected):
+def test_list_filters_by_feature(director_client, query, expected):
     for room in (SEMINAR_ROOM, PC_LAB, LECTURE_HALL):
-        create_room(client, **room)
+        create_room(director_client, **room)
 
-    rooms = client.get(f"/rooms?{query}").json()
+    rooms = director_client.get(f"/rooms?{query}").json()
 
     assert [room["code"] for room in rooms] == expected
 
 
-def test_invalid_filter_value_is_rejected(client):
-    response = client.get("/rooms?is_lab=maybe")
+def test_invalid_filter_value_is_rejected(director_client):
+    response = director_client.get("/rooms?is_lab=maybe")
 
     assert response.status_code == 422
 
 
-def test_list_counts_scheduled_sessions(client, course):
-    used = create_room(client)
-    create_room(client, **SEMINAR_ROOM)
-    schedule(client, course.id, used["id"])
-    schedule(client, course.id, used["id"])
+def test_list_counts_scheduled_sessions(director_client, course):
+    used = create_room(director_client)
+    create_room(director_client, **SEMINAR_ROOM)
+    schedule(director_client, course.id, used["id"])
+    schedule(director_client, course.id, used["id"])
 
-    counts = {room["code"]: room["scheduled_sessions"] for room in client.get("/rooms").json()}
+    counts = {room["code"]: room["scheduled_sessions"] for room in director_client.get("/rooms").json()}
 
     assert counts == {"MT1": 2, "MT8": 0}
 
 
-def test_get_room(client, course):
-    room = create_room(client)
-    schedule(client, course.id, room["id"])
+def test_get_room(director_client, course):
+    room = create_room(director_client)
+    schedule(director_client, course.id, room["id"])
 
-    response = client.get(f"/rooms/{room['id']}")
+    response = director_client.get(f"/rooms/{room['id']}")
 
     assert response.status_code == 200
     assert response.json() == {**room, "scheduled_sessions": 1}
 
 
-def test_get_missing_room_returns_404(client):
-    response = client.get("/rooms/999")
+def test_get_missing_room_returns_404(director_client):
+    response = director_client.get("/rooms/999")
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Room not found."
@@ -246,42 +250,42 @@ def test_get_missing_room_returns_404(client):
 # --- Update -------------------------------------------------------------------
 
 
-def test_update_changes_every_field(client):
-    room = create_room(client)
+def test_update_changes_every_field(director_client):
+    room = create_room(director_client)
 
-    response = client.put(f"/rooms/{room['id']}", json=PC_LAB)
+    response = director_client.put(f"/rooms/{room['id']}", json=PC_LAB)
 
     assert response.status_code == 200
     assert response.json() == {"id": room["id"], **PC_LAB, "scheduled_sessions": 0}
-    assert client.get(f"/rooms/{room['id']}").json()["code"] == "LAB-A"
+    assert director_client.get(f"/rooms/{room['id']}").json()["code"] == "LAB-A"
 
 
-def test_update_can_keep_the_same_code(client):
-    room = create_room(client)
+def test_update_can_keep_the_same_code(director_client):
+    room = create_room(director_client)
 
-    response = client.put(f"/rooms/{room['id']}", json={**LECTURE_HALL, "capacity": 120})
+    response = director_client.put(f"/rooms/{room['id']}", json={**LECTURE_HALL, "capacity": 120})
 
     assert response.status_code == 200
     assert response.json()["capacity"] == 120
 
 
-def test_update_can_change_the_case_of_its_own_code(client):
-    room = create_room(client)
+def test_update_can_change_the_case_of_its_own_code(director_client):
+    room = create_room(director_client)
 
-    response = client.put(f"/rooms/{room['id']}", json={**LECTURE_HALL, "code": "mt1"})
+    response = director_client.put(f"/rooms/{room['id']}", json={**LECTURE_HALL, "code": "mt1"})
 
     assert response.status_code == 200
     assert response.json()["code"] == "mt1"
 
 
-def test_update_to_another_rooms_code_is_rejected(client):
-    create_room(client)
-    other = create_room(client, **SEMINAR_ROOM)
+def test_update_to_another_rooms_code_is_rejected(director_client):
+    create_room(director_client)
+    other = create_room(director_client, **SEMINAR_ROOM)
 
-    response = client.put(f"/rooms/{other['id']}", json={**SEMINAR_ROOM, "code": "mt1"})
+    response = director_client.put(f"/rooms/{other['id']}", json={**SEMINAR_ROOM, "code": "mt1"})
 
     assert response.status_code == 409
-    assert client.get(f"/rooms/{other['id']}").json()["code"] == "MT8"
+    assert director_client.get(f"/rooms/{other['id']}").json()["code"] == "MT8"
 
 
 @pytest.mark.parametrize(
@@ -292,35 +296,35 @@ def test_update_to_another_rooms_code_is_rejected(client):
         ("lots", "Capacity must be a whole number."),
     ],
 )
-def test_update_validates_capacity_like_create(client, capacity, message):
-    room = create_room(client)
+def test_update_validates_capacity_like_create(director_client, capacity, message):
+    room = create_room(director_client)
 
-    response = client.put(f"/rooms/{room['id']}", json={**LECTURE_HALL, "capacity": capacity})
+    response = director_client.put(f"/rooms/{room['id']}", json={**LECTURE_HALL, "capacity": capacity})
 
     assert response.status_code == 422
     assert message in error_text(response)
-    assert client.get(f"/rooms/{room['id']}").json()["capacity"] == 110
+    assert director_client.get(f"/rooms/{room['id']}").json()["capacity"] == 110
 
 
-def test_update_rejects_blank_code(client):
-    room = create_room(client)
+def test_update_rejects_blank_code(director_client):
+    room = create_room(director_client)
 
-    response = client.put(f"/rooms/{room['id']}", json={**LECTURE_HALL, "code": " "})
+    response = director_client.put(f"/rooms/{room['id']}", json={**LECTURE_HALL, "code": " "})
 
     assert response.status_code == 422
 
 
-def test_update_missing_room_returns_404(client):
-    response = client.put("/rooms/999", json=LECTURE_HALL)
+def test_update_missing_room_returns_404(director_client):
+    response = director_client.put("/rooms/999", json=LECTURE_HALL)
 
     assert response.status_code == 404
 
 
-def test_update_keeps_scheduled_sessions(client, course):
-    room = create_room(client)
-    schedule(client, course.id, room["id"])
+def test_update_keeps_scheduled_sessions(director_client, course):
+    room = create_room(director_client)
+    schedule(director_client, course.id, room["id"])
 
-    response = client.put(f"/rooms/{room['id']}", json={**LECTURE_HALL, "capacity": 90})
+    response = director_client.put(f"/rooms/{room['id']}", json={**LECTURE_HALL, "capacity": 90})
 
     assert response.json()["scheduled_sessions"] == 1
 
@@ -328,67 +332,67 @@ def test_update_keeps_scheduled_sessions(client, course):
 # --- Delete -------------------------------------------------------------------
 
 
-def test_delete_unused_room(client):
-    room = create_room(client)
+def test_delete_unused_room(director_client):
+    room = create_room(director_client)
 
-    response = client.delete(f"/rooms/{room['id']}")
+    response = director_client.delete(f"/rooms/{room['id']}")
 
     assert response.status_code == 204
-    assert client.get(f"/rooms/{room['id']}").status_code == 404
-    assert client.get("/rooms").json() == []
+    assert director_client.get(f"/rooms/{room['id']}").status_code == 404
+    assert director_client.get("/rooms").json() == []
 
 
-def test_delete_missing_room_returns_404(client):
-    response = client.delete("/rooms/999")
+def test_delete_missing_room_returns_404(director_client):
+    response = director_client.delete("/rooms/999")
 
     assert response.status_code == 404
 
 
-def test_delete_room_used_by_timetable_warns_first(client, course):
-    room = create_room(client)
-    schedule(client, course.id, room["id"])
-    schedule(client, course.id, room["id"])
+def test_delete_room_used_by_timetable_warns_first(director_client, course):
+    room = create_room(director_client)
+    schedule(director_client, course.id, room["id"])
+    schedule(director_client, course.id, room["id"])
 
-    response = client.delete(f"/rooms/{room['id']}")
+    response = director_client.delete(f"/rooms/{room['id']}")
 
     assert response.status_code == 409
     assert "used by 2 scheduled class(es)" in response.json()["detail"]
-    assert client.get(f"/rooms/{room['id']}").status_code == 200
+    assert director_client.get(f"/rooms/{room['id']}").status_code == 200
 
 
-def test_confirmed_delete_removes_room_and_keeps_sessions_unassigned(client, session, course):
-    room = create_room(client)
-    scheduled = schedule(client, course.id, room["id"])
+def test_confirmed_delete_removes_room_and_keeps_sessions_unassigned(director_client, session, course):
+    room = create_room(director_client)
+    scheduled = schedule(director_client, course.id, room["id"])
 
-    response = client.delete(f"/rooms/{room['id']}?force=true")
+    response = director_client.delete(f"/rooms/{room['id']}?force=true")
 
     assert response.status_code == 204
-    assert client.get(f"/rooms/{room['id']}").status_code == 404
-    sessions = client.get("/timetable/sessions").json()
+    assert director_client.get(f"/rooms/{room['id']}").status_code == 404
+    sessions = director_client.get("/timetable/sessions").json()
     assert [(item["id"], item["room_id"]) for item in sessions] == [(scheduled["id"], None)]
     assert session.get(ScheduleSession, scheduled["id"]).room_id is None
 
 
-def test_confirmed_delete_leaves_other_rooms_sessions_alone(client, course):
-    deleted = create_room(client)
-    kept = create_room(client, **SEMINAR_ROOM)
-    schedule(client, course.id, deleted["id"])
-    schedule(client, course.id, kept["id"])
+def test_confirmed_delete_leaves_other_rooms_sessions_alone(director_client, course):
+    deleted = create_room(director_client)
+    kept = create_room(director_client, **SEMINAR_ROOM)
+    schedule(director_client, course.id, deleted["id"])
+    schedule(director_client, course.id, kept["id"])
 
-    client.delete(f"/rooms/{deleted['id']}?force=true")
+    director_client.delete(f"/rooms/{deleted['id']}?force=true")
 
     room_ids = sorted(
-        (item["room_id"] for item in client.get("/timetable/sessions").json()),
+        (item["room_id"] for item in director_client.get("/timetable/sessions").json()),
         key=lambda room_id: room_id or 0,
     )
     assert room_ids == [None, kept["id"]]
 
 
-def test_deleted_code_can_be_reused(client):
-    room = create_room(client)
-    client.delete(f"/rooms/{room['id']}")
+def test_deleted_code_can_be_reused(director_client):
+    room = create_room(director_client)
+    director_client.delete(f"/rooms/{room['id']}")
 
-    response = client.post("/rooms", json=LECTURE_HALL)
+    response = director_client.post("/rooms", json=LECTURE_HALL)
 
     assert response.status_code == 201
 
@@ -396,17 +400,17 @@ def test_deleted_code_can_be_reused(client):
 # --- Compatibility with the timetable -----------------------------------------
 
 
-def test_rooms_list_still_serves_the_calendar(client):
-    room = create_room(client)
+def test_rooms_list_still_serves_the_calendar(director_client):
+    room = create_room(director_client)
 
-    entry = client.get("/rooms").json()[0]
+    entry = director_client.get("/rooms").json()[0]
 
     assert entry["id"] == room["id"]
     assert entry["code"] == "MT1"
 
 
-def test_timetable_session_rejects_unknown_room(client, course):
-    response = client.post(
+def test_timetable_session_rejects_unknown_room(director_client, course):
+    response = director_client.post(
         "/timetable/sessions",
         json={
             "course_id": course.id,

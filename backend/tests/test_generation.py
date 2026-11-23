@@ -1,4 +1,6 @@
 """KAN-15 endpoint integration checks (uses the project's SQLite test fixtures)."""
+
+import pytest
 from datetime import time
 from types import SimpleNamespace
 
@@ -272,3 +274,5 @@ def test_generation_saves_real_start_and_end_of_multi_block_sessions(
         assert _minutes(item["start_time"]) % 30 == 0
     total = sum(_minutes(s["end_time"]) - _minutes(s["start_time"]) for s in saved)
     assert total == course.weekly_hours * 60  # all weekly hours, not half of them
+
+pytestmark = pytest.mark.usefixtures("legacy_director_client")

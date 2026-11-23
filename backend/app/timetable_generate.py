@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
+from app.auth import CurrentUser, require_director
 from app.database import get_session
 from app.engine.engine import solve
 from app.engine.facts import build_problem
@@ -17,6 +18,7 @@ from app.models import Degree, Room, ScheduleSession, Semester
 
 router = APIRouter(tags=["timetable"])
 Database = Annotated[Session, Depends(get_session)]
+Director = Annotated[CurrentUser, Depends(require_director)]
 
 class GenerateInput(BaseModel):
     degree_id: int = Field(gt=0)
@@ -36,7 +38,7 @@ class GenerateResult(BaseModel):
 
 
 @router.post("/timetable/generate", response_model=GenerateResult)
-def generate_timetable(payload: GenerateInput, session: Database):
+def generate_timetable(payload: GenerateInput, session: Database, _director: Director):
     if session.get(Degree, payload.degree_id) is None:
         raise HTTPException(404, "Degree not found.")
     if payload.semester_id is not None:

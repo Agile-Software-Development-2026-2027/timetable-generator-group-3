@@ -106,6 +106,15 @@ def get_current_user(
     return CurrentUser(id=user.id, role=user.role)
 
 
+def require_director(
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> CurrentUser:
+    """Require a signed-in director for draft-mutating operations."""
+    if user.role != "director":
+        raise HTTPException(403, "Only directors can modify draft timetables.")
+    return user
+
+
 @router.get("/me")
 def read_current_user(
     user: Annotated[CurrentUser, Depends(get_current_user)],

@@ -193,6 +193,34 @@ class Teacher(Base):
     )
 
 
+class TeacherAvailability(Base):
+    """KAN-57: a time range a teacher marks as unavailable or preferred.
+
+    Stored as times, not slot indexes, so entries stay valid when the slot
+    configuration changes. The engine maps each range to the slots it overlaps.
+    """
+
+    __tablename__ = "teacher_availability"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    teacher_id: Mapped[int] = mapped_column(
+        ForeignKey("teacher.id", ondelete="CASCADE"), nullable=False
+    )
+    weekday: Mapped[int] = mapped_column(Integer, nullable=False)
+    start_time: Mapped[time] = mapped_column(Time, nullable=False)
+    end_time: Mapped[time] = mapped_column(Time, nullable=False)
+    availability_type: Mapped[str] = mapped_column(String(16), nullable=False)
+
+    __table_args__ = (
+        CheckConstraint("weekday BETWEEN 0 AND 6", name="ck_availability_weekday"),
+        CheckConstraint("start_time < end_time", name="ck_availability_time_order"),
+        CheckConstraint(
+            "availability_type IN ('unavailable', 'preferred')",
+            name="ck_availability_type",
+        ),
+    )
+
+
 class Room(Base):
     __tablename__ = "room"
 

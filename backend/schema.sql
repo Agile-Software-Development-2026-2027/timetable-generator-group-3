@@ -116,6 +116,21 @@ CREATE TABLE schedule_session (
 	FOREIGN KEY(room_id) REFERENCES room (id) ON DELETE SET NULL
 );
 
+-- KAN-57: time ranges a teacher marks as unavailable or preferred.
+CREATE TABLE teacher_availability (
+	id SERIAL NOT NULL, 
+	teacher_id INTEGER NOT NULL, 
+	weekday INTEGER NOT NULL, 
+	start_time TIME WITHOUT TIME ZONE NOT NULL, 
+	end_time TIME WITHOUT TIME ZONE NOT NULL, 
+	availability_type VARCHAR(16) NOT NULL, 
+	PRIMARY KEY (id), 
+	CONSTRAINT ck_availability_weekday CHECK (weekday BETWEEN 0 AND 6), 
+	CONSTRAINT ck_availability_time_order CHECK (start_time < end_time), 
+	CONSTRAINT ck_availability_type CHECK (availability_type IN ('unavailable', 'preferred')), 
+	FOREIGN KEY(teacher_id) REFERENCES teacher (id) ON DELETE CASCADE
+);
+
 -- Platform role of each Supabase Auth user (KAN-44). `id` is auth.users.id.
 -- The FK to auth.users and the RLS policy exist only here: the `auth` schema
 -- is not available in the SQLite test database used by the backend tests.

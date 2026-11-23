@@ -21,10 +21,6 @@ def timetable(session):
     lab = Room(code="LAB-A", capacity=30, has_computers=True, is_lab=True)
     session.add_all([cs, math, ada, turing, noether, mt1, lab])
     session.flush()
-
-@pytest.fixture
-def director_client(auth_client):
-    return auth_client("director")
     
     def course(name, degree, year, semester, teachers):
         record = Course(
@@ -75,6 +71,9 @@ def director_client(auth_client):
         "course_id": {"compilers": compilers.id},
     }
 
+@pytest.fixture
+def director_client(auth_client):
+    return auth_client("director")
 
 def labels(timetable, items):
     by_id = {session_id: label for label, session_id in timetable["sessions"].items()}

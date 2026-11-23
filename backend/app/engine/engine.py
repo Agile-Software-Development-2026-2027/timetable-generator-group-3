@@ -63,12 +63,14 @@ def solve(problem: Problem) -> Solution | None:
         return Solution([], set())
     deadline = monotonic() + SOLVER_BUDGET_SECONDS
     slots_per_group = len(problem.slots)
-    group_hours: dict[int, int] = {}
+    group_blocks: dict[int, int] = {}
     for c in problem.courses:
-        group_hours[c.semester_id] = group_hours.get(c.semester_id, 0) + c.weekly_hours
+        group_blocks[c.semester_id] = (
+            group_blocks.get(c.semester_id, 0) + problem.required_blocks(c)
+        )
 
     # Prove impossibility early when a group requires more than its available slots.
-    impossible_capacity = any(hours > slots_per_group for hours in group_hours.values())
+    impossible_capacity = any(blocks > slots_per_group for blocks in group_blocks.values())
     if not impossible_capacity:
         strict = _run_model(problem, "strict", deadline - monotonic())
         if strict is not None and len(strict.scheduled_ids) == len(problem.courses):

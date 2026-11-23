@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 from app.engine.facts import Problem
 from app.engine.reasons import unscheduled_course_reason
-from app.models import Course, Degree, Room, ScheduleSession, Semester, Year
+from app.models import Course, Degree, Room, ScheduleSession, Semester, SlotConfig, Year
 
 
 def test_generation_creates_exact_hours_and_can_regenerate(client, session, course):
@@ -238,3 +238,37 @@ def test_generation_rejects_semester_from_another_degree(client, session, course
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Semester not found in selected degree."
+
+
+def _minutes(value):
+    hours, minutes, _ = (int(part) for part in value.split(":"))
+    return hours * 60 + minutes
+
+
+# KAN-52: on a 30-minute grid a 60-minute session spans two consecutive blocks
+# and is saved as one row with its real start and end time.
+def test_generation_saves_real_start_and_end_of_multi_block_sessions(
+    client, session, course,
+):
+    session.add_all([
+        Room(code="MT1", capacity=110, is_lab=False, has_projector=True),
+        SlotConfig(id=1, working_days="[0,1,2,3,4]", start_time=time(9),
+                   end_time=time(18), block_minutes=30),
+    ])
+    session.commit()
+
+    result = client.post(
+        "/timetable/generate",
+        json={"degree_id": course.degree_id, "semester_id": course.semester_id},
+    )
+
+    assert result.status_code == 200, result.text
+    assert result.json()["sessions_created"] == course.weekly_hours
+    saved = [s for s in client.get("/timetable/sessions").json()
+             if s["course_id"] == course.id]
+    assert len(saved) == course.weekly_hours
+    for item in saved:
+        assert _minutes(item["end_time"]) - _minutes(item["start_time"]) == 60
+        assert _minutes(item["start_time"]) % 30 == 0
+    total = sum(_minutes(s["end_time"]) - _minutes(s["start_time"]) for s in saved)
+    assert total == course.weekly_hours * 60  # all weekly hours, not half of them

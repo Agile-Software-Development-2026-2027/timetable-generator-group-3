@@ -88,7 +88,10 @@ def generate_timetable(payload: GenerateInput, session: Database):
         scoped_ids = [c.id for c in problem.courses]
         session.execute(delete(ScheduleSession).where(ScheduleSession.course_id.in_(scoped_ids)))
         for a in solution.assignments:
-            start, end = problem.slots[(a.day, a.slot)]
+            # KAN-52: a session runs from its first block's start to its last block's end.
+            covered = problem.covered_slots(a.course_id, a.day, a.slot)
+            start = problem.slots[covered[0]][0]
+            end = problem.slots[covered[-1]][1]
             session.add(ScheduleSession(course_id=a.course_id, room_id=a.room_id,
                                         weekday=a.day, start_time=start, end_time=end))
         session.commit()

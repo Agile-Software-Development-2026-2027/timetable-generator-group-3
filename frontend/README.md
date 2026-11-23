@@ -75,7 +75,7 @@ from the link, and they choose the password they log in with.
 
 The Calendar displays saved sessions on a time grid that follows the configured
 working days, daily time range, and block length from `SlotConfig`. The default
-UniCal grid is Monday–Friday, 09:00–18:00, with 60-minute blocks. You can switch
+UniCal grid is Monday–Friday, 09:00–18:00, with 30-minute blocks. You can switch
 between monthly, weekly, and daily views, and filter sessions by degree, year,
 and semester. By default, the first available degree is selected; choose
 “All degree programmes” to combine schedules. Each scheduled block shows the

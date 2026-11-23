@@ -36,6 +36,20 @@ course_teacher = Table(
     ),
 )
 
+director_degree = Table(
+    "director_degree",
+    Base.metadata,
+    Column(
+        "user_id",
+        ForeignKey("app_user.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column(
+        "degree_id",
+        ForeignKey("degree.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+)
 
 class Degree(Base):
     __tablename__ = "degree"
@@ -48,6 +62,10 @@ class Degree(Base):
         cascade="all, delete-orphan",
         order_by="Year.number",
     )
+    directors: Mapped[list["AppUser"]] = relationship(
+    secondary=director_degree,
+    back_populates="degrees",
+)
 
     __table_args__ = (
         CheckConstraint("length(trim(name)) > 0", name="ck_degree_name_not_empty"),
@@ -231,7 +249,7 @@ class SlotConfig(Base):
     end_time: Mapped[time] = mapped_column(
         Time, nullable=False, default=time(18, 0)
     )
-    block_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=60)
+    block_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=30)
 
     __table_args__ = (
         CheckConstraint("block_minutes > 0", name="ck_slot_block_minutes_positive"),
@@ -254,6 +272,11 @@ class AppUser(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+
+    degrees: Mapped[list["Degree"]] = relationship(
+    secondary=director_degree,
+    back_populates="directors",
+)
 
     __table_args__ = (
         CheckConstraint(

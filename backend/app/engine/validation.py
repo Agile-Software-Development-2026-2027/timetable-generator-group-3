@@ -11,6 +11,25 @@ class InvalidScheduleError(ValueError):
     """Clingo returned an assignment that violates scheduling rules."""
 
 
+def _check_session_fits(
+    problem: Problem, course_id: int, covered: list[tuple[int, int]]
+) -> None:
+    """Every block of a session must exist and follow the previous one without a gap."""
+    for index, slot in enumerate(covered):
+        if slot not in problem.slots:
+            raise InvalidScheduleError(
+                f"Course {course_id}: slot {slot} of the session does not exist."
+            )
+        if index == 0:
+            continue
+        previous_end = problem.slots[covered[index - 1]][1]
+        current_start = problem.slots[slot][0]
+        if None not in (previous_end, current_start) and previous_end != current_start:
+            raise InvalidScheduleError(
+                f"Course {course_id}: the session crosses a gap in the grid at {slot}."
+            )
+
+
 def validate_solution(problem: Problem, solution: Solution) -> None:
     """Check hours, room eligibility, overlaps and external reservations.
 
@@ -25,7 +44,10 @@ def validate_solution(problem: Problem, solution: Solution) -> None:
     if not solution.scheduled_ids <= courses.keys():
         raise InvalidScheduleError("Solution contains an unknown scheduled course.")
 
+    buffer_slots = problem.buffer_slots
+
     counts: Counter[int] = Counter()
+    group_day_assignments: dict[tuple[int, int], list[tuple[int, int]]] = {}
     occupied_rooms: set[tuple[int, int, int]] = set()
     occupied_groups: set[tuple[int, int, int]] = set()
     occupied_teachers: set[tuple[int, int, int]] = set()
@@ -38,8 +60,6 @@ def validate_solution(problem: Problem, solution: Solution) -> None:
             raise InvalidScheduleError(f"Course {a.course_id} was not selected for scheduling.")
         if room is None:
             raise InvalidScheduleError(f"Room {a.room_id} does not exist.")
-        if (a.day, a.slot) not in problem.slots:
-            raise InvalidScheduleError(f"Slot ({a.day}, {a.slot}) does not exist.")
         if room.capacity < course.enrolled_students:
             raise InvalidScheduleError(f"Room capacity too small for course {course.id}.")
         if course.requires_lab and not room.is_lab:
@@ -47,26 +67,50 @@ def validate_solution(problem: Problem, solution: Solution) -> None:
         if course.requires_projector and not room.has_projector:
             raise InvalidScheduleError(f"Course {course.id} requires a projector.")
 
-        course_slot = (course.id, a.day, a.slot)
-        room_slot = (room.id, a.day, a.slot)
-        group_slot = (course.semester_id, a.day, a.slot)
-        if course_slot in occupied_course_slots:
-            raise InvalidScheduleError(f"Course {course.id} has two sessions in one slot.")
-        if room_slot in occupied_rooms or room_slot in problem.busy_rooms:
-            raise InvalidScheduleError(f"Room {room.id} has conflicting sessions.")
-        if group_slot in occupied_groups or group_slot in problem.busy_groups:
-            raise InvalidScheduleError(f"Student group {course.semester_id} has conflicting sessions.")
-        teacher_slots = {(t.id, a.day, a.slot) for t in course.teachers}
-        if teacher_slots & (occupied_teachers | problem.busy_teachers):
-            raise InvalidScheduleError(f"Course {course.id} has a teacher conflict.")
-        occupied_course_slots.add(course_slot)
-        occupied_rooms.add(room_slot)
-        occupied_groups.add(group_slot)
-        occupied_teachers.update(teacher_slots)
+        # KAN-52: a session covers duration consecutive blocks from its start slot.
+        covered = problem.covered_slots(course.id, a.day, a.slot)
+        _check_session_fits(problem, course.id, covered)
+
+        for day, slot in covered:
+            course_slot = (course.id, day, slot)
+            room_slot = (room.id, day, slot)
+            group_slot = (course.semester_id, day, slot)
+            if course_slot in occupied_course_slots:
+                raise InvalidScheduleError(f"Course {course.id} has two sessions in one slot.")
+            if room_slot in occupied_rooms or room_slot in problem.busy_rooms:
+                raise InvalidScheduleError(f"Room {room.id} has conflicting sessions.")
+            if group_slot in occupied_groups or group_slot in problem.busy_groups:
+                raise InvalidScheduleError(
+                    f"Student group {course.semester_id} has conflicting sessions."
+                )
+            teacher_slots = {(t.id, day, slot) for t in course.teachers}
+            if teacher_slots & (occupied_teachers | problem.busy_teachers):
+                raise InvalidScheduleError(f"Course {course.id} has a teacher conflict.")
+            occupied_course_slots.add(course_slot)
+            occupied_rooms.add(room_slot)
+            occupied_groups.add(group_slot)
+            occupied_teachers.update(teacher_slots)
+            group_day_assignments.setdefault(
+                (course.semester_id, day), []
+            ).append((slot, room.id))
         counts[course.id] += 1
 
+    # Different rooms require enough intervening slots for the room transition.
+    for (semester_id, day), group_assignments in group_day_assignments.items():
+        ordered = sorted(group_assignments)
+        for index, (first_slot, first_room) in enumerate(ordered):
+            for second_slot, second_room in ordered[index + 1:]:
+                if (
+                    first_room != second_room
+                    and second_slot - first_slot <= buffer_slots
+                ):
+                    raise InvalidScheduleError(
+                        f"Student group {semester_id} violates the room-transition "
+                        f"buffer on day {day} between slots {first_slot} and {second_slot}."
+                    )
+
     for course in problem.courses:
-        expected = course.weekly_hours if course.id in solution.scheduled_ids else 0
+        expected = problem.sessions_of(course) if course.id in solution.scheduled_ids else 0
         if counts[course.id] != expected:
             raise InvalidScheduleError(
                 f"Course {course.id}: expected {expected} sessions, got {counts[course.id]}."

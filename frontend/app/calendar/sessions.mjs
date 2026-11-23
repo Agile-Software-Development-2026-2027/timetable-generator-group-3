@@ -4,7 +4,7 @@ export const DEFAULT_SLOT_CONFIG = {
   working_days: [0, 1, 2, 3, 4],
   start_time: "09:00:00",
   end_time: "18:00:00",
-  block_minutes: 60,
+  block_minutes: 30,
 };
 
 export function getCalendarWeekSettings(workingDays) {

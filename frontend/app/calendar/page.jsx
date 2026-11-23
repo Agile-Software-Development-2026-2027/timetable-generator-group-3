@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AppNav } from "../components/app-shell.jsx";
+import { apiRequest as request } from "../../lib/api.js";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/react/daygrid";
 import timeGridPlugin from "@fullcalendar/react/timegrid";
@@ -15,7 +16,6 @@ import {
   getResponsiveCalendarView,
 } from "./sessions.mjs";
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 const GENERATION_RESULT_STORAGE_KEY = "timetable-generator:last-generation-result";
 const SESSION_COLORS_STORAGE_KEY = "timetable-generator:session-colors";
 const DEFAULT_SESSION_COLOR = "#f4dedc";
@@ -136,22 +136,6 @@ export default function TimetablePage() {
     } catch {
       setSessionColorError("Saved class colors could not be loaded in this browser.");
     }
-  }, []);
-
-  const request = useCallback(async (path, options) => {
-    const response = await fetch(`${API}${path}`, {
-      ...options, headers: { "Content-Type": "application/json", ...options?.headers },
-    });
-    const text = await response.text();
-    let body;
-    try { body = text ? JSON.parse(text) : null; } catch { body = null; }
-    if (!response.ok) {
-      const detail = Array.isArray(body?.detail)
-        ? body.detail.map((issue) => issue.msg).join(" ")
-        : body?.detail;
-      throw new Error(detail || `Request failed (${response.status}).`);
-    }
-    return body;
   }, []);
 
   useEffect(() => {

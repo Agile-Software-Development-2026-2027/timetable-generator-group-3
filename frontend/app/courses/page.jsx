@@ -4,8 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { AppNav, Notification, useNotification } from "../components/app-shell.jsx";
 import { matches, teachersByCourse, toggleId } from "../teachers/teacher-form.mjs";
 import { pageNumbers, pageSizes, paginate } from "../rooms/room-table.mjs";
-
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+import { apiRequest as request } from "../../lib/api.js";
 
 const emptyForm = {
   name: "",
@@ -30,34 +29,6 @@ function ActionIcon({ name }) {
   );
 }
 
-async function request(path, options = {}) {
-  const response = await fetch(`${API}${path}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...options.headers,
-    },
-  });
-
-  if (!response.ok) {
-    let detail = "Request failed.";
-
-    try {
-      const body = await response.json();
-      detail = Array.isArray(body.detail)
-        ? body.detail.map((issue) => issue.msg).join(" ")
-        : body.detail || detail;
-    } catch {
-      // Keep the default error message.
-    }
-
-    const error = new Error(detail);
-    error.status = response.status;
-    throw error;
-  }
-
-  return response.status === 204 ? null : response.json();
-}
 
 export default function CoursesPage() {
   const [degrees, setDegrees] = useState([]);

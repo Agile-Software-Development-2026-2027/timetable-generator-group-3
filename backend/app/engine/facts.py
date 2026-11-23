@@ -11,6 +11,9 @@ from app.models import Course, Room, ScheduleSession, SlotConfig
 from app.slot_config import _build_grid, WEEKDAY_NAMES
 
 
+DEFAULT_SESSION_MINUTES = 60
+
+
 @dataclass
 class Problem:
     courses: list[Course]
@@ -18,13 +21,74 @@ class Problem:
     slots: dict[tuple[int, int], tuple[time, time]]
     facts: str
     group_capacity: dict[int, int]
+    buffer_slots: int = 0
     busy_rooms: set[tuple[int, int, int]] = field(default_factory=set)
     busy_teachers: set[tuple[int, int, int]] = field(default_factory=set)
     busy_groups: set[tuple[int, int, int]] = field(default_factory=set)
+    # KAN-52: grid blocks per session and sessions per week, by course id.
+    # A course missing from these maps uses one block per session and
+    # weekly_hours sessions (the behaviour before multi-block sessions).
+    session_blocks: dict[int, int] = field(default_factory=dict)
+    sessions_per_week: dict[int, int] = field(default_factory=dict)
+
+    def blocks_of(self, course_id: int) -> int:
+        return self.session_blocks.get(course_id, 1)
+
+    def sessions_of(self, course) -> int:
+        return self.sessions_per_week.get(course.id, course.weekly_hours)
+
+    def required_blocks(self, course) -> int:
+        """Grid blocks a course occupies in one week."""
+        return self.sessions_of(course) * self.blocks_of(course.id)
+
+    def covered_slots(self, course_id: int, day: int, start: int) -> list[tuple[int, int]]:
+        """Every (day, slot) of a session that starts at (day, start)."""
+        return [(day, start + offset) for offset in range(self.blocks_of(course_id))]
 
 
 def _minute(t: time) -> int:
     return t.hour * 60 + t.minute
+
+
+def _ceil_div(a: int, b: int) -> int:
+    return -(-a // b)
+
+
+def session_shape(course, block_minutes: int) -> tuple[int, int]:
+    """Return (blocks per session, sessions per week) for a course.
+
+    The session length comes from `session_duration_minutes` (KAN-51) and
+    falls back to 60 minutes. Both values round up, so a course is never
+    given less time than requested when the lengths do not divide exactly
+    (the courses API validates exact multiples).
+    """
+    minutes = getattr(course, "session_duration_minutes", None) or DEFAULT_SESSION_MINUTES
+    blocks = max(1, _ceil_div(minutes, block_minutes))
+    sessions = max(1, _ceil_div(course.weekly_hours * 60, minutes))
+    return blocks, sessions
+
+
+def start_slots(
+    slots: dict[tuple[int, int], tuple[time, time]], blocks: int
+) -> list[tuple[int, int]]:
+    """Slots where a session of `blocks` consecutive blocks can start.
+
+    Every block S..S+blocks-1 must exist on the same day and each one must
+    begin exactly when the previous one ends, so a session never runs past
+    the end of the day or across a gap in the grid.
+    """
+    starts: list[tuple[int, int]] = []
+    for day, index in sorted(slots):
+        fits = True
+        for offset in range(1, blocks):
+            current = slots.get((day, index + offset))
+            previous = slots[(day, index + offset - 1)]
+            if current is None or current[0] != previous[1]:
+                fits = False
+                break
+        if fits:
+            starts.append((day, index))
+    return starts
 
 
 def build_problem(session: Session, degree_id: int, semester_id: int | None) -> Problem:
@@ -41,7 +105,7 @@ def build_problem(session: Session, degree_id: int, semester_id: int | None) -> 
         # Same defaults as KAN-14, 
         config = SlotConfig(id=1, working_days="[0,1,2,3,4]",
                             start_time=time(9, 0), end_time=time(18, 0),
-                            block_minutes=60)
+                            block_minutes=30)
         # Use in-memory defaults without inserting configuration during generation.
     grid = _build_grid(config)
     slots: dict[tuple[int, int], tuple[time, time]] = {}
@@ -55,12 +119,24 @@ def build_problem(session: Session, degree_id: int, semester_id: int | None) -> 
     # KAN-53: minimum 15-minute travel buffer, rounded up to whole slots.
     buffer_slots = (15 + config.block_minutes - 1) // config.block_minutes
     lines: list[str] = [f"buffer_slots({buffer_slots})."]
+    session_blocks: dict[int, int] = {}
+    sessions_per_week: dict[int, int] = {}
+    starts_by_blocks: dict[int, list[tuple[int, int]]] = {}
     for c in courses:
+        # KAN-52: a session lasts `blocks` consecutive slots, `sessions` times a week.
+        blocks, sessions = session_shape(c, config.block_minutes)
+        session_blocks[c.id] = blocks
+        sessions_per_week[c.id] = sessions
+        if blocks not in starts_by_blocks:
+            starts_by_blocks[blocks] = start_slots(slots, blocks)
         lines.extend((
             f"course({c.id},{c.weekly_hours}).",
+            f"sessions({c.id},{sessions}).",
+            f"duration({c.id},{blocks}).",
             f"students({c.id},{c.enrolled_students}).",
             f"group({c.id},{c.semester_id}).",
         ))
+        lines.extend(f"start_ok({c.id},{day},{index})." for day, index in starts_by_blocks[blocks])
         if c.requires_lab:
             lines.append(f"requires_lab({c.id}).")
         if c.requires_projector:
@@ -107,4 +183,6 @@ def build_problem(session: Session, degree_id: int, semester_id: int | None) -> 
     return Problem(
         courses, rooms, slots, "\n".join(lines), group_capacity,
         busy_rooms=busy_rooms, busy_teachers=busy_teachers, busy_groups=busy_groups,
+        buffer_slots=buffer_slots,
+        session_blocks=session_blocks, sessions_per_week=sessions_per_week,
     )

@@ -4,8 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { AppNav } from "../components/app-shell.jsx";
 import SeedImporter from "./components/SeedImporter";
 import "./data-loader.css";
-
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+import { apiRequest } from "../../lib/api.js";
 const TABS = ["Courses", "Teachers", "Rooms", "Years & semesters"];
 const PAGE_SIZES = [5, 10, 20, 50];
 
@@ -24,12 +23,7 @@ export default function DataLoaderPage() {
     setError("");
     try {
       const params = degreeId ? `?degree_id=${encodeURIComponent(degreeId)}` : "";
-      const response = await fetch(`${API}/seed/records${params}`, { cache: "no-store" });
-      if (!response.ok) {
-        const body = await response.json().catch(() => ({}));
-        throw new Error(typeof body.detail === "string" ? body.detail : `Unable to load records (${response.status}).`);
-      }
-      setRecords(await response.json());
+      setRecords(await apiRequest(`/seed/records${params}`, { cache: "no-store" }));
     } catch (err) {
       setError(err.message || "Could not load academic records.");
     } finally {

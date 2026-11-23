@@ -10,7 +10,7 @@ from types import SimpleNamespace
 
 from app.engine.facts import Problem
 from app.engine.reasons import unscheduled_course_reason
-from app.models import Course, Degree, Room, ScheduleSession, Semester, Year
+from app.models import Course, Degree, Room, ScheduleSession, Semester, SlotConfig, Year
 
 
 def test_generation_creates_exact_hours_and_can_regenerate(director_client, session, course):

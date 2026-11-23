@@ -2,6 +2,10 @@ import pytest
 
 from app.models import Course, Teacher
 
+@pytest.fixture
+def director_client(auth_client):
+    return auth_client("director")
+    
 ROSSI = {"name": "Mario Rossi", "identifier": "m.rossi@unical.it"}
 BIANCHI = {"name": "Anna Bianchi", "identifier": "STAFF-042"}
 
@@ -21,8 +25,8 @@ def second_course(session, course):
     return other
 
 
-def create_teacher(client, **overrides):
-    response = client.post("/teachers", json={**ROSSI, **overrides})
+def create_teacher(director_client, **overrides):
+    response = director_client.post("/teachers", json={**ROSSI, **overrides})
     assert response.status_code == 201, response.text
     return response.json()
 
@@ -30,23 +34,23 @@ def create_teacher(client, **overrides):
 # --- Create -------------------------------------------------------------------
 
 
-def test_create_teacher_without_courses(client, session):
-    body = create_teacher(client)
+def test_create_teacher_without_courses(director_client, session):
+    body = create_teacher(director_client)
 
     assert isinstance(body.pop("id"), int)
     assert body == {**ROSSI, "course_count": 0, "courses": []}
     assert session.query(Teacher).count() == 1
 
 
-def test_create_teacher_trims_name_and_identifier(client):
-    body = create_teacher(client, name="  Mario Rossi ", identifier=" STAFF-1 ")
+def test_create_teacher_trims_name_and_identifier(director_client):
+    body = create_teacher(director_client, name="  Mario Rossi ", identifier=" STAFF-1 ")
 
     assert body["name"] == "Mario Rossi"
     assert body["identifier"] == "STAFF-1"
 
 
-def test_create_teacher_with_courses(client, course, second_course):
-    body = create_teacher(client, course_ids=[course.id, second_course.id])
+def test_create_teacher_with_courses(director_client, course, second_course):
+    body = create_teacher(director_client, course_ids=[course.id, second_course.id])
 
     assert body["course_count"] == 2
     assert [c["name"] for c in body["courses"]] == ["Algorithms", "Databases"]
@@ -55,16 +59,16 @@ def test_create_teacher_with_courses(client, course, second_course):
 
 @pytest.mark.parametrize("field", ["name", "identifier"])
 @pytest.mark.parametrize("value", ["", "   "])
-def test_blank_fields_are_rejected(client, field, value):
-    response = client.post("/teachers", json={**ROSSI, field: value})
+def test_blank_fields_are_rejected(director_client, field, value):
+    response = director_client.post("/teachers", json={**ROSSI, field: value})
 
     assert response.status_code == 422
 
 
-def test_duplicate_identifier_is_rejected_with_clear_message(client):
-    create_teacher(client)
+def test_duplicate_identifier_is_rejected_with_clear_message(director_client):
+    create_teacher(director_client)
 
-    response = client.post(
+    response = director_client.post(
         "/teachers", json={**BIANCHI, "identifier": "M.Rossi@UNICAL.it"}
     )
 
@@ -74,21 +78,21 @@ def test_duplicate_identifier_is_rejected_with_clear_message(client):
     )
 
 
-def test_create_with_unknown_course_is_rejected(client):
-    response = client.post("/teachers", json={**ROSSI, "course_ids": [999]})
+def test_create_with_unknown_course_is_rejected(director_client):
+    response = director_client.post("/teachers", json={**ROSSI, "course_ids": [999]})
 
     assert response.status_code == 404
-    assert client.get("/teachers").json() == []
+    assert director_client.get("/teachers").json() == []
 
 
 # --- List and view ------------------------------------------------------------
 
 
-def test_list_teachers_shows_name_identifier_and_course_count(client, course):
-    create_teacher(client, course_ids=[course.id])
-    create_teacher(client, **BIANCHI)
+def test_list_teachers_shows_name_identifier_and_course_count(director_client, course):
+    create_teacher(director_client, course_ids=[course.id])
+    create_teacher(director_client, **BIANCHI)
 
-    rows = client.get("/teachers").json()
+    rows = director_client.get("/teachers").json()
 
     assert [(r["name"], r["identifier"], r["course_count"]) for r in rows] == [
         ("Anna Bianchi", "STAFF-042", 0),
@@ -97,28 +101,28 @@ def test_list_teachers_shows_name_identifier_and_course_count(client, course):
 
 
 def test_teacher_can_teach_many_courses_and_course_many_teachers(
-    client, course, second_course
+    director_client, course, second_course
 ):
-    rossi = create_teacher(client, course_ids=[course.id, second_course.id])
-    bianchi = create_teacher(client, **BIANCHI, course_ids=[course.id])
+    rossi = create_teacher(director_client, course_ids=[course.id, second_course.id])
+    bianchi = create_teacher(director_client, **BIANCHI, course_ids=[course.id])
 
-    assert client.get(f"/teachers/{rossi['id']}").json()["course_count"] == 2
-    view = client.get(f"/courses/{course.id}/teachers").json()
+    assert director_client.get(f"/teachers/{rossi['id']}").json()["course_count"] == 2
+    view = director_client.get(f"/courses/{course.id}/teachers").json()
     assert view["name"] == "Databases"
     assert [t["id"] for t in view["teachers"]] == [bianchi["id"], rossi["id"]]
 
 
-def test_get_unknown_teacher_returns_404(client):
-    assert client.get("/teachers/999").status_code == 404
+def test_get_unknown_teacher_returns_404(director_client):
+    assert director_client.get("/teachers/999").status_code == 404
 
 
 # --- Update -------------------------------------------------------------------
 
 
-def test_update_name_identifier_and_courses(client, course, second_course):
-    teacher = create_teacher(client, course_ids=[course.id])
+def test_update_name_identifier_and_courses(director_client, course, second_course):
+    teacher = create_teacher(director_client, course_ids=[course.id])
 
-    response = client.put(
+    response = director_client.put(
         f"/teachers/{teacher['id']}",
         json={**BIANCHI, "course_ids": [second_course.id]},
     )
@@ -129,97 +133,97 @@ def test_update_name_identifier_and_courses(client, course, second_course):
     assert [c["id"] for c in body["courses"]] == [second_course.id]
 
 
-def test_update_without_course_ids_keeps_assignments(client, course):
-    teacher = create_teacher(client, course_ids=[course.id])
+def test_update_without_course_ids_keeps_assignments(director_client, course):
+    teacher = create_teacher(director_client, course_ids=[course.id])
 
-    body = client.put(f"/teachers/{teacher['id']}", json=BIANCHI).json()
+    body = director_client.put(f"/teachers/{teacher['id']}", json=BIANCHI).json()
 
     assert body["course_count"] == 1
 
 
-def test_update_can_keep_own_identifier(client):
-    teacher = create_teacher(client)
+def test_update_can_keep_own_identifier(director_client):
+    teacher = create_teacher(director_client)
 
-    response = client.put(
+    response = director_client.put(
         f"/teachers/{teacher['id']}", json={**ROSSI, "name": "Mario A. Rossi"}
     )
 
     assert response.status_code == 200
 
 
-def test_update_to_duplicate_identifier_is_rejected(client):
-    create_teacher(client)
-    other = create_teacher(client, **BIANCHI)
+def test_update_to_duplicate_identifier_is_rejected(director_client):
+    create_teacher(director_client)
+    other = create_teacher(director_client, **BIANCHI)
 
-    response = client.put(f"/teachers/{other['id']}", json=ROSSI)
+    response = director_client.put(f"/teachers/{other['id']}", json=ROSSI)
 
     assert response.status_code == 409
     assert "already exists" in response.json()["detail"]
 
 
-def test_update_unknown_teacher_returns_404(client):
-    assert client.put("/teachers/999", json=ROSSI).status_code == 404
+def test_update_unknown_teacher_returns_404(director_client):
+    assert director_client.put("/teachers/999", json=ROSSI).status_code == 404
 
 
 # --- Course assignments -------------------------------------------------------
 
 
-def test_assign_teachers_from_the_course(client, course):
-    rossi = create_teacher(client)
-    bianchi = create_teacher(client, **BIANCHI)
+def test_assign_teachers_from_the_course(director_client, course):
+    rossi = create_teacher(director_client)
+    bianchi = create_teacher(director_client, **BIANCHI)
 
-    response = client.put(
+    response = director_client.put(
         f"/courses/{course.id}/teachers",
         json={"teacher_ids": [rossi["id"], bianchi["id"]]},
     )
 
     assert response.status_code == 200
     assert len(response.json()["teachers"]) == 2
-    assert client.get(f"/teachers/{rossi['id']}").json()["course_count"] == 1
+    assert director_client.get(f"/teachers/{rossi['id']}").json()["course_count"] == 1
 
-    cleared = client.put(f"/courses/{course.id}/teachers", json={"teacher_ids": []})
+    cleared = director_client.put(f"/courses/{course.id}/teachers", json={"teacher_ids": []})
     assert cleared.json()["teachers"] == []
 
 
-def test_assign_unknown_teacher_or_course_returns_404(client, course):
+def test_assign_unknown_teacher_or_course_returns_404(director_client, course):
     assert (
-        client.put(f"/courses/{course.id}/teachers", json={"teacher_ids": [9]})
+        director_client.put(f"/courses/{course.id}/teachers", json={"teacher_ids": [9]})
     ).status_code == 404
     assert (
-        client.put("/courses/999/teachers", json={"teacher_ids": []})
+        director_client.put("/courses/999/teachers", json={"teacher_ids": []})
     ).status_code == 404
-    assert client.get("/courses/999/teachers").status_code == 404
+    assert director_client.get("/courses/999/teachers").status_code == 404
 
 
 # --- Delete -------------------------------------------------------------------
 
 
-def test_delete_unassigned_teacher(client):
-    teacher = create_teacher(client)
+def test_delete_unassigned_teacher(director_client):
+    teacher = create_teacher(director_client)
 
-    assert client.delete(f"/teachers/{teacher['id']}").status_code == 204
-    assert client.get("/teachers").json() == []
+    assert director_client.delete(f"/teachers/{teacher['id']}").status_code == 204
+    assert director_client.get("/teachers").json() == []
 
 
-def test_delete_assigned_teacher_warns_first(client, course):
-    teacher = create_teacher(client, course_ids=[course.id])
+def test_delete_assigned_teacher_warns_first(director_client, course):
+    teacher = create_teacher(director_client, course_ids=[course.id])
 
-    response = client.delete(f"/teachers/{teacher['id']}")
+    response = director_client.delete(f"/teachers/{teacher['id']}")
 
     assert response.status_code == 409
     assert "assigned to 1 course(s)" in response.json()["detail"]
-    assert client.get(f"/teachers/{teacher['id']}").status_code == 200
+    assert director_client.get(f"/teachers/{teacher['id']}").status_code == 200
 
 
-def test_force_delete_removes_assignments_but_keeps_course(client, course):
-    teacher = create_teacher(client, course_ids=[course.id])
+def test_force_delete_removes_assignments_but_keeps_course(director_client, course):
+    teacher = create_teacher(director_client, course_ids=[course.id])
 
-    response = client.delete(f"/teachers/{teacher['id']}?force=true")
+    response = director_client.delete(f"/teachers/{teacher['id']}?force=true")
 
     assert response.status_code == 204
-    view = client.get(f"/courses/{course.id}/teachers").json()
+    view = director_client.get(f"/courses/{course.id}/teachers").json()
     assert view["teachers"] == []
 
 
-def test_delete_unknown_teacher_returns_404(client):
-    assert client.delete("/teachers/999").status_code == 404
+def test_delete_unknown_teacher_returns_404(director_client):
+    assert director_client.delete("/teachers/999").status_code == 404

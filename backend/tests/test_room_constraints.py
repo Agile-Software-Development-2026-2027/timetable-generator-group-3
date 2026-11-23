@@ -1,11 +1,11 @@
 """KAN-16 room constraint tests: capacity, lab, projector hard constraints
 and smallest-room soft preference in the ASP engine."""
+from __future__ import annotations
 import pytest
 
 @pytest.fixture
 def director_client(auth_client):
     return auth_client("director")
-from __future__ import annotations
 
 from datetime import time
 from types import SimpleNamespace

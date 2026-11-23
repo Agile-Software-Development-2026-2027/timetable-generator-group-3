@@ -1,10 +1,10 @@
+"""KAN-15 endpoint integration checks (uses the project's SQLite test fixtures)."""
 import pytest
 
 @pytest.fixture
 def director_client(auth_client):
     return auth_client("director")
 
-"""KAN-15 endpoint integration checks (uses the project's SQLite test fixtures)."""
 from datetime import time
 from types import SimpleNamespace
 

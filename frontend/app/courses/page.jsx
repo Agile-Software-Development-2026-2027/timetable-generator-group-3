@@ -12,6 +12,7 @@ const emptyForm = {
   year_id: "",
   semester_id: "",
   weekly_hours: 1,
+  session_duration_minutes: 60,
   enrolled_students: 1,
   requires_lab: false,
   requires_projector: false,
@@ -37,6 +38,7 @@ export default function CoursesPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(pageSizes[0]);
   const [form, setForm] = useState({ ...emptyForm });
+  const [blockMinutes, setBlockMinutes] = useState(null);
   const [editingId, setEditingId] = useState(null);
   const [formOpen, setFormOpen] = useState(false);
   const [notification, showNotification] = useNotification();
@@ -105,6 +107,28 @@ export default function CoursesPage() {
     refreshCourses().catch((error) => showNotification(error.message));
   }, [refreshCourses]);
 
+  useEffect(() => {
+    request("/slot-config")
+      .then((config) => {
+        if (Number.isInteger(config.block_minutes) &&
+            config.block_minutes > 0) {
+          setBlockMinutes(config.block_minutes);
+        }
+      })
+      .catch(() => setBlockMinutes(null));
+  }, []);
+
+  const sessionMinutes = Number(form.session_duration_minutes);
+  const weeklyMinutes = Number(form.weekly_hours) * 60;
+
+  const sessionLengthError =
+    !Number.isInteger(sessionMinutes) || sessionMinutes <= 0
+      ? "Select a valid session length."
+      : weeklyMinutes % sessionMinutes !== 0
+        ? "Session length must divide weekly teaching hours exactly."
+        : blockMinutes !== null && sessionMinutes % blockMinutes !== 0
+          ? `Session length must be a multiple of ${blockMinutes} minutes.`
+          : "";
   function getYears(degreeId) {
     return (
       degrees.find((degree) => String(degree.id) === String(degreeId))
@@ -187,6 +211,7 @@ export default function CoursesPage() {
       year_id: String(course.year_id),
       semester_id: String(course.semester_id),
       weekly_hours: course.weekly_hours,
+      session_duration_minutes: course.session_duration_minutes ?? 60,
       enrolled_students: course.enrolled_students,
       requires_lab: course.requires_lab,
       requires_projector: course.requires_projector,
@@ -219,6 +244,7 @@ export default function CoursesPage() {
       year_id: Number(form.year_id),
       semester_id: Number(form.semester_id),
       weekly_hours: Number(form.weekly_hours),
+      session_duration_minutes: Number(form.session_duration_minutes),
       enrolled_students: Number(form.enrolled_students),
     };
 
@@ -230,15 +256,24 @@ export default function CoursesPage() {
     if (
       !Number.isInteger(body.weekly_hours) ||
       body.weekly_hours <= 0 ||
+      !Number.isInteger(body.session_duration_minutes) ||
+      body.session_duration_minutes <= 0 ||
+      (body.weekly_hours * 60) % body.session_duration_minutes !== 0 ||
       !Number.isInteger(body.enrolled_students) ||
       body.enrolled_students <= 0
     ) {
       showNotification(
-        "Weekly hours and enrolled students must be positive whole numbers."
+        "Weekly hours, students and session duration must be positive whole numbers. Session duration must divide weekly teaching minutes exactly."
       );
       return;
     }
 
+    if (sessionLengthError || blockMinutes === null) {
+      showNotification(
+        sessionLengthError || "Cannot validate session length until the timetable grid is loaded."
+      );
+      return;
+    }
     try {
       await request(
         editingId ? `/courses/${editingId}` : "/courses",
@@ -435,6 +470,29 @@ export default function CoursesPage() {
                   <input className="form-control" type="number" min="1" step="1" required value={form.weekly_hours} onChange={(event) => setForm({ ...form, weekly_hours: event.target.value })} />
                 </label>
                 <label className="course-form-field">
+                  <span className="form-label">Session length</span>
+                  <select
+                    className="form-select"
+                    value={form.session_duration_minutes}
+                    onChange={(event) => setForm({
+                      ...form,
+                      session_duration_minutes: event.target.value
+                    })}
+                    required
+                  >
+                    <option value="60">1 hour</option>
+                    <option value="90">1.5 hours</option>
+                    <option value="120">2 hours</option>
+                    <option value="180">3 hours</option>
+                    <option value="240">4 hours</option>
+                  </select>
+                  {sessionLengthError && (
+                    <small className="text-danger" role="alert">
+                      {sessionLengthError}
+                    </small>
+                  )}
+                </label>
+                <label className="course-form-field">
                   <span className="form-label">Estimated enrolled students</span>
                   <input className="form-control" type="number" min="1" step="1" required value={form.enrolled_students} onChange={(event) => setForm({ ...form, enrolled_students: event.target.value })} />
                 </label>
@@ -535,6 +593,7 @@ export default function CoursesPage() {
                   <th scope="col" className="text-end">Year</th>
                   <th scope="col" className="text-end">Semester</th>
                   <th scope="col" className="text-end">Weekly hours</th>
+                  <th scope="col" className="text-end">Session (min)</th>
                   <th scope="col" className="text-end">Students</th>
                   <th scope="col">Requirements</th>
                   <th scope="col">Teachers</th>
@@ -555,6 +614,7 @@ export default function CoursesPage() {
                       <td className="text-end room-number">{course.year}</td>
                       <td className="text-end room-number">{course.semester}</td>
                       <td className="text-end room-number">{course.weekly_hours}</td>
+                      <td className="text-end room-number">{course.session_duration_minutes ?? 60}</td>
                       <td className="text-end room-number">{course.enrolled_students}</td>
                       <td>{requirements.length ? requirements.join(", ") : "None"}</td>
                       <td>{courseTeachers.length ? courseTeachers.map((teacher) => teacher.name).join(", ") : "No teacher assigned"}</td>

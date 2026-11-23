@@ -6,7 +6,7 @@ from sqlalchemy import inspect
 from sqlalchemy.exc import IntegrityError
 
 from app.database import SessionLocal, engine
-from app.seed.seed_sample_data import REQUIRED_TABLES, load_dataset, room_differences, validate
+from app.seed.seed_sample_data import REQUIRED_TABLES, load_dataset, room_differences, validate, validate_course_grid
 
 router = APIRouter(prefix="/seed", tags=["sample data"])
 MAX_JSON_BYTES = 256 * 1024
@@ -43,6 +43,10 @@ def summary(data):
 async def preview(request: Request):
     data = await parse_dataset(request)
     with SessionLocal() as session:
+        try:
+            validate_course_grid(session, data)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
         differences = room_differences(session, data)
     return {"valid": True, "summary": summary(data),
             "room_conflicts": differences,
@@ -57,6 +61,14 @@ async def import_dataset(request: Request, reuse_existing_rooms: bool = False):
         raise HTTPException(503, f"Missing database tables: {sorted(missing)}")
     try:
         with SessionLocal() as session, session.begin():
+            try:
+                validate_course_grid(session, data)
+            except ValueError as exc:
+                raise HTTPException(
+                    status_code=422,
+                    detail=str(exc),
+                ) from exc
+
             conflicts = room_differences(session, data)
             if conflicts and not reuse_existing_rooms:
                 raise ValueError("Existing rooms have different properties; validate and explicitly confirm reuse")

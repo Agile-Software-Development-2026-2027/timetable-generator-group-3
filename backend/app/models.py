@@ -132,6 +132,12 @@ class Course(Base):
     )
 
     weekly_hours: Mapped[int] = mapped_column(Integer, nullable=False)
+    session_duration_minutes: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=60,
+        server_default="60"
+    )
     enrolled_students: Mapped[int] = mapped_column(Integer, nullable=False)
 
     requires_lab: Mapped[bool] = mapped_column(
@@ -152,6 +158,14 @@ class Course(Base):
             "semester_id", "name", name="uq_course_semester_name"
         ),
         CheckConstraint("weekly_hours > 0", name="ck_course_weekly_hours_positive"),
+        CheckConstraint(
+            "session_duration_minutes > 0",
+            name="ck_course_session_duration_positive"
+        ),
+        CheckConstraint(
+            "(weekly_hours * 60) % session_duration_minutes = 0",
+            name="ck_course_session_duration_divides_week"
+        ),
         CheckConstraint(
             "enrolled_students > 0", name="ck_course_enrolled_students_positive"
         ),

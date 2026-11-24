@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AppNav } from "../components/app-shell.jsx";
+import { ArrowRight, KeyRound } from "lucide-react";
+import { AuthLayout } from "../components/auth-layout.jsx";
 import { useAuth } from "../components/auth-provider.jsx";
 import { supabase } from "../../lib/supabase.js";
 import { LOGIN_PATH, MIN_PASSWORD_LENGTH, homeFor, inviteLinkError, newPasswordError } from "../../lib/auth-rules.js";
@@ -37,36 +38,28 @@ export default function SetPasswordPage() {
   }
 
   const hasSession = auth.status !== "signed-out";
-  return <div className="campus-app">
-    <AppNav />
-    <main className="container login-main">
-      <section className="room-table-panel login-panel" aria-labelledby="set-password-title">
-        <p className="eyebrow mb-2">UNIVERSITY OF CALABRIA / TIMETABLE</p>
-        <h1 id="set-password-title" className="h3 fw-semibold mb-1">Set your password</h1>
-        {!hasSession ? <>
-          <p className="login-notice" role="status">
-            {linkError ? `${linkError}. ` : ""}Open this page from the link in your invite email. If the link has expired, ask the director for a new invite.
-          </p>
-          <Link className="btn btn-campus w-100" href={LOGIN_PATH}>Go to log in</Link>
-        </> : <>
-          <p className="text-secondary mb-4">Choose the password you will use to log in{auth.email ? ` as ${auth.email}` : ""}.</p>
-          {error && <p className="login-error" role="alert">{error}</p>}
-          <form onSubmit={submit} className="d-grid gap-3" noValidate>
-            <div>
-              <label className="form-label" htmlFor="new-password">New password</label>
-              <input id="new-password" type="password" className="form-control" autoComplete="new-password"
-                aria-describedby="new-password-hint" value={password} onChange={(event) => setPassword(event.target.value)} />
-              <div id="new-password-hint" className="form-text">At least {MIN_PASSWORD_LENGTH} characters.</div>
-            </div>
-            <div>
-              <label className="form-label" htmlFor="confirm-password">Confirm password</label>
-              <input id="confirm-password" type="password" className="form-control" autoComplete="new-password"
-                value={confirmation} onChange={(event) => setConfirmation(event.target.value)} />
-            </div>
-            <button type="submit" className="btn btn-campus" disabled={busy}>{busy ? "Saving…" : "Save password"}</button>
-          </form>
-        </>}
-      </section>
-    </main>
-  </div>;
+  return <AuthLayout eyebrow="WELCOME TO UNICAL" headline={<>Your next<br />chapter starts here.</>}
+    tagline="Create a secure password to activate your timetable account." icon={<KeyRound size={22} />}>
+    <div className="eyebrow">ACCOUNT SETUP</div>
+    <h2 id="set-password-title">Set your password</h2>
+    {!hasSession ? <>
+      <p className="login-notice" role="status">
+        {linkError ? `${linkError}. ` : ""}Open this page from the link in your invite email. If the link has expired, ask the director for a new invite.
+      </p>
+      <Link className="button button-primary login-submit" href={LOGIN_PATH}>Go to log in</Link>
+    </> : <>
+      <p>Choose the password you will use to log in{auth.email ? ` as ${auth.email}` : ""}.</p>
+      {error && <p className="login-error" role="alert">{error}</p>}
+      <form onSubmit={submit} aria-labelledby="set-password-title" noValidate>
+        <label htmlFor="new-password">New password</label>
+        <input id="new-password" type="password" autoComplete="new-password"
+          aria-describedby="new-password-hint" value={password} onChange={(event) => setPassword(event.target.value)} />
+        <div id="new-password-hint" className="field-hint">At least {MIN_PASSWORD_LENGTH} characters.</div>
+        <label htmlFor="confirm-password">Confirm password</label>
+        <input id="confirm-password" type="password" autoComplete="new-password"
+          value={confirmation} onChange={(event) => setConfirmation(event.target.value)} />
+        <button type="submit" className="button button-primary login-submit" disabled={busy}>{busy ? "Saving…" : <>Save password <ArrowRight size={16} aria-hidden="true" /></>}</button>
+      </form>
+    </>}
+  </AuthLayout>;
 }

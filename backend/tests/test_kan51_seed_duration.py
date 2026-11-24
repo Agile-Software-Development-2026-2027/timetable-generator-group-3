@@ -98,11 +98,11 @@ from app import seed_api
 
 
 @pytest.fixture
-def seed_api_client(client, session_factory, engine, monkeypatch):
+def seed_api_client(client, auth_client, session_factory, engine, monkeypatch):
     # Both endpoints use the isolated SQLite test database.
     monkeypatch.setattr(seed_api, "SessionLocal", session_factory)
     monkeypatch.setattr(seed_api, "engine", engine)
-    return client
+    return auth_client("director")
 
 
 def test_seed_preview_accepts_90_minutes(seed_api_client, dataset):

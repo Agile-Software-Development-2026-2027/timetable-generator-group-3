@@ -9,6 +9,7 @@ from sqlalchemy import (
     Column,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     String,
     Table,
@@ -357,3 +358,66 @@ class TimetablePublication(Base):
 
     degree: Mapped["Degree"] = relationship()
     publisher: Mapped["AppUser"] = relationship()
+
+
+class Student(Base):
+    __tablename__ = "student"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    student_number: Mapped[str] = mapped_column(
+        String(32), nullable=False, unique=True
+    )
+    degree_id: Mapped[int] = mapped_column(
+        ForeignKey("degree.id", ondelete="RESTRICT"), nullable=False
+    )
+    year_id: Mapped[int] = mapped_column(
+        ForeignKey("year.id", ondelete="RESTRICT"), nullable=False
+    )
+
+    degree: Mapped["Degree"] = relationship()
+    year: Mapped["Year"] = relationship()
+
+    enrollments: Mapped[list["Enrollment"]] = relationship(
+        back_populates="student",
+        cascade="all, delete-orphan",
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "length(trim(name)) > 0",
+            name="ck_student_name_not_empty",
+        ),
+        CheckConstraint(
+            "length(trim(student_number)) > 0",
+            name="ck_student_number_not_empty",
+        ),
+        Index(
+            "uq_student_number_ci",
+            func.lower(student_number),
+            unique=True,
+        ),
+    )
+
+
+class Enrollment(Base):
+    __tablename__ = "enrollment"
+
+    student_id: Mapped[int] = mapped_column(
+        ForeignKey("student.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    course_id: Mapped[int] = mapped_column(
+        ForeignKey("course.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    enrolled_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    student: Mapped["Student"] = relationship(
+        back_populates="enrollments",
+    )
+    course: Mapped["Course"] = relationship()

@@ -1,5 +1,7 @@
 "use client";
 
+import { Pencil, Trash2, UserPlus } from "lucide-react";
+
 import { useCallback, useEffect, useState } from "react";
 import { AppNav, Notification, useNotification } from "../components/app-shell.jsx";
 import { matches, teachersByCourse, toggleId } from "../teachers/teacher-form.mjs";
@@ -17,19 +19,6 @@ const emptyForm = {
   requires_lab: false,
   requires_projector: false,
 };
-
-function ActionIcon({ name }) {
-  const iconPaths = {
-    edit: <path d="m4 16-.8 4.8L8 20l11-11-4-4zM13.5 6.5l4 4" />,
-    delete: <path d="M4 7h16M10 11v6m4-6v6M6 7l1 14h10l1-14M9 7V4h6v3" />,
-  };
-  return (
-    <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      {iconPaths[name]}
-    </svg>
-  );
-}
-
 
 export default function CoursesPage() {
   const [degrees, setDegrees] = useState([]);
@@ -610,7 +599,7 @@ export default function CoursesPage() {
                   return (
                     <tr key={course.id}>
                       <th scope="row" className="room-code">{course.name}</th>
-                      <td>{course.degree}</td>
+                      <td className="course-degree-cell">{course.degree}</td>
                       <td className="text-end room-number">{course.year}</td>
                       <td className="text-end room-number">{course.semester}</td>
                       <td className="text-end room-number">{course.weekly_hours}</td>
@@ -620,9 +609,9 @@ export default function CoursesPage() {
                       <td>{courseTeachers.length ? courseTeachers.map((teacher) => teacher.name).join(", ") : "No teacher assigned"}</td>
                       <td>
                         <div className="room-actions">
-                          <button type="button" className="btn btn-light" aria-label={`Assign teachers to ${course.name}`} onClick={() => openAssignForm(course)}>Assign</button>
-                          <button type="button" className="btn btn-edit" aria-label={`Edit ${course.name}`} onClick={() => openEditForm(course)}><ActionIcon name="edit" /><span>Edit</span></button>
-                          <button type="button" className="btn btn-delete" aria-label={`Delete ${course.name}`} onClick={() => openDeleteConfirm(course)}><ActionIcon name="delete" /><span>Delete</span></button>
+                          <button type="button" className="btn btn-assign" title="Assign teachers" aria-label={`Assign teachers to ${course.name}`} onClick={() => openAssignForm(course)}><UserPlus size={15} aria-hidden="true" /></button>
+                          <button type="button" className="btn btn-edit" title="Edit" aria-label={`Edit ${course.name}`} onClick={() => openEditForm(course)}><Pencil size={14} aria-hidden="true" /></button>
+                          <button type="button" className="btn btn-delete" title="Delete" aria-label={`Delete ${course.name}`} onClick={() => openDeleteConfirm(course)}><Trash2 size={14} aria-hidden="true" /></button>
                         </div>
                       </td>
                     </tr>

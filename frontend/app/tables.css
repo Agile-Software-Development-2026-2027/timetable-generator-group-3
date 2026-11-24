@@ -127,3 +127,26 @@
 @media (max-width: 560px) {
   .campus-app .slot-fields { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* Row actions as small icon buttons with one colour per action:
+   blue = assign / view, grey = edit, red = delete. The aria-label names each one. */
+.campus-app.campus-app.campus-app .room-table .room-actions { display: flex; flex-wrap: nowrap; justify-content: flex-end; align-items: center; gap: 5px; }
+.campus-app.campus-app.campus-app .room-table .room-actions .btn { flex: 0 0 28px; width: 28px; height: 28px; min-height: 0; padding: 0; display: grid; place-items: center; border: 1px solid transparent; border-radius: 7px; box-shadow: none; transition: .15s; }
+.campus-app.campus-app.campus-app .room-table .room-actions .btn-assign { background: #eaf1fa; color: #3f6fa5; }
+.campus-app.campus-app.campus-app .room-table .room-actions .btn-assign:hover { background: #d7e5f6; color: #2c5689; }
+.campus-app.campus-app.campus-app .room-table .room-actions .btn-edit { background: #f2f4f5; color: #576268; }
+.campus-app.campus-app.campus-app .room-table .room-actions .btn-edit:hover { background: #e4e8ea; color: #383838; }
+.campus-app.campus-app.campus-app .room-table .room-actions .btn-delete { background: #faeae9; color: #b71918; }
+.campus-app.campus-app.campus-app .room-table .room-actions .btn-delete:hover { background: #b71918; color: #fff; }
+.campus-app.campus-app.campus-app .room-table .room-actions .btn:focus-visible { outline: 3px solid #e0323166; outline-offset: 1px; }
+
+/* Course table fits the page: automatic column widths, numbers kept narrow,
+   long text wraps instead of forcing a horizontal scroll. */
+.campus-app.campus-app.campus-app .course-table { min-width: 0; table-layout: auto; }
+.campus-app.campus-app.campus-app .course-table th:nth-child(8),
+.campus-app.campus-app.campus-app .course-table th:last-child { width: auto; }
+.campus-app.campus-app.campus-app .course-table .room-number { width: 1%; white-space: nowrap; }
+.campus-app.campus-app.campus-app .course-table thead th { white-space: normal; }
+.campus-app.campus-app.campus-app .course-table .room-code { min-width: 150px; }
+.campus-app.campus-app.campus-app .course-table .course-degree-cell { min-width: 140px; color: #899499; }
+.campus-app.campus-app.campus-app .course-table tbody td:last-child { width: 1%; }

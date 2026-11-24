@@ -9,6 +9,7 @@ from sqlalchemy import (
     Column,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     String,
     Table,
@@ -132,6 +133,12 @@ class Course(Base):
     )
 
     weekly_hours: Mapped[int] = mapped_column(Integer, nullable=False)
+    session_duration_minutes: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=60,
+        server_default="60"
+    )
     enrolled_students: Mapped[int] = mapped_column(Integer, nullable=False)
 
     requires_lab: Mapped[bool] = mapped_column(
@@ -152,6 +159,14 @@ class Course(Base):
             "semester_id", "name", name="uq_course_semester_name"
         ),
         CheckConstraint("weekly_hours > 0", name="ck_course_weekly_hours_positive"),
+        CheckConstraint(
+            "session_duration_minutes > 0",
+            name="ck_course_session_duration_positive"
+        ),
+        CheckConstraint(
+            "(weekly_hours * 60) % session_duration_minutes = 0",
+            name="ck_course_session_duration_divides_week"
+        ),
         CheckConstraint(
             "enrolled_students > 0", name="ck_course_enrolled_students_positive"
         ),
@@ -283,3 +298,126 @@ class AppUser(Base):
             "role IN ('director', 'teacher', 'student')", name="ck_app_user_role"
         ),
     )
+
+
+class PublishedSession(Base):
+    """Published timetable snapshot visible to teachers and students."""
+
+    __tablename__ = "published_session"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    degree_id: Mapped[int] = mapped_column(
+        ForeignKey("degree.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    course_id: Mapped[int] = mapped_column(
+        ForeignKey("course.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    room_id: Mapped[int | None] = mapped_column(
+        ForeignKey("room.id", ondelete="SET NULL"),
+    )
+    weekday: Mapped[int] = mapped_column(Integer, nullable=False)
+    start_time: Mapped[time] = mapped_column(Time, nullable=False)
+    end_time: Mapped[time] = mapped_column(Time, nullable=False)
+
+    course: Mapped["Course"] = relationship()
+    room: Mapped["Room | None"] = relationship()
+    degree: Mapped["Degree"] = relationship()
+
+    __table_args__ = (
+        CheckConstraint(
+            "weekday BETWEEN 0 AND 6",
+            name="ck_published_weekday",
+        ),
+        CheckConstraint(
+            "start_time < end_time",
+            name="ck_published_time_order",
+        ),
+    )
+
+
+class TimetablePublication(Base):
+    """Latest publication metadata for each degree."""
+
+    __tablename__ = "timetable_publication"
+
+    degree_id: Mapped[int] = mapped_column(
+        ForeignKey("degree.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    published_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+    published_by: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("app_user.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+
+    degree: Mapped["Degree"] = relationship()
+    publisher: Mapped["AppUser"] = relationship()
+
+
+class Student(Base):
+    __tablename__ = "student"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    student_number: Mapped[str] = mapped_column(
+        String(32), nullable=False, unique=True
+    )
+    degree_id: Mapped[int] = mapped_column(
+        ForeignKey("degree.id", ondelete="RESTRICT"), nullable=False
+    )
+    year_id: Mapped[int] = mapped_column(
+        ForeignKey("year.id", ondelete="RESTRICT"), nullable=False
+    )
+
+    degree: Mapped["Degree"] = relationship()
+    year: Mapped["Year"] = relationship()
+
+    enrollments: Mapped[list["Enrollment"]] = relationship(
+        back_populates="student",
+        cascade="all, delete-orphan",
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "length(trim(name)) > 0",
+            name="ck_student_name_not_empty",
+        ),
+        CheckConstraint(
+            "length(trim(student_number)) > 0",
+            name="ck_student_number_not_empty",
+        ),
+        Index(
+            "uq_student_number_ci",
+            func.lower(student_number),
+            unique=True,
+        ),
+    )
+
+
+class Enrollment(Base):
+    __tablename__ = "enrollment"
+
+    student_id: Mapped[int] = mapped_column(
+        ForeignKey("student.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    course_id: Mapped[int] = mapped_column(
+        ForeignKey("course.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    enrolled_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    student: Mapped["Student"] = relationship(
+        back_populates="enrollments",
+    )
+    course: Mapped["Course"] = relationship()

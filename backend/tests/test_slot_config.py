@@ -156,3 +156,31 @@ def test_grid_includes_config_summary(director_client):
     r = director_client.get("/slot-config/grid")
     assert "config" in r.json()
     assert "blocks_per_day" in r.json()["config"]
+
+
+# KAN-51: Existing courses must remain compatible with the grid.
+
+def test_kan51_rejects_incompatible_block_size(client, course):
+    # The existing course has a 60-minute session by default.
+    assert client.get("/slot-config").json()["block_minutes"] == 30
+
+    response = put(client, block_minutes=90)
+
+    assert response.status_code == 422
+    assert "60-minute session" in response.json()["detail"]
+    assert client.get("/slot-config").json()["block_minutes"] == 30
+
+
+def test_kan51_accepts_compatible_block_size(
+    client, session, course
+):
+    # Six weekly hours can be divided into four 90-minute sessions.
+    course.weekly_hours = 6
+    course.session_duration_minutes = 90
+    session.commit()
+
+    response = put(client, block_minutes=90)
+
+    assert response.status_code == 200
+    assert response.json()["block_minutes"] == 90
+    assert client.get("/slot-config").json()["block_minutes"] == 90

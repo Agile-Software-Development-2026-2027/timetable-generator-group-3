@@ -264,3 +264,68 @@ def test_update_course_rejects_year_from_another_degree(
     unchanged = director_client.get(f"/courses/{course.id}")
     assert unchanged.status_code == 200
     assert unchanged.json()["degree_id"] == course.degree_id
+
+
+# KAN-51: Configurable course session duration
+
+def test_kan51_session_duration_default(client, course):
+    payload = course_payload(course)
+
+    response = client.post("/courses", json=payload)
+
+    assert response.status_code == 201
+    assert response.json()["session_duration_minutes"] == 60
+
+
+def test_kan51_session_duration_custom(client, course):
+    payload = course_payload(
+        course,
+        session_duration_minutes=120
+    )
+
+    response = client.post("/courses", json=payload)
+
+    assert response.status_code == 201
+    assert response.json()["session_duration_minutes"] == 120
+
+
+def test_kan51_session_duration_update(client, course):
+    payload = course_payload(
+        course,
+        session_duration_minutes=120
+    )
+
+    response = client.put(
+        f"/courses/{course.id}",
+        json=payload
+    )
+
+    assert response.status_code == 200
+    assert response.json()["session_duration_minutes"] == 120
+
+
+@pytest.mark.parametrize(
+    "duration",
+    [0, -30, 70, 100, 12.5, True]
+)
+def test_kan51_session_duration_invalid(client, course, duration):
+    payload = course_payload(
+        course,
+        session_duration_minutes=duration
+    )
+
+    response = client.post("/courses", json=payload)
+
+    assert response.status_code == 422
+
+def test_kan51_rejects_non_grid_duration(client, course):
+    payload = course_payload(
+        course,
+        weekly_hours=6,
+        session_duration_minutes=45,
+    )
+
+    response = client.post("/courses", json=payload)
+
+    assert response.status_code == 422
+    assert "grid block" in response.json()["detail"]

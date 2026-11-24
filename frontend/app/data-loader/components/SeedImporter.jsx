@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Upload } from "lucide-react";
 import { apiRequest } from "../../../lib/api.js";
 const MAX_SIZE = 256 * 1024;
 
@@ -110,8 +111,8 @@ export default function SeedImporter({ onImported }) {
     finally { setBusy(false); }
   }
   return <>
-    <button type="button" className="btn btn-seed-import" onClick={() => setOpen(true)}>
-      <span aria-hidden="true">⇧</span> Import JSON
+    <button type="button" className="btn btn-campus btn-seed-import" onClick={() => setOpen(true)}>
+      <Upload size={15} aria-hidden="true" /> Import JSON
     </button>
     {open && <div className="delete-modal-backdrop" role="presentation" onMouseDown={(event) => {
       if (event.target === event.currentTarget) close();

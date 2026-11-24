@@ -131,3 +131,13 @@ def course(session):
     session.add(course)
     session.commit()
     return course
+
+
+@pytest.fixture()
+def legacy_director_client(client, session, make_token):
+    """Authenticate existing timetable tests as a director."""
+    user = AppUser(id=uuid.uuid4(), role="director")
+    session.add(user)
+    session.commit()
+    client.headers["Authorization"] = f"Bearer {make_token(user.id)}"
+    return client

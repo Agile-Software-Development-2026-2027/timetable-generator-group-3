@@ -1,9 +1,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { AlertTriangle, CalendarDays, Clock3, LayoutGrid } from "lucide-react";
 import { AppNav, Notification, useNotification } from "../components/app-shell.jsx";
 import { request, toggleId } from "../teachers/teacher-form.mjs";
-import { emptySlotForm, slotFormErrors, slotFormFromConfig, slotPayload, slotPreview, weekdays } from "./slot-config.mjs";
+import { emptySlotForm, slotFormErrors, slotFormFromConfig, slotPayload, slotPreview, toMinutes, weekdays } from "./slot-config.mjs";
+
+const clock = (minutes) => `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+
+// Start time of every block in the day, for the visual preview.
+function dayBlocks(form) {
+  const start = toMinutes(form.start_time);
+  const block = Number(form.block_minutes);
+  const count = Math.floor((toMinutes(form.end_time) - start) / block);
+  return Array.from({ length: count }, (_, i) => clock(start + i * block));
+}
 
 export default function SettingsPage() {
   const [form, setForm] = useState(emptySlotForm);
@@ -49,6 +60,9 @@ export default function SettingsPage() {
   const describedBy = (field) => (errors[field] ? { "aria-describedby": `${field}-error` } : {});
   const feedback = (field) => errors[field] && <div id={`${field}-error`} className="invalid-feedback d-block">{errors[field]}</div>;
 
+  const blocks = preview ? dayBlocks(form) : [];
+  const labelEvery = blocks.length > 12 ? Math.ceil(blocks.length / 12) : 1;
+
   return <div className="campus-app">
     <AppNav current="/settings" />
     <main className="container degrees-main py-4">
@@ -58,46 +72,75 @@ export default function SettingsPage() {
         <p className="text-secondary mb-0">Choose the working days and the time grid the timetable engine uses.</p>
       </header>
       <Notification notification={notification} onClose={() => notify(null)} />
-      {hasTimetable && <p className="delete-modal-warning" role="alert">
-        <strong>Warning:</strong> Changing the grid will not automatically regenerate existing timetables.
+      {hasTimetable && <p className="slot-warning" role="alert">
+        <AlertTriangle size={16} aria-hidden="true" />
+        <span><strong>Warning:</strong> Changing the grid will not automatically regenerate existing timetables.</span>
       </p>}
       {loadState === "loading" && <p className="text-secondary">Loading the current configuration…</p>}
       {loadState === "error" && <p className="fw-semibold">The configuration could not be loaded. Check that the API is running, then refresh the page.</p>}
-      {loadState === "ready" && <section className="room-table-panel settings-panel">
-        <form onSubmit={submit} className="d-grid gap-3" noValidate>
-          <fieldset {...describedBy("working_days")}>
-            <legend className="form-label">Working days</legend>
-            <div className="settings-days">
-              {weekdays.map(({ value, short }) => <div className="form-check form-check-inline" key={value}>
-                <input id={`day-${value}`} className="form-check-input" type="checkbox" checked={form.working_days.includes(value)}
+      {loadState === "ready" && <form onSubmit={submit} className="slot-layout" noValidate>
+        <section className="slot-card">
+          <fieldset className="slot-section" {...describedBy("working_days")}>
+            <div className="slot-section-head">
+              <span className="slot-section-icon" aria-hidden="true"><CalendarDays size={16} /></span>
+              <div><legend className="slot-section-title">Working days</legend>
+                <p>Choose the days when classes can be scheduled.</p></div>
+            </div>
+            <div className="slot-days">
+              {weekdays.map(({ value, short }) => <div className="slot-day" key={value}>
+                <input id={`day-${value}`} className="slot-day-input" type="checkbox" checked={form.working_days.includes(value)}
                   onChange={() => updateField("working_days", toggleId(form.working_days, value))} />
-                <label className="form-check-label" htmlFor={`day-${value}`}>{short}</label>
+                <label className="slot-day-chip" htmlFor={`day-${value}`}>{short}</label>
               </div>)}
             </div>
             {feedback("working_days")}
           </fieldset>
-          <div className="row g-3">
-            {[["start_time", "Start time"], ["end_time", "End time"]].map(([field, label]) => <div className="col-sm-4" key={field}>
-              <label className="form-label" htmlFor={field}>{label}</label>
-              <input id={field} type="time" className={fieldClass(field)} value={form[field]} aria-invalid={Boolean(errors[field])}
-                {...describedBy(field)} onChange={(e) => updateField(field, e.target.value)} />
-              {feedback(field)}
-            </div>)}
-            <div className="col-sm-4">
-              <label className="form-label" htmlFor="block_minutes">Block length (minutes)</label>
-              <input id="block_minutes" type="number" min="1" step="1" className={fieldClass("block_minutes")} value={form.block_minutes}
-                aria-invalid={Boolean(errors.block_minutes)} {...describedBy("block_minutes")} onChange={(e) => updateField("block_minutes", e.target.value)} />
-              {feedback("block_minutes")}
+          <div className="slot-section">
+            <div className="slot-section-head">
+              <span className="slot-section-icon" aria-hidden="true"><Clock3 size={16} /></span>
+              <div><h2 className="slot-section-title">Daily schedule</h2>
+                <p>Teaching hours and the length of one block of the grid.</p></div>
+            </div>
+            <div className="slot-fields">
+              {[["start_time", "Start time"], ["end_time", "End time"]].map(([field, label]) => <div key={field}>
+                <label className="form-label" htmlFor={field}>{label}</label>
+                <input id={field} type="time" className={fieldClass(field)} value={form[field]} aria-invalid={Boolean(errors[field])}
+                  {...describedBy(field)} onChange={(e) => updateField(field, e.target.value)} />
+                {feedback(field)}
+              </div>)}
+              <div>
+                <label className="form-label" htmlFor="block_minutes">Block length (minutes)</label>
+                <input id="block_minutes" type="number" min="1" step="1" className={fieldClass("block_minutes")} value={form.block_minutes}
+                  aria-invalid={Boolean(errors.block_minutes)} {...describedBy("block_minutes")} onChange={(e) => updateField("block_minutes", e.target.value)} />
+                {feedback("block_minutes")}
+              </div>
             </div>
           </div>
+          <div className="slot-actions">
+            <button className="btn btn-campus" disabled={saving || Boolean(Object.keys(errors).length)}>{saving ? "Saving…" : "Save configuration"}</button>
+          </div>
+        </section>
+        <aside className="slot-card slot-preview-card" aria-label="Grid preview">
+          <div className="slot-section-head">
+            <span className="slot-section-icon" aria-hidden="true"><LayoutGrid size={16} /></span>
+            <div><h2 className="slot-section-title">Grid preview</h2><p>What the timetable engine will use.</p></div>
+          </div>
+          {preview && <div className="slot-stats">
+            <div><span>Slots per day</span><strong>{blocks.length}</strong></div>
+            <div><span>Working days</span><strong>{form.working_days.length}</strong></div>
+            <div><span>Total slots</span><strong>{blocks.length * form.working_days.length}</strong></div>
+          </div>}
+          {preview && <div className="slot-day-bar" aria-hidden="true">
+            {blocks.map((time, i) => <div className="slot-block" key={time}>
+              <span>{i % labelEvery === 0 ? time : ""}</span>
+            </div>)}
+            <div className="slot-block-end"><span>{form.end_time}</span></div>
+          </div>}
           <p className="settings-preview" role="status" aria-live="polite">
             {preview ?? "Fix the highlighted fields to see the grid preview."}
           </p>
-          <div className="d-flex justify-content-end">
-            <button className="btn btn-campus" disabled={saving || Boolean(Object.keys(errors).length)}>{saving ? "Saving…" : "Save configuration"}</button>
-          </div>
-        </form>
-      </section>}
+        </aside>
+      </form>}
     </main>
   </div>;
 }

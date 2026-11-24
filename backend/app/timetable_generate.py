@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
+from app.auth import CurrentUser, require_director
 from app.database import get_session
 from app.auth import require_role
 from app.engine.engine import solve
@@ -18,6 +19,7 @@ from app.models import Degree, Room, ScheduleSession, Semester
 
 router = APIRouter(tags=["timetable"])
 Database = Annotated[Session, Depends(get_session)]
+Director = Annotated[CurrentUser, Depends(require_director)]
 
 class GenerateInput(BaseModel):
     degree_id: int = Field(gt=0)

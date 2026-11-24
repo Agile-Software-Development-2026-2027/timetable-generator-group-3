@@ -315,3 +315,5 @@ def test_create_and_update_return_enriched_sessions(director_client, timetable):
     assert updated.json()["room_code"] == "LAB-A"
     friday = director_client.get("/timetable/sessions?weekday=4").json()
     assert friday == [updated.json()]
+
+pytestmark = pytest.mark.usefixtures("legacy_director_client")

@@ -17,6 +17,9 @@ function jsonResponse(data, ok = true, status = 200) {
 function mockApi(teachers) {
   global.fetch = vi.fn((url, options) => {
     if (options?.method === "PUT") return jsonResponse({});
+    if (url.includes("/slot-config")) {
+      return jsonResponse({ block_minutes: 30 });
+    }
     if (url.includes("/teachers")) return jsonResponse(teachers);
     if (url.includes("/courses")) return jsonResponse(courses);
     if (url.endsWith("/degrees")) return jsonResponse([]);

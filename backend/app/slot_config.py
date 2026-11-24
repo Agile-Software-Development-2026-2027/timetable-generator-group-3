@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_session
 from app.auth import require_role
-from app.models import SlotConfig
+from app.models import Course, SlotConfig
 
 router = APIRouter(prefix="/slot-config", tags=["slot-config"])
 Database = Annotated[Session, Depends(get_session)]

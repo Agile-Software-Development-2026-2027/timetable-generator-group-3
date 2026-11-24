@@ -72,3 +72,43 @@
 .campus-app.calendar-page .calendar-legend-swatch { width: 7px; height: 7px; border: 0; border-radius: 50%; }
 .campus-app.calendar-page .calendar-legend-empty { background: #d6dbdd; }
 .campus-app.calendar-page .calendar-legend-occupied { background: #c73d3b; }
+
+/* "Create a timetable" card: same look as the table panels. One row with a compact
+   degree select and same-size buttons; only "Generate" is a filled red button. */
+.campus-app.calendar-page .timetable-generation { padding: 18px 19px; border: 1px solid #e8edef; border-radius: 11px; box-shadow: 0 2px 8px #23313a05; background: #fff; }
+.campus-app.calendar-page .timetable-generation-intro { gap: 12px; margin-bottom: 16px; }
+.campus-app.calendar-page .timetable-generation-mark { flex: 0 0 34px; width: 34px; height: 34px; border: 0; border-radius: 9px; background: #faeae9; color: #b71918; }
+.campus-app.calendar-page .timetable-generation-mark svg { width: 18px; height: 18px; }
+.campus-app.calendar-page .timetable-generation-intro h2 { font-size: 14px; font-weight: 700; letter-spacing: -.015em; color: #383838; }
+.campus-app.calendar-page .timetable-generation-intro p { margin-top: 3px; font-size: 11px; color: #899499; }
+
+.campus-app.calendar-page .timetable-controls { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 12px; }
+.campus-app.calendar-page .timetable-degree-field { flex: 0 1 320px; }
+.campus-app.calendar-page .timetable-degree-field .form-label { margin-bottom: 4px; font-size: 9px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: #9da6aa; }
+.campus-app.calendar-page .timetable-degree-field .form-select { min-height: 34px; height: 34px; padding-top: 0; padding-bottom: 0; border: 1px solid #e5e9ea; border-radius: 6px; font-size: 11px; color: #424b4f; box-shadow: none; }
+.campus-app.calendar-page .timetable-degree-field .form-select:focus { border-color: #b71918; box-shadow: 0 0 0 3px #b7191818; }
+.campus-app.calendar-page .timetable-controls-footer { flex: 1 1 auto; }
+.campus-app.calendar-page .timetable-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+
+/* Every button in the row: same height, padding and font. */
+.campus-app.calendar-page .timetable-actions .btn { min-height: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; padding: 0 13px; border-radius: 7px; font-size: 11px; font-weight: 600; white-space: nowrap; box-shadow: none; }
+.campus-app.calendar-page .timetable-actions .btn-campus { border: 1px solid #b71918; background: #b71918; color: #fff; box-shadow: 0 2px 4px #b719181a; }
+.campus-app.calendar-page .timetable-actions .btn-campus:hover:not(:disabled) { border-color: #6f0b0a; background: #6f0b0a; }
+.campus-app.calendar-page .timetable-actions .btn-outline-danger,
+.campus-app.calendar-page .timetable-actions .btn-outline-secondary,
+.campus-app.calendar-page .timetable-actions .timetable-publication-toggle { border: 1px solid #e1e6e8; background: #fff; color: #576268; }
+.campus-app.calendar-page .timetable-actions .btn-outline-secondary:hover,
+.campus-app.calendar-page .timetable-actions .timetable-publication-toggle:hover { border-color: #c6cdcf; background: #fafbfb; color: #383838; }
+.campus-app.calendar-page .timetable-actions .btn-outline-danger:hover:not(:disabled) { border-color: #f3d8d7; background: #faeae9; color: #a71918; }
+.campus-app.calendar-page .timetable-actions .timetable-publication-publish { border: 1px solid #b71918; background: #fff; color: #b71918; }
+.campus-app.calendar-page .timetable-actions .timetable-publication-publish:hover:not(:disabled) { background: #faeae9; color: #8f1514; }
+.campus-app.calendar-page .timetable-actions .btn:disabled { opacity: .55; }
+
+/* The publication buttons sit in the same row, without their own box. */
+.campus-app.calendar-page .timetable-actions > .timetable-publication-inline { display: contents; }
+.campus-app.calendar-page .timetable-publication-actions { display: contents; }
+
+@media (max-width: 760px) {
+  .campus-app.calendar-page .timetable-degree-field { flex-basis: 100%; }
+  .campus-app.calendar-page .timetable-actions .btn { flex: 1 1 calc(50% - 8px); }
+}

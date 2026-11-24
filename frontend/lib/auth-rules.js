@@ -2,7 +2,7 @@
 
 export const ROLE_HOME = { director: "/", teacher: "/my-schedule", student: "/my-timetable" };
 
-const BACKOFFICE_PATHS = ["/", "/rooms", "/courses", "/calendar", "/settings", "/data-loader", "/teachers", "/users"];
+const BACKOFFICE_PATHS = ["/", "/rooms", "/courses", "/calendar", "/settings", "/data-loader", "/teachers", "/students", "/users"];
 
 const ROLE_PATHS = {
   director: BACKOFFICE_PATHS,
@@ -13,7 +13,7 @@ const ROLE_PATHS = {
 // Single source of truth for the header: a role always sees its links in this
 // order, so buttons never shift or disappear when navigating.
 export const NAV_LINKS_BY_ROLE = {
-  director: [["/", "Degree programmes"], ["/rooms", "Rooms"], ["/teachers", "Teachers"], ["/courses", "Courses"], ["/data-loader", "Data Loader"], ["/calendar", "Open timetable"], ["/settings", "Slot configuration"]],
+  director: [["/", "Degree programmes"], ["/rooms", "Rooms"], ["/teachers", "Teachers"], ["/students", "Students"], ["/courses", "Courses"], ["/data-loader", "Data Loader"], ["/calendar", "Open timetable"], ["/settings", "Slot configuration"]],
   teacher: [["/my-schedule", "My schedule"]],
   student: [["/my-timetable", "My timetable"]],
 };

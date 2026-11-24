@@ -109,3 +109,163 @@ def test_list_degrees_keeps_course_counts_separate(client, course):
 
     assert degrees["Computer Science"]["courses"] == 1
     assert degrees["Mathematics"]["courses"] == 0
+
+
+def test_kan59_delete_degree_with_students(auth_client):
+    director = auth_client("director")
+
+    response = director.post(
+        "/degrees",
+        json={"name": "Student Degree", "years": 2},
+    )
+    assert response.status_code == 201
+    degree = response.json()
+
+    response = director.post(
+        "/students",
+        json={
+            "name": "Alice Student",
+            "student_number": "KAN59001",
+            "degree_id": degree["id"],
+            "year_id": degree["years"][0]["id"],
+        },
+    )
+    assert response.status_code == 201
+    student_id = response.json()["id"]
+
+    response = director.delete(f"/degrees/{degree['id']}")
+
+    assert response.status_code == 409
+    assert "students" in response.json()["detail"].lower()
+
+    assert director.get(
+        f"/degrees/{degree['id']}"
+    ).status_code == 200
+
+    assert director.get(
+        f"/students/{student_id}"
+    ).status_code == 200
+
+
+def test_kan59_remove_year_with_students(auth_client):
+    director = auth_client("director")
+
+    response = director.post(
+        "/degrees",
+        json={"name": "Protected Academic Year", "years": 2},
+    )
+    assert response.status_code == 201
+    degree = response.json()
+
+    response = director.post(
+        "/students",
+        json={
+            "name": "Second Year Student",
+            "student_number": "KAN59002",
+            "degree_id": degree["id"],
+            "year_id": degree["years"][1]["id"],
+        },
+    )
+    assert response.status_code == 201
+    student_id = response.json()["id"]
+
+    response = director.put(
+        f"/degrees/{degree['id']}",
+        json={
+            "name": degree["name"],
+            "years": 1,
+            "semesters_per_year": 2,
+        },
+    )
+
+    assert response.status_code == 409
+    assert "students" in response.json()["detail"].lower()
+
+    current = director.get(f"/degrees/{degree['id']}")
+
+    assert current.status_code == 200
+    assert len(current.json()["years"]) == 2
+
+    student = director.get(f"/students/{student_id}")
+
+    assert student.status_code == 200
+    assert student.json()["year_id"] == degree["years"][1]["id"]
+
+
+def test_kan59_remove_empty_year(auth_client):
+    director = auth_client("director")
+
+    response = director.post(
+        "/degrees",
+        json={"name": "Degree With Empty Year", "years": 2},
+    )
+    assert response.status_code == 201
+    degree = response.json()
+
+    response = director.post(
+        "/students",
+        json={
+            "name": "First Year Student",
+            "student_number": "KAN59003",
+            "degree_id": degree["id"],
+            "year_id": degree["years"][0]["id"],
+        },
+    )
+    assert response.status_code == 201
+    student_id = response.json()["id"]
+
+    response = director.put(
+        f"/degrees/{degree['id']}",
+        json={
+            "name": degree["name"],
+            "years": 1,
+            "semesters_per_year": 2,
+        },
+    )
+
+    assert response.status_code == 200
+    assert len(response.json()["years"]) == 1
+    assert response.json()["years"][0]["id"] == degree["years"][0]["id"]
+
+    assert director.get(
+        f"/students/{student_id}"
+    ).status_code == 200
+
+
+def test_kan59_delete_degree_after_removing_students(auth_client):
+    director = auth_client("director")
+
+    response = director.post(
+        "/degrees",
+        json={"name": "Removable Student Degree", "years": 1},
+    )
+    assert response.status_code == 201
+    degree = response.json()
+
+    response = director.post(
+        "/students",
+        json={
+            "name": "Temporary Student",
+            "student_number": "KAN59004",
+            "degree_id": degree["id"],
+            "year_id": degree["years"][0]["id"],
+        },
+    )
+    assert response.status_code == 201
+    student_id = response.json()["id"]
+
+    assert director.delete(
+        f"/degrees/{degree['id']}"
+    ).status_code == 409
+
+    assert director.delete(
+        f"/students/{student_id}"
+    ).status_code == 204
+
+    assert director.delete(
+        f"/degrees/{degree['id']}"
+    ).status_code == 204
+
+    assert director.get(
+        f"/degrees/{degree['id']}"
+    ).status_code == 404

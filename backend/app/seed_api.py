@@ -7,8 +7,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.database import SessionLocal, engine
 from app.auth import require_role
-from app.seed.seed_sample_data import REQUIRED_TABLES, load_dataset, room_differences, validate
-
+from app.seed.seed_sample_data import REQUIRED_TABLES, load_dataset, room_differences, validate, validate_course_grid
 router = APIRouter(prefix="/seed", tags=["sample data"])
 MAX_JSON_BYTES = 256 * 1024
 

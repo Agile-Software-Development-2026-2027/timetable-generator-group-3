@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session, contains_eager, joinedload
 
-from app.auth import require_role
+from app.auth import CurrentUser, get_current_user, require_role
 from app.database import get_session
 from app.models import Course, Degree, PublishedSession, Room, ScheduleSession, course_teacher
 

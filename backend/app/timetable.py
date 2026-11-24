@@ -13,7 +13,7 @@ from app.models import Course, Degree, PublishedSession, Room, ScheduleSession, 
 
 router = APIRouter(tags=["timetable"])
 Database = Annotated[Session, Depends(get_session)]
-Director = Annotated[CurrentUser, Depends(require_director)]
+Director = Annotated[CurrentUser, Depends(require_role("director"))]
 
 DEFAULT_PAGE_SIZE = 100
 MAX_PAGE_SIZE = 500

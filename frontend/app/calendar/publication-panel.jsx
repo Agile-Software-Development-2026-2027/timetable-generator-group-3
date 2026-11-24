@@ -20,12 +20,17 @@ export function PublicationPanel({ degreeId, degreeName, revision = 0 }) {
     return () => { active = false; };
   }, []);
 
+  // Close the dialogs when the degree or the timetable changes, but not when the
+  // user's role arrives: that closed a dialog the user had just opened.
+  useEffect(() => {
+    setConfirmOpen(false);
+    setInfoOpen(false);
+  }, [degreeId, revision]);
+
   useEffect(() => {
     let active = true;
     setStatus(null);
     setError("");
-    setConfirmOpen(false);
-    setInfoOpen(false);
     if (!degreeId || role !== "director") return () => { active = false; };
     setLoading(true);
     apiRequest(`/timetable/publication?degree_id=${encodeURIComponent(degreeId)}`)

@@ -1,0 +1,152 @@
+/* Table design applied to every existing table (degrees, courses, teachers,
+   rooms, data loader). Loaded last. The tripled .campus-app only raises
+   specificity above the older page-specific rules in style.css. */
+
+/* Page heading. */
+.campus-app.campus-app.campus-app .degrees-heading { margin-bottom: 16px !important; }
+.campus-app.campus-app.campus-app .degrees-heading .eyebrow { font-size: 9px; font-weight: 700; letter-spacing: .13em; color: #9ba5a9; margin-bottom: 0 !important; }
+.campus-app.campus-app.campus-app .degrees-heading h1 { font-size: 27px; line-height: 1.2; letter-spacing: -.045em; margin: 8px 0 5px !important; color: #30383b; font-weight: 700 !important; }
+.campus-app.campus-app.campus-app .degrees-heading p:last-child { margin: 0; color: #899499 !important; font-size: 12px; }
+
+/* Panel: the title row above a table becomes the top of the same card. */
+.campus-app.campus-app.campus-app .room-table-panel { background: #fff; border: 1px solid #e8edef; border-radius: 11px; box-shadow: 0 2px 8px #23313a05; overflow: hidden; }
+.campus-app.campus-app.campus-app .d-flex.mb-3:has(+ .room-table-panel) { margin: 0 !important; padding: 18px 19px 15px; background: #fff; border: 1px solid #e8edef; border-bottom: 0; border-radius: 11px 11px 0 0; }
+.campus-app.campus-app.campus-app .d-flex.mb-3 + .room-table-panel { border-top: 0; border-radius: 0 0 11px 11px; }
+.campus-app.campus-app.campus-app .d-flex.mb-3:has(+ .room-table-panel) > .h4,
+.campus-app.campus-app.campus-app .room-table-toolbar > .h5 { font-size: 14px; font-weight: 700; letter-spacing: -.015em; color: #383838; margin: 0; }
+.campus-app.campus-app.campus-app .catalogue-total { background: #f0f2f3; color: #69757b; border-radius: 5px; padding: 4px 7px; font-size: 9px; font-weight: 600; }
+
+/* Toolbar: search box and filter chips. */
+.campus-app.campus-app.campus-app .room-table-toolbar { padding: 0 19px 13px; border-bottom: 0; gap: 8px; background: #fff; }
+.campus-app.campus-app.campus-app .room-table-panel:not(.d-flex.mb-3 + .room-table-panel) > .room-table-toolbar:first-child { padding-top: 18px; }
+.campus-app.campus-app.campus-app .room-search,
+.campus-app.campus-app.campus-app .catalogue-search { flex: 0 1 250px; height: 32px; border: 1px solid #e5e9ea; border-radius: 6px; padding: 0 8px; gap: 7px; color: #98a2a6; background: #fff; box-shadow: none; }
+.campus-app.campus-app.campus-app .catalogue-search input { font-size: 10px; color: #424b4f; }
+.campus-app.campus-app.campus-app .catalogue-search input::placeholder { color: #a0a9ad; }
+.campus-app.campus-app.campus-app .catalogue-search:focus-within { border-color: #b71918; box-shadow: 0 0 0 3px #b7191818; }
+.campus-app.campus-app.campus-app .room-filters-label { font-size: 9px; font-weight: 700; letter-spacing: .1em; color: #9da6aa; text-transform: uppercase; }
+.campus-app.campus-app.campus-app .filter-chip { height: 28px; border: 1px solid #e5e9ea; border-radius: 6px; background: #fff; color: #707b80; font-size: 10px; font-weight: 600; padding: 0 9px; }
+.campus-app.campus-app.campus-app .filter-chip.is-active { border-color: #f3d8d7; background: #faeae9; color: #a71e1b; }
+
+/* Table. */
+.campus-app.campus-app.campus-app .room-table,
+.campus-app.campus-app.campus-app .loader-table { --bs-table-hover-bg: #fafbfb; margin: 0; }
+.campus-app.campus-app.campus-app .room-table thead th,
+.campus-app.campus-app.campus-app .loader-table thead th { background: #f8f9f9; color: #929ca0; font-size: 9px; font-weight: 600; letter-spacing: normal; text-transform: none; padding: 10px 12px; border-bottom: 0; white-space: nowrap; }
+.campus-app.campus-app.campus-app .room-table tbody th,
+.campus-app.campus-app.campus-app .room-table tbody td,
+.campus-app.campus-app.campus-app .loader-table tbody td { font-size: 10px; color: #69757a; border-top: 1px solid #f0f2f3; border-bottom: 0; padding: 10px 12px; }
+.campus-app.campus-app.campus-app .room-table tr > :first-child,
+.campus-app.campus-app.campus-app .loader-table tr > :first-child { padding-left: 19px; }
+.campus-app.campus-app.campus-app .room-table tr > :last-child,
+.campus-app.campus-app.campus-app .loader-table tr > :last-child { padding-right: 19px; }
+.campus-app.campus-app.campus-app .room-table .room-code { font-size: 10px; font-weight: 700; color: #40494d; }
+.campus-app.campus-app.campus-app .room-table .room-number { font-size: 10px; color: #69757a; }
+.campus-app.campus-app.campus-app .room-sort { font-size: 9px; font-weight: 600; color: #929ca0; text-transform: none; letter-spacing: normal; }
+.campus-app.campus-app.campus-app .room-sort.is-active { color: #a71918; }
+.campus-app.campus-app.campus-app .room-table .room-table-message { padding: 40px 12px; }
+.campus-app.campus-app.campus-app .room-table .room-table-message .fw-semibold { font-size: 12px; color: #40494d; }
+
+/* Tags inside cells become pills. */
+.campus-app.campus-app.campus-app .room-table .semester-pill { border-radius: 5px; padding: 4px 7px; margin: 0 4px 0 0; background: #eaf1fa; color: #527eaf; font-size: 9px; font-weight: 600; }
+
+/* Row actions: quiet outline buttons. */
+.campus-app.campus-app.campus-app .room-table .btn-edit,
+.campus-app.campus-app.campus-app .room-table .btn-delete { height: 26px; padding: 0 8px; border: 1px solid #e5e9ea; border-radius: 6px; background: #fff; color: #6c777c; font-size: 10px; font-weight: 600; box-shadow: none; }
+.campus-app.campus-app.campus-app .room-table .btn-edit:hover { background: #f2f3f4; color: #383838; }
+.campus-app.campus-app.campus-app .room-table .btn-delete:hover { border-color: #f3d8d7; background: #faeae9; color: #a71918; }
+
+/* Footer: page size, range and pagination. */
+.campus-app.campus-app.campus-app .room-table-footer,
+.campus-app.campus-app.campus-app .loader-footer { min-height: 47px; padding: 8px 19px; border-top: 1px solid #edf0f1; background: #fff; color: #8b969a; font-size: 9px; }
+.campus-app.campus-app.campus-app .room-page-range { margin: 0; font-size: 9px; color: #8b969a; }
+.campus-app.campus-app.campus-app .btn-page-size { min-width: 26px; height: 24px; padding: 0 6px; border: 0; border-radius: 5px !important; background: #fff; color: #6c777c; font-size: 9px; }
+.campus-app.campus-app.campus-app .btn-page-size.is-active { background: #fae9e8; color: #a71918; font-weight: 700; }
+.campus-app.campus-app.campus-app .table-page-size-select { height: 24px; font-size: 9px; padding: 0 22px 0 6px; border-color: #e5e9ea; border-radius: 5px; }
+.campus-app.campus-app.campus-app .room-pagination { gap: 4px; --bs-pagination-border-width: 0; }
+.campus-app.campus-app.campus-app .room-pagination .page-link { min-width: 24px; height: 24px; padding: 0 6px; display: grid; place-items: center; border: 0; border-radius: 5px !important; background: #fff; color: #6c777c; font-size: 9px; box-shadow: none; }
+.campus-app.campus-app.campus-app .room-pagination .page-link:hover { background: #f2f3f4; color: #383838; }
+.campus-app.campus-app.campus-app .room-pagination .active .page-link { background: #fae9e8; color: #a71918; font-weight: 700; }
+.campus-app.campus-app.campus-app .room-pagination .disabled .page-link { background: #fff; color: #c3c9cc; }
+
+/* Primary and secondary buttons, matching .button-primary / .button-outline. */
+.campus-app.campus-app.campus-app .btn-campus { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 0; padding: 8px 13px; border-radius: 7px; border: 1px solid #b71918; background: #b71918; color: #fff; font-size: 11px; font-weight: 600; box-shadow: 0 2px 4px #b719181a; }
+.campus-app.campus-app.campus-app .btn-campus:hover { background: #6f0b0a; border-color: #6f0b0a; }
+.campus-app.campus-app.campus-app .btn-outline-secondary { padding: 8px 12px; border-radius: 7px; font-size: 11px; font-weight: 600; }
+
+/* Other cards (forms, filters, calendar) share the same panel look. */
+.campus-app.campus-app.campus-app .campus-card,
+.campus-app.campus-app.campus-app .timetable-card,
+.campus-app.campus-app.campus-app .timetable-generation { border: 1px solid #e8edef; border-radius: 11px; box-shadow: 0 2px 8px #23313a05; background: #fff; }
+
+/* Slot configuration: settings card on the left, live grid preview on the right. */
+.campus-app .slot-warning { display: flex; align-items: center; gap: 9px; margin: 0 0 14px; padding: 10px 14px; border: 1px solid #f3e2bd; border-radius: 9px; background: #fffaf0; color: #7a5a18; font-size: 12px; }
+.campus-app .slot-warning svg { flex: 0 0 auto; color: #c18a1e; }
+.campus-app .slot-layout { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(300px, 1fr); gap: 14px; align-items: start; }
+.campus-app .slot-card { background: #fff; border: 1px solid #e8edef; border-radius: 11px; box-shadow: 0 2px 8px #23313a05; padding: 6px 20px; }
+.campus-app .slot-preview-card { padding: 18px 20px; position: sticky; top: 72px; }
+.campus-app .slot-section { margin: 0; padding: 18px 0; border: 0; border-bottom: 1px solid #edf0f1; min-width: 0; }
+.campus-app .slot-section-head { display: flex; align-items: flex-start; gap: 11px; margin-bottom: 14px; }
+.campus-app .slot-section-icon { flex: 0 0 30px; width: 30px; height: 30px; display: grid; place-items: center; border-radius: 8px; background: #faeae9; color: #b71918; }
+.campus-app .slot-section-title { float: none; width: auto; margin: 0 0 3px; padding: 0; font-size: 14px; font-weight: 700; letter-spacing: -.015em; color: #383838; line-height: 1.3; }
+.campus-app .slot-section-head p { margin: 0; font-size: 11px; color: #899499; }
+
+/* Day chips: the checkbox stays for keyboard and screen readers; the label is the chip. */
+.campus-app .slot-days { display: flex; flex-wrap: wrap; gap: 7px; }
+.campus-app .slot-day { position: relative; }
+.campus-app .slot-day-input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.campus-app .slot-day-chip { display: grid; place-items: center; min-width: 54px; height: 36px; padding: 0 12px; border: 1px solid #e1e6e8; border-radius: 8px; background: #fff; color: #69757a; font-size: 12px; font-weight: 600; cursor: pointer; user-select: none; transition: .15s; }
+.campus-app .slot-day-chip:hover { border-color: #c6cdcf; color: #383838; }
+.campus-app .slot-day-input:checked + .slot-day-chip { border-color: #b71918; background: #b71918; color: #fff; box-shadow: 0 2px 4px #b719181a; }
+.campus-app .slot-day-input:focus-visible + .slot-day-chip { outline: 3px solid #e0323166; outline-offset: 2px; }
+
+.campus-app .slot-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.campus-app .slot-fields .form-label { margin-bottom: 5px; font-size: 9px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: #9da6aa; }
+.campus-app .slot-fields .form-control { height: 38px; padding: 0 10px; border: 1px solid #e5e9ea; border-radius: 7px; font-size: 13px; color: #383838; }
+.campus-app .slot-fields .form-control.is-invalid { border-color: #dc3545; }
+.campus-app .slot-actions { display: flex; justify-content: flex-end; padding: 16px 0 14px; }
+
+/* Preview: three figures, a bar with one segment per block, and the summary line. */
+.campus-app .slot-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 18px; }
+.campus-app .slot-stats > div { padding: 11px 12px; border: 1px solid #edf0f1; border-radius: 9px; background: #fafbfb; }
+.campus-app .slot-stats span { display: block; font-size: 9px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #9da6aa; }
+.campus-app .slot-stats strong { display: block; margin-top: 4px; font-size: 22px; font-weight: 700; letter-spacing: -.03em; color: #383838; font-variant-numeric: tabular-nums; }
+.campus-app .slot-stats > div:last-child strong { color: #b71918; }
+.campus-app .slot-day-bar { display: flex; gap: 3px; padding-bottom: 20px; margin-bottom: 14px; }
+.campus-app .slot-block { position: relative; flex: 1 1 0; height: 30px; border-radius: 5px; background: #faeae9; border: 1px solid #f3d8d7; }
+.campus-app .slot-block:nth-child(odd) { background: #f6dcdb; }
+.campus-app .slot-block span, .campus-app .slot-block-end span { position: absolute; top: 34px; left: 0; font-size: 9px; color: #929ca0; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.campus-app .slot-block-end { position: relative; width: 0; }
+.campus-app .slot-block-end span { left: auto; right: 0; }
+.campus-app .slot-preview-card .settings-preview { margin: 0; padding: 10px 12px; border: 0; border-radius: 8px; background: #f8f9f9; color: #576268; font-size: 11px; font-weight: 600; line-height: 1.5; }
+
+@media (max-width: 1100px) {
+  .campus-app .slot-layout { grid-template-columns: minmax(0, 1fr); }
+  .campus-app .slot-preview-card { position: static; }
+}
+@media (max-width: 560px) {
+  .campus-app .slot-fields { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* Row actions as small icon buttons with one colour per action:
+   blue = assign / view, grey = edit, red = delete. The aria-label names each one. */
+.campus-app.campus-app.campus-app .room-table .room-actions { display: flex; flex-wrap: nowrap; justify-content: flex-end; align-items: center; gap: 5px; }
+.campus-app.campus-app.campus-app .room-table .room-actions .btn { flex: 0 0 28px; width: 28px; height: 28px; min-height: 0; padding: 0; display: grid; place-items: center; border: 1px solid transparent; border-radius: 7px; box-shadow: none; transition: .15s; }
+.campus-app.campus-app.campus-app .room-table .room-actions .btn-assign { background: #eaf1fa; color: #3f6fa5; }
+.campus-app.campus-app.campus-app .room-table .room-actions .btn-assign:hover { background: #d7e5f6; color: #2c5689; }
+.campus-app.campus-app.campus-app .room-table .room-actions .btn-edit { background: #f2f4f5; color: #576268; }
+.campus-app.campus-app.campus-app .room-table .room-actions .btn-edit:hover { background: #e4e8ea; color: #383838; }
+.campus-app.campus-app.campus-app .room-table .room-actions .btn-delete { background: #faeae9; color: #b71918; }
+.campus-app.campus-app.campus-app .room-table .room-actions .btn-delete:hover { background: #b71918; color: #fff; }
+.campus-app.campus-app.campus-app .room-table .room-actions .btn:focus-visible { outline: 3px solid #e0323166; outline-offset: 1px; }
+
+/* Course table fits the page: automatic column widths, numbers kept narrow,
+   long text wraps instead of forcing a horizontal scroll. */
+.campus-app.campus-app.campus-app .course-table { min-width: 0; table-layout: auto; }
+.campus-app.campus-app.campus-app .course-table th:nth-child(8),
+.campus-app.campus-app.campus-app .course-table th:last-child { width: auto; }
+.campus-app.campus-app.campus-app .course-table .room-number { width: 1%; white-space: nowrap; }
+.campus-app.campus-app.campus-app .course-table thead th { white-space: normal; }
+.campus-app.campus-app.campus-app .course-table .room-code { min-width: 150px; }
+.campus-app.campus-app.campus-app .course-table .course-degree-cell { min-width: 140px; color: #899499; }
+.campus-app.campus-app.campus-app .course-table tbody td:last-child { width: 1%; }

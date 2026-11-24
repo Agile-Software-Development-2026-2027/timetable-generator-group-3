@@ -1,5 +1,7 @@
 "use client";
 
+import { BookOpen, Pencil, Trash2 } from "lucide-react";
+
 import { useEffect, useState } from "react";
 import { AppNav, Notification, useNotification } from "../components/app-shell.jsx";
 import { emptyTeacherForm, matches, request, teacherFormErrors, teacherFormFromTeacher, teacherPayload, toggleId } from "./teacher-form.mjs";
@@ -115,9 +117,9 @@ export default function TeachersPage() {
                 <td>{teacher.identifier}</td>
                 <td className="text-end room-number">{teacher.course_count}</td>
                 <td><div className="room-actions">
-                  <button type="button" className="btn btn-light" aria-label={`View courses of ${teacher.name}`} onClick={() => setViewTarget(teacher)}>Courses</button>
-                  <button type="button" className="btn btn-edit" aria-label={`Edit ${teacher.name}`} onClick={() => openForm(teacher)}>Edit</button>
-                  <button type="button" className="btn btn-delete" aria-label={`Delete ${teacher.name}`} onClick={() => setDeleteTarget(teacher)}>Delete</button>
+                  <button type="button" className="btn btn-assign" title="Courses" aria-label={`View courses of ${teacher.name}`} onClick={() => setViewTarget(teacher)}><BookOpen size={14} aria-hidden="true" /></button>
+                  <button type="button" className="btn btn-edit" title="Edit" aria-label={`Edit ${teacher.name}`} onClick={() => openForm(teacher)}><Pencil size={14} aria-hidden="true" /></button>
+                  <button type="button" className="btn btn-delete" title="Delete" aria-label={`Delete ${teacher.name}`} onClick={() => setDeleteTarget(teacher)}><Trash2 size={14} aria-hidden="true" /></button>
                 </div></td>
               </tr>)}
               {!rows.length && <tr><td colSpan="4" className="room-table-message">

@@ -2,12 +2,12 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Path, Query, Response
+from fastapi import APIRouter, Depends, Path, Query, Response
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.auth import CurrentUser, get_current_user
+from app.auth import get_current_student
 from app.database import get_session
 from app.models import Course, Student
 from app.student_courses import list_student_courses, student_course_ids_query
@@ -29,23 +29,7 @@ router = APIRouter(prefix="/students/me", tags=["student timetable"])
 Database = Annotated[Session, Depends(get_session)]
 
 
-def require_student_role(
-    user: Annotated[CurrentUser, Depends(get_current_user)],
-) -> CurrentUser:
-    if user.role != "student":
-        raise HTTPException(403, "Only students can access personal student endpoints.")
-    return user
-
-
-def resolve_student_profile(
-    _user: Annotated[CurrentUser, Depends(require_student_role)],
-) -> Student:
-    # KAN-69 must provide the authenticated account-to-student link.
-    # Deny access until that dependency is available.
-    raise HTTPException(503, "Student account linking is not available yet.")
-
-
-CurrentStudent = Annotated[Student, Depends(resolve_student_profile)]
+CurrentStudent = Annotated[Student, Depends(get_current_student)]
 
 
 class PublicationStatusView(BaseModel):

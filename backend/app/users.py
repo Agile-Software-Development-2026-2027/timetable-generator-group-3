@@ -29,7 +29,7 @@ def assign_degrees(
     user_id: uuid.UUID,
     data: DegreeAssignment,
     session: Database,
-    current_user: Annotated[
+    _current_user: Annotated[
         CurrentUser, Depends(require_role("director"))
     ],
 ) -> DegreeAssignmentView:

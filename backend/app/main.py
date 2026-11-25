@@ -14,7 +14,7 @@ from app.seed_api import router as seed_router
 from app.slot_config import router as slot_config_router
 from app.courses import router as courses_router
 from app.timetable_generate import router as timetable_generate_router
-
+from app.users import router as users_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -42,6 +42,7 @@ app.add_middleware(
 )
 
 app.include_router(auth_router)
+app.include_router(users_router)
 app.include_router(degrees_router)
 app.include_router(rooms_router)
 app.include_router(teachers_router)

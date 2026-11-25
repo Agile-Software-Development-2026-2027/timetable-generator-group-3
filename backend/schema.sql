@@ -214,3 +214,19 @@ CREATE TABLE enrollment (
 -- No public or authenticated Data API policies are granted.
 ALTER TABLE student ENABLE ROW LEVEL SECURITY;
 ALTER TABLE enrollment ENABLE ROW LEVEL SECURITY;
+
+-- KAN-69: Link each account to its teacher or student record.
+-- A teacher account points to a teacher, a student account to a student, and a
+-- director to neither. Deleting the teacher or student also deletes the
+-- app_user row, so that login loses its role (the Supabase user is kept).
+-- Before applying: every existing 'teacher' or 'student' row in app_user must be
+-- linked or removed, otherwise the CHECK fails. To find them:
+--   SELECT id, role FROM app_user WHERE role <> 'director';
+ALTER TABLE app_user
+    ADD COLUMN teacher_id INTEGER UNIQUE REFERENCES teacher (id) ON DELETE CASCADE,
+    ADD COLUMN student_id INTEGER UNIQUE REFERENCES student (id) ON DELETE CASCADE,
+    ADD CONSTRAINT ck_app_user_linked_record CHECK (
+        (role = 'director' AND teacher_id IS NULL AND student_id IS NULL)
+        OR (role = 'teacher' AND teacher_id IS NOT NULL AND student_id IS NULL)
+        OR (role = 'student' AND student_id IS NOT NULL AND teacher_id IS NULL)
+    );

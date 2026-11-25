@@ -26,7 +26,7 @@ def test_app_user_role_must_be_known(session):
 
 
 def test_app_user_gets_created_at_by_default(session):
-    user = AppUser(id=uuid.uuid4(), role="teacher")
+    user = AppUser(id=uuid.uuid4(), role="director")
     session.add(user)
     session.commit()
     session.refresh(user)

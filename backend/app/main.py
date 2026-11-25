@@ -16,6 +16,7 @@ from app.seed_api import router as seed_router
 from app.slot_config import router as slot_config_router
 from app.courses import router as courses_router
 from app.timetable_generate import router as timetable_generate_router
+from app.users import router as users_router
 
 
 @asynccontextmanager
@@ -54,6 +55,7 @@ app.include_router(seed_router)
 app.include_router(courses_router)
 app.include_router(slot_config_router)
 app.include_router(timetable_generate_router)
+app.include_router(users_router)
 
 
 @app.get("/health")

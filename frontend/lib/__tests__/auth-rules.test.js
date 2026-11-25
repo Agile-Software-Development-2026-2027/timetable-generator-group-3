@@ -88,7 +88,7 @@ describe("redirectFor", () => {
 
 describe("navLinksFor", () => {
   it("gives each role only its own links", () => {
-    expect(navLinksFor("director").map(([href]) => href)).toEqual(["/", "/rooms", "/teachers", "/students", "/courses", "/data-loader", "/calendar", "/settings"]);
+    expect(navLinksFor("director").map(([href]) => href)).toEqual(["/", "/rooms", "/teachers", "/students", "/courses", "/data-loader", "/calendar", "/settings", "/users"]);
     expect(navLinksFor("teacher")).toEqual([["/my-schedule", "My schedule"]]);
     expect(navLinksFor("student")).toEqual([["/my-timetable", "My timetable"]]);
     expect(navLinksFor(undefined)).toEqual([]);

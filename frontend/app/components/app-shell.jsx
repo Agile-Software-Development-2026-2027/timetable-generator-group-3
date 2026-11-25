@@ -4,13 +4,13 @@ import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import { homeFor, navLinksFor } from "../../lib/auth-rules.js";
-import { ArrowDownToLine, BookOpen, Building2, CalendarDays, ChevronRight, GraduationCap, LayoutDashboard, LogOut, Menu, School, Settings2, Users, X } from "lucide-react";
+import { ArrowDownToLine, BookOpen, Building2, CalendarDays, ChevronRight, GraduationCap, LayoutDashboard, LogOut, Menu, School, Settings2, UserCog, Users, X } from "lucide-react";
 import { useAuth } from "./auth-provider.jsx";
 
 const NAV_ICONS = {
   "/": School, "/rooms": Building2, "/teachers": Users, "/students": GraduationCap, "/courses": BookOpen,
   "/data-loader": ArrowDownToLine, "/calendar": CalendarDays, "/settings": Settings2,
-  "/my-schedule": CalendarDays, "/my-timetable": CalendarDays,
+  "/my-schedule": CalendarDays, "/my-timetable": CalendarDays, "/users": UserCog,
 };
 
 const ROLE_LABELS = { director: "Programme director", teacher: "Teacher", student: "Student" };

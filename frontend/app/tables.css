@@ -150,3 +150,8 @@
 .campus-app.campus-app.campus-app .course-table .room-code { min-width: 150px; }
 .campus-app.campus-app.campus-app .course-table .course-degree-cell { min-width: 140px; color: #899499; }
 .campus-app.campus-app.campus-app .course-table tbody td:last-child { width: 1%; }
+/* Users page (KAN-69): account status pills. */
+.campus-app.campus-app.campus-app .room-table .user-status { white-space: nowrap; }
+.campus-app.campus-app.campus-app .room-table .user-status-active { background: #e6f5ee; color: #205e4b; }
+.campus-app.campus-app.campus-app .room-table .user-status-invited { background: #fdf3e2; color: #8a5a12; }
+.campus-app.campus-app.campus-app .room-table .user-status-deactivated { background: #f1f2f3; color: #69757a; }

@@ -84,11 +84,11 @@ export default function StudentTimetableContent({
   return (
     <div aria-busy={loading}>
       {error && (
-        <div className="alert alert-danger" role="alert">
-          <p className="mb-2">{error}</p>
+        <div className="slot-card mb-3 py-3" role="alert">
+          <p className="text-danger mb-2">{error}</p>
           <button
             type="button"
-            className="btn btn-outline-danger btn-sm"
+            className="btn btn-campus btn-sm"
             disabled={loading}
             onClick={() => setRefreshKey((value) => value + 1)}
           >
@@ -98,7 +98,7 @@ export default function StudentTimetableContent({
       )}
 
       {loading && (
-        <p role="status">Loading your timetable...</p>
+        <p role="status" className="slot-card mb-3 py-3 text-secondary">Loading your timetable...</p>
       )}
 
       {data && (
@@ -114,7 +114,7 @@ export default function StudentTimetableContent({
           {!loading && (
             <>
               {!isPublished && (
-                <p role="status" className="alert alert-info">
+                <p role="status" className="slot-card mb-3 py-3 text-secondary">
                   {hasSessions
                     ? "Your degree timetable is not published yet."
                     : "No timetable published yet."}
@@ -122,7 +122,7 @@ export default function StudentTimetableContent({
               )}
 
               {isPublished && !hasSessions && (
-                <p role="status" className="alert alert-info">
+                <p role="status" className="slot-card mb-3 py-3 text-secondary">
                   No classes are currently scheduled for your courses.
                 </p>
               )}

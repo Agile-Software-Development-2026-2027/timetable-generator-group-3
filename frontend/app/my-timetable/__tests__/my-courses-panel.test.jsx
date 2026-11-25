@@ -41,6 +41,23 @@ afterEach(() => {
 });
 
 describe("MyCoursesPanel", () => {
+  it("uses the KAN-75 panel and section design", () => {
+    const { container } = setup();
+
+    expect(screen.getByRole("region", {
+      name: "My courses",
+    })).toHaveClass("room-table-panel");
+
+    expect(screen.getByText("2 courses")).toHaveClass("catalogue-total");
+    expect(screen.getByRole("heading", {
+      name: "Assigned courses",
+    })).toHaveClass("slot-section-title");
+
+    expect(container.querySelector(".room-table-toolbar")).not.toBeNull();
+    expect(container.querySelector(".list-group")).toBeNull();
+    expect(container.querySelector(".alert")).toBeNull();
+  });
+
   it("displays assigned and extra courses", () => {
     setup();
 

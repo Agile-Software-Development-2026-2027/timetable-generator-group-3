@@ -48,6 +48,59 @@ function setup(overrides = {}) {
 }
 
 describe("Student timetable content", () => {
+  it("uses the KAN-75 loading card design", () => {
+    setup({ loadData: vi.fn(() => new Promise(() => {})) });
+
+    expect(screen.getByRole("status")).toHaveClass("slot-card");
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Loading your timetable..."
+    );
+  });
+
+  it("uses the KAN-75 error card and retry button", async () => {
+    setup({
+      loadData: vi.fn().mockRejectedValue(new Error("Network error")),
+    });
+
+    const error = await screen.findByRole("alert");
+
+    expect(error).toHaveClass("slot-card");
+    expect(error).not.toHaveClass("alert");
+    expect(screen.getByRole("button", {
+      name: "Retry",
+    })).toHaveClass("btn-campus");
+  });
+
+  it("uses the KAN-75 unpublished timetable card", async () => {
+    setup({
+      loadData: vi.fn().mockResolvedValue(makeData({
+        sessions: [],
+        publication: { published: false },
+      })),
+    });
+
+    const message = await screen.findByText("No timetable published yet.");
+
+    expect(message).toHaveClass("slot-card");
+    expect(message).not.toHaveClass("alert");
+    expect(message).toHaveAttribute("role", "status");
+  });
+
+  it("uses the KAN-75 empty published timetable card", async () => {
+    setup({
+      loadData: vi.fn().mockResolvedValue(makeData({ sessions: [] })),
+    });
+
+    const message = await screen.findByText(
+      "No classes are currently scheduled for your courses."
+    );
+
+    expect(message).toHaveClass("slot-card");
+    expect(message).not.toHaveClass("alert");
+    expect(screen.getByLabelText("Calendar")).toBeInTheDocument();
+  });
+
+
   it("shows initial loading", () => {
     setup({ loadData: vi.fn(() => new Promise(() => {})) });
     expect(screen.getByText("Loading your timetable...")).toBeInTheDocument();

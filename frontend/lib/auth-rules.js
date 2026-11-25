@@ -13,7 +13,7 @@ const ROLE_PATHS = {
 // Single source of truth for the header: a role always sees its links in this
 // order, so buttons never shift or disappear when navigating.
 export const NAV_LINKS_BY_ROLE = {
-  director: [["/", "Degree programmes"], ["/rooms", "Rooms"], ["/teachers", "Teachers"], ["/students", "Students"], ["/courses", "Courses"], ["/data-loader", "Data Loader"], ["/calendar", "Open timetable"], ["/settings", "Slot configuration"]],
+  director: [["/", "Degree programmes"], ["/rooms", "Rooms"], ["/teachers", "Teachers"], ["/students", "Students"], ["/courses", "Courses"], ["/data-loader", "Data Loader"], ["/calendar", "Open timetable"], ["/settings", "Slot configuration"], ["/users", "Users"]],
   teacher: [["/my-schedule", "My schedule"]],
   student: [["/my-timetable", "My timetable"]],
 };

@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
+from app.auth import CurrentUser, get_current_user, require_degree_access, require_role
 from app.database import get_session
 from app.models import Course, Degree, Semester, Year
 
@@ -61,13 +62,23 @@ class DegreeView(BaseModel):
 
 
 @router.get("", response_model=list[DegreeSummary])
-def list_degrees(session: Database) -> list[DegreeSummary]:
-    rows = session.execute(
-        select(Degree, func.count(Course.id))
-        .outerjoin(Course, Course.degree_id == Degree.id)
-        .group_by(Degree.id)
-        .order_by(func.lower(Degree.name), Degree.id)
+def list_degrees(
+    session: Database,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> list[DegreeSummary]:
+    query = select(Degree, func.count(Course.id)).outerjoin(
+        Course, Course.degree_id == Degree.id
     )
+
+    if user.role == "director":
+        query = query.where(Degree.id.in_(user.degree_ids))
+
+    query = query.group_by(Degree.id).order_by(
+        func.lower(Degree.name), Degree.id
+    )
+
+    rows = session.execute(query)
+
     return [
         DegreeSummary(
             id=degree.id,
@@ -80,7 +91,11 @@ def list_degrees(session: Database) -> list[DegreeSummary]:
 
 
 @router.post("", response_model=DegreeView, status_code=201)
-def create_degree(data: DegreeInput, session: Database) -> DegreeView:
+def create_degree(
+    data: DegreeInput,
+    session: Database,
+    user: Annotated[CurrentUser, Depends(require_role("director"))],
+) -> DegreeView:
     ensure_unique_degree_name(data.name, session)
     degree = Degree(name=data.name)
     degree.years = [
@@ -95,11 +110,16 @@ def create_degree(data: DegreeInput, session: Database) -> DegreeView:
     ]
     session.add(degree)
     session.commit()
-    return get_degree(degree.id, session)
+    return get_degree(degree.id, session, user)
 
 
 @router.get("/{degree_id}", response_model=DegreeView)
-def get_degree(degree_id: int, session: Database) -> DegreeView:
+def get_degree(
+    degree_id: int,
+    session: Database,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> DegreeView:
+    require_degree_access(degree_id, user)
     degree = session.scalar(
         select(Degree)
         .where(Degree.id == degree_id)
@@ -154,7 +174,13 @@ def get_degree(degree_id: int, session: Database) -> DegreeView:
 
 
 @router.put("/{degree_id}", response_model=DegreeView)
-def update_degree(degree_id: int, data: DegreeInput, session: Database) -> DegreeView:
+def update_degree(
+    degree_id: int,
+    data: DegreeInput,
+    session: Database,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> DegreeView:
+    require_degree_access(degree_id, user)
     degree = session.get(Degree, degree_id)
     if degree is None:
         raise HTTPException(404, "Degree not found.")
@@ -212,11 +238,16 @@ def update_degree(degree_id: int, data: DegreeInput, session: Database) -> Degre
                 year.semesters.append(Semester(number=number))
         year.semesters.sort(key=lambda semester: semester.number)
     session.commit()
-    return get_degree(degree_id, session)
+    return get_degree(degree_id, session, user)
 
 
 @router.delete("/{degree_id}", status_code=204)
-def delete_degree(degree_id: int, session: Database) -> None:
+def delete_degree(
+    degree_id: int,
+    session: Database,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> None:
+    require_degree_access(degree_id, user)
     degree = session.get(Degree, degree_id)
     if degree is None:
         raise HTTPException(404, "Degree not found.")

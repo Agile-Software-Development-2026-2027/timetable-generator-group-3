@@ -1,8 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
 import { AppNav } from "../components/app-shell.jsx";
-import { createStudentAccountRequest } from "../../lib/student-account-request.js";
 import { useAuth } from "../components/auth-provider.jsx";
 import StudentCalendar from "./student-calendar.jsx";
 import MyCoursesPanel from "./my-courses-panel.jsx";
@@ -22,18 +20,6 @@ export default function MyTimetablePage() {
     auth.role === "student" &&
     typeof accountId === "string" &&
     accountId.trim().length > 0;
-
-  const operations = useMemo(() => {
-    if (!canAccess) return null;
-
-    const request = createStudentAccountRequest(accountId);
-
-    return {
-      loadData: () => fetchStudentTimetableData(request),
-      addCourse: (courseId) => addExtraCourse(courseId, request),
-      removeCourse: (courseId) => removeExtraCourse(courseId, request),
-    };
-  }, [accountId, canAccess]);
 
   return (
     <div className="campus-app calendar-page">
@@ -59,9 +45,9 @@ export default function MyTimetablePage() {
             key={accountId}
             Calendar={StudentCalendar}
             CoursesPanel={MyCoursesPanel}
-            loadData={operations.loadData}
-            addCourse={operations.addCourse}
-            removeCourse={operations.removeCourse}
+            loadData={fetchStudentTimetableData}
+            addCourse={addExtraCourse}
+            removeCourse={removeExtraCourse}
           />
         ) : (
           <p className="slot-card py-3 text-secondary" role="status">

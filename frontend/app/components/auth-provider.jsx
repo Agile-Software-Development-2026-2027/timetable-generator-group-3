@@ -46,50 +46,16 @@ export function AuthProvider({ children }) {
     }
     let active = true;
     let latest = 0;
-    let sessionAccountId = null;
-    let accountVerified = false;
-
-    // Fires once with the stored session, then on authentication changes.
+    // Fires once with the stored session, then on every sign-in and sign-out.
     const { data } = supabase.auth.onAuthStateChange((event, session) => {
-      if (!active) return;
-
-      const nextAccountId = session?.user?.id ?? null;
-
-      if (
-        session &&
-        nextAccountId &&
-        nextAccountId === sessionAccountId &&
-        accountVerified &&
-        (event === "TOKEN_REFRESHED" || event === "SIGNED_IN")
-      ) {
-        return;
-      }
-
+      if (event === "TOKEN_REFRESHED") return;
       const call = ++latest;
-      sessionAccountId = nextAccountId;
-      accountVerified = false;
-
-      if (!session) {
-        setAuth({ status: "signed-out" });
-        return;
-      }
-
-      // Do not display another account's content during verification.
-      setAuth({ status: "loading" });
-
-      // Supabase asks not to await its own calls inside this callback.
+      // Supabase asks not to await its own calls inside this callback, so the
+      // work runs right after it returns.
       window.setTimeout(async () => {
-        if (!active || call !== latest) return;
-
         const next = await loadAuth(session);
         if (!active || call !== latest) return;
-
-        if (next.expired) {
-          await supabase.auth.signOut({ scope: "local" });
-          if (!active || call !== latest) return;
-        }
-
-        accountVerified = next.status === "signed-in";
+        if (next.expired) await supabase.auth.signOut({ scope: "local" });
         setAuth(next);
       }, 0);
     });

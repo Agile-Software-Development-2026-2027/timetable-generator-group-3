@@ -58,6 +58,208 @@ afterEach(() => {
 });
 
 describe("AuthProvider", () => {
+  it("hides the previous account while a different account is verified", async () => {
+    const firstSession = {
+      access_token: "token-a",
+      user: { id: "account-a", email: "first@unical.it" },
+    };
+
+    const secondSession = {
+      access_token: "token-b",
+      user: { id: "account-b", email: "second@unical.it" },
+    };
+
+    meReplies(200, { id: "account-a", role: "student" });
+
+    await renderAt("/my-timetable", firstSession);
+    await screen.findByText(/Protected page for first@unical.it/);
+
+    let complete;
+
+    global.fetch = vi.fn(() => new Promise((resolve) => {
+      complete = resolve;
+    }));
+
+    await act(async () => {
+      mocks.listener("SIGNED_IN", secondSession);
+    });
+
+    expect(screen.queryByText(/Protected page for first@unical.it/))
+      .not.toBeInTheDocument();
+
+    expect(screen.getByRole("status"))
+      .toHaveTextContent("Checking your session");
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(1));
+
+    await act(async () => {
+      complete({
+        ok: true,
+        status: 200,
+        json: async () => ({ id: "account-b", role: "student" }),
+      });
+    });
+
+    expect(await screen.findByText(/Protected page for second@unical.it/))
+      .toBeInTheDocument();
+
+    expect(screen.queryByText(/Protected page for first@unical.it/))
+      .not.toBeInTheDocument();
+  });
+
+  it("removes protected content when Supabase reports sign-out", async () => {
+    meReplies(200, { id: "u1", role: "student" });
+
+    await renderAt("/my-timetable");
+    await screen.findByText(/Protected page/);
+
+    global.fetch = vi.fn();
+
+    await act(async () => {
+      mocks.listener("SIGNED_OUT", null);
+    });
+
+    expect(screen.queryByText(/Protected page/))
+      .not.toBeInTheDocument();
+
+    expect(global.fetch).not.toHaveBeenCalled();
+
+    await waitFor(() => {
+      expect(mocks.replace).toHaveBeenCalledWith("/login");
+    });
+  });
+
+  it("preserves the verified page during same-account token refresh", async () => {
+    const firstSession = {
+      access_token: "token-a",
+      user: { id: "account-a", email: "first@unical.it" },
+    };
+
+    meReplies(200, { id: "account-a", role: "student" });
+
+    await renderAt("/my-timetable", firstSession);
+
+    await screen.findByText(/Protected page for first@unical.it/);
+
+    global.fetch = vi.fn();
+
+    await act(async () => {
+      mocks.listener("TOKEN_REFRESHED", {
+        ...firstSession,
+        access_token: "refreshed-token-a",
+      });
+    });
+
+    expect(screen.getByText(/Protected page for first@unical.it/))
+      .toBeInTheDocument();
+
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it("preserves the page on repeated same-account sign-in events", async () => {
+    const firstSession = {
+      access_token: "token-a",
+      user: { id: "account-a", email: "first@unical.it" },
+    };
+
+    meReplies(200, { id: "account-a", role: "student" });
+
+    await renderAt("/my-timetable", firstSession);
+
+    await screen.findByText(/Protected page for first@unical.it/);
+
+    global.fetch = vi.fn();
+
+    await act(async () => {
+      mocks.listener("SIGNED_IN", firstSession);
+    });
+
+    expect(screen.getByText(/Protected page for first@unical.it/))
+      .toBeInTheDocument();
+
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it("ignores an outdated account verification response", async () => {
+    const firstSession = {
+      access_token: "token-a",
+      user: { id: "account-a", email: "first@unical.it" },
+    };
+
+    const secondSession = {
+      access_token: "token-b",
+      user: { id: "account-b", email: "second@unical.it" },
+    };
+
+    let completeFirst;
+
+    global.fetch = vi.fn()
+      .mockImplementationOnce(() => new Promise((resolve) => {
+        completeFirst = resolve;
+      }))
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({ id: "account-b", role: "student" }),
+      });
+
+    await renderAt("/my-timetable", firstSession);
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(1));
+
+    await act(async () => {
+      mocks.listener("SIGNED_IN", secondSession);
+    });
+
+    await screen.findByText(/Protected page for second@unical.it/);
+
+    await act(async () => {
+      completeFirst({
+        ok: true,
+        status: 200,
+        json: async () => ({ id: "account-a", role: "student" }),
+      });
+    });
+
+    expect(screen.getByText(/Protected page for second@unical.it/))
+      .toBeInTheDocument();
+
+    expect(screen.queryByText(/Protected page for first@unical.it/))
+      .not.toBeInTheDocument();
+  });
+
+  it("ignores a pending verification response after sign-out", async () => {
+    let complete;
+
+    global.fetch = vi.fn(() => new Promise((resolve) => {
+      complete = resolve;
+    }));
+
+    await renderAt("/my-timetable");
+
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(1));
+
+    await act(async () => {
+      mocks.listener("SIGNED_OUT", null);
+    });
+
+    await act(async () => {
+      complete({
+        ok: true,
+        status: 200,
+        json: async () => ({ id: "u1", role: "student" }),
+      });
+    });
+
+    expect(screen.queryByText(/Protected page/))
+      .not.toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(mocks.replace).toHaveBeenCalledWith("/login");
+    });
+  });
+
+
   it("hides the page while the session is checked", () => {
     mocks.pathname = "/rooms";
     render(<AuthProvider><Page /></AuthProvider>);

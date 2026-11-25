@@ -1,21 +1,14 @@
 """HTTP tests for personal student endpoints."""
 
 from datetime import time
-from typing import Annotated
 from uuid import uuid4
 
 import pytest
-from fastapi import Depends
-from sqlalchemy.orm import Session
 
-from app.auth import CurrentUser
-from app.database import get_session
-from app.main import app
 from app.models import (
     AppUser, Course, Degree, Enrollment, PublishedSession,
     ScheduleSession, Semester, Student, TimetablePublication, Year,
 )
-from app.student_me import require_student_role, resolve_student_profile
 
 PREFIX = "/students/me"
 ROUTES = [
@@ -41,9 +34,11 @@ def test_rejects_non_students(auth_client, role, method, path, options):
 
 
 @pytest.mark.parametrize("method,path,options", ROUTES)
-def test_unavailable_account_link(auth_client, method, path, options):
-    response = auth_client("student").request(method, PREFIX + path, **options)
-    assert response.status_code == 503
+def test_account_without_assigned_profile(client, make_token, method, path, options):
+    headers = {"Authorization": f"Bearer {make_token(uuid4())}"}
+    response = client.request(method, PREFIX + path, headers=headers, **options)
+    assert response.status_code == 403
+    assert response.json()["detail"] == "User has no role assigned"
 
 
 @pytest.fixture
@@ -68,25 +63,12 @@ def personal_data(session, course, auth_client):
     session.flush()
     session.add(Enrollment(student_id=students[1].id, course_id=extra.id))
     session.commit()
-    return students[0], students[1], course, extra, auth_client("student")
+    return students[0], students[1], course, extra, auth_client("student", student=students[0])
 
 
 @pytest.fixture
 def personal_client(personal_data):
-    student, _, _, _, client = personal_data
-    student_id = student.id
-
-    def resolve(
-        _user: Annotated[CurrentUser, Depends(require_student_role)],
-        db: Annotated[Session, Depends(get_session)],
-    ):
-        return db.get(Student, student_id)
-
-    app.dependency_overrides[resolve_student_profile] = resolve
-    try:
-        yield client
-    finally:
-        app.dependency_overrides.pop(resolve_student_profile, None)
+    return personal_data[4]
 
 
 def test_personal_courses(personal_client, personal_data):
@@ -209,3 +191,51 @@ def test_personal_timetable_pagination(session, personal_client, personal_data):
         assert response.headers["X-Total-Count"] == "2"
         assert [row["weekday"] for row in response.json()] == [page - 1]
     assert personal_client.get(path, params={"page": 0}).status_code == 422
+
+
+def test_linked_accounts_receive_only_their_own_data(
+    session, personal_data, auth_client
+):
+    _, other, course, extra, first_client = personal_data
+    second_client = auth_client("student", student=other)
+
+    for record in (course, extra):
+        session.add(PublishedSession(
+            degree_id=record.degree_id, course_id=record.id,
+            weekday=0, start_time=time(9), end_time=time(10),
+        ))
+    session.commit()
+
+    first_courses = first_client.get(PREFIX + "/courses")
+    second_courses = second_client.get(PREFIX + "/courses")
+
+    assert first_courses.status_code == second_courses.status_code == 200
+    assert {row["id"] for row in first_courses.json()} == {course.id}
+    assert {row["id"] for row in second_courses.json()} == {course.id, extra.id}
+
+    first_timetable = first_client.get(PREFIX + "/timetable")
+    second_timetable = second_client.get(PREFIX + "/timetable")
+
+    assert first_timetable.status_code == second_timetable.status_code == 200
+    assert {row["course_id"] for row in first_timetable.json()} == {course.id}
+    assert {row["course_id"] for row in second_timetable.json()} == {
+        course.id, extra.id,
+    }
+    assert first_timetable.headers["X-Total-Count"] == "1"
+    assert second_timetable.headers["X-Total-Count"] == "2"
+
+
+@pytest.mark.parametrize("method,path,options", ROUTES)
+def test_deleted_student_profile_revokes_access(
+    session, personal_data, method, path, options
+):
+    student, _, _, _, linked_client = personal_data
+
+    assert linked_client.get(PREFIX + "/courses").status_code == 200
+
+    session.delete(student)
+    session.commit()
+
+    response = linked_client.request(method, PREFIX + path, **options)
+    assert response.status_code == 403
+    assert response.json()["detail"] == "User has no role assigned"

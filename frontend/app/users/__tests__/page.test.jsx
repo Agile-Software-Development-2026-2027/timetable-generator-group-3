@@ -12,13 +12,17 @@ const grace = { id: "u-grace", email: "grace@unical.it", role: "student", teache
 const teachers = [{ id: 1, name: "Ada Lovelace" }, { id: 2, name: "Alan Turing" }];
 const students = [{ id: 7, name: "Grace Hopper", student_number: "M100" }, { id: 8, name: "Emmy Noether", student_number: "M200" }];
 
+// The lists arrive a little late, like on a slow CI runner, so the tests must
+// wait for the page to finish loading instead of relying on timing.
+const later = (value) => new Promise((resolve) => setTimeout(() => resolve(value), 30));
+
 function mockApi(overrides = {}) {
   apiRequest.mockImplementation((path, options = {}) => {
     const key = `${options.method ?? "GET"} ${path}`;
     if (key in overrides) return overrides[key](options);
-    if (path === "/users") return Promise.resolve([ada, me, grace]);
-    if (path === "/teachers") return Promise.resolve(teachers);
-    if (path === "/students") return Promise.resolve(students);
+    if (path === "/users") return later([ada, me, grace]);
+    if (path === "/teachers") return later(teachers);
+    if (path === "/students") return later(students);
     return Promise.reject(new Error(`Unexpected ${key}`));
   });
 }
@@ -31,6 +35,14 @@ function renderPage() {
 
 const row = (email) => screen.getByRole("rowheader", { name: new RegExp(email) }).closest("tr");
 const sentBody = (method) => JSON.parse(apiRequest.mock.calls.find(([, options]) => options?.method === method)[1].body);
+
+// The button is disabled until the accounts have loaded; on a slow CI runner it
+// can be found before that, so wait for it to be enabled before clicking.
+async function openInviteForm() {
+  const button = await screen.findByRole("button", { name: "Invite user" });
+  await waitFor(() => expect(button).toBeEnabled());
+  fireEvent.click(button);
+}
 
 beforeEach(() => mockApi());
 afterEach(() => {
@@ -64,7 +76,7 @@ describe("UsersPage", () => {
     mockApi({ "POST /users": () => Promise.resolve(invited) });
     renderPage();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Invite user" }));
+    await openInviteForm();
     const dialog = within(screen.getByRole("dialog"));
     fireEvent.change(dialog.getByLabelText("Email"), { target: { value: " Alan@Unical.it " } });
     const teacherSelect = dialog.getByLabelText("Teacher");
@@ -81,7 +93,7 @@ describe("UsersPage", () => {
   it("shows a student selector with matricola for the student role, and none for directors", async () => {
     renderPage();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Invite user" }));
+    await openInviteForm();
     const dialog = within(screen.getByRole("dialog"));
     fireEvent.change(dialog.getByLabelText("Role"), { target: { value: "student" } });
     expect(within(dialog.getByLabelText("Student")).getAllByRole("option").map((option) => option.textContent))
@@ -95,7 +107,7 @@ describe("UsersPage", () => {
   it("checks the form before sending it", async () => {
     renderPage();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Invite user" }));
+    await openInviteForm();
     fireEvent.click(screen.getByRole("button", { name: "Send invitation" }));
 
     expect(screen.getByText("Email is required.")).toBeInTheDocument();
@@ -107,7 +119,7 @@ describe("UsersPage", () => {
     mockApi({ "POST /users": () => Promise.reject(new Error("An account with this email already exists.")) });
     renderPage();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Invite user" }));
+    await openInviteForm();
     const dialog = within(screen.getByRole("dialog"));
     fireEvent.change(dialog.getByLabelText("Email"), { target: { value: "ada@unical.it" } });
     fireEvent.change(dialog.getByLabelText("Role"), { target: { value: "director" } });

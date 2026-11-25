@@ -21,7 +21,7 @@ const extra = { id: 2, name: "Statistics", is_extra: true };
 const available = { id: 3, name: "Computer Networks" };
 
 const sessionPath = (page) =>
-  `/timetable/sessions?student=me&version=published&page=${page}&page_size=${SESSION_PAGE_SIZE}`;
+  `/students/me/timetable?page=${page}&page_size=${SESSION_PAGE_SIZE}`;
 
 const fullPage = () =>
   Array.from({ length: SESSION_PAGE_SIZE }, (_, index) => ({
@@ -113,6 +113,18 @@ describe("Student API client", () => {
     expect(await fetchStudentSessions(request)).toEqual(rows);
     expect(request).toHaveBeenCalledTimes(1);
     expect(request).toHaveBeenCalledWith(sessionPath(1));
+  });
+
+  it("never falls back to the general timetable endpoint", async () => {
+    const error = Object.assign(new Error("Forbidden"), { status: 403 });
+    const request = vi.fn().mockRejectedValue(error);
+
+    await expect(fetchStudentSessions(request)).rejects.toBe(error);
+
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(request).toHaveBeenCalledWith(
+      `/students/me/timetable?page=1&page_size=${SESSION_PAGE_SIZE}`
+    );
   });
 
   it("returns an empty list when no sessions exist", async () => {

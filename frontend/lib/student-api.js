@@ -42,7 +42,7 @@ export async function fetchStudentSessions(request = apiRequest) {
   const sessions = [];
 
   for (let page = 1; ; page += 1) {
-    const path = `/timetable/sessions?student=me&version=published&page=${page}&page_size=${SESSION_PAGE_SIZE}`;
+    const path = `${STUDENT_PATH}/timetable?page=${page}&page_size=${SESSION_PAGE_SIZE}`;
     const batch = await request(path);
 
     if (!Array.isArray(batch)) {

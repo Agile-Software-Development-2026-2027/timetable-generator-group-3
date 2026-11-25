@@ -34,6 +34,7 @@ bearer_scheme = HTTPBearer(auto_error=False)
 class CurrentUser(BaseModel):
     id: uuid.UUID
     role: Role
+    degree_ids: list[int] = []
 
 
 def _not_authenticated() -> HTTPException:
@@ -103,8 +104,19 @@ def get_current_user(
     if user is None:
         raise HTTPException(403, "User has no role assigned")
 
-    return CurrentUser(id=user.id, role=user.role)
+    return CurrentUser(
+        id=user.id,
+        role=user.role,
+        degree_ids=[degree.id for degree in user.degrees] if user.role == "director" else [],
+    )
 
+def require_degree_access(
+    degree_id: int,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> CurrentUser:
+    if user.role == "director" and degree_id not in user.degree_ids:
+        raise HTTPException(403, "You do not have access to this degree.")
+    return user
 
 @router.get("/me")
 def read_current_user(

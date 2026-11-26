@@ -123,3 +123,13 @@ def read_current_user(
     user: Annotated[CurrentUser, Depends(get_current_user)],
 ) -> CurrentUser:
     return user
+
+def require_role(*allowed_roles: Role):
+    def role_checker(
+        user: Annotated[CurrentUser, Depends(get_current_user)],
+    ) -> CurrentUser:
+        if user.role not in allowed_roles:
+            raise HTTPException(403, "You do not have permission to perform this action.")
+        return user
+
+    return role_checker

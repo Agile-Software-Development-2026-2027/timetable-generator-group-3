@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthContext } from "../../components/auth-provider.jsx";
 import MyTimetablePage from "../page.jsx";
@@ -62,51 +62,7 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("My timetable page", () => {
-  it("adds an extra course through the Student API", async () => {
-    setup();
-
-    await screen.findByText("Databases class");
-
-    fireEvent.change(screen.getByLabelText("Add an extra course"), {
-      target: { value: "2" },
-    });
-
-    fireEvent.click(screen.getByRole("button", {
-      name: "Add course",
-    }));
-
-    await waitFor(() => {
-      expect(addExtraCourse).toHaveBeenCalledWith(2);
-      expect(fetchStudentTimetableData).toHaveBeenCalledTimes(2);
-    });
-
-    await screen.findByText("Databases class");
-  });
-
-  it("removes an extra course through the Student API", async () => {
-    fetchStudentTimetableData.mockResolvedValue({
-      ...data,
-      courses: [
-        ...data.courses,
-        { id: 2, name: "Statistics", is_extra: true },
-      ],
-    });
-
-    setup();
-
-    fireEvent.click(await screen.findByRole("button", {
-      name: "Remove Statistics",
-    }));
-
-    await waitFor(() => {
-      expect(removeExtraCourse).toHaveBeenCalledWith(2);
-      expect(fetchStudentTimetableData).toHaveBeenCalledTimes(2);
-    });
-
-    await screen.findByText("Databases class");
-  });
-
-  it("connects personal courses and the weekly timetable", async () => {
+  it("displays only the personal weekly timetable", async () => {
     setup();
 
     expect(screen.getByRole("heading", {
@@ -115,11 +71,15 @@ describe("My timetable page", () => {
 
     expect(await screen.findByText("Databases class")).toBeInTheDocument();
 
-    expect(screen.getByRole("heading", {
-      name: "My courses",
-    })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", {
+      name: "Your courses",
+    })).not.toBeInTheDocument();
 
-    expect(screen.getByText("Databases")).toBeInTheDocument();
+    expect(screen.queryByRole("button", {
+      name: "Add Statistics",
+    })).not.toBeInTheDocument();
+
+    expect(screen.getByText("Published")).toBeInTheDocument();
     expect(fetchStudentTimetableData).toHaveBeenCalledTimes(1);
     expect(screen.queryByText("Coming soon")).not.toBeInTheDocument();
   });

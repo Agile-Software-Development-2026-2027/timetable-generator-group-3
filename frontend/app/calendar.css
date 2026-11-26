@@ -112,3 +112,25 @@
   .campus-app.calendar-page .timetable-degree-field { flex-basis: 100%; }
   .campus-app.calendar-page .timetable-actions .btn { flex: 1 1 calc(50% - 8px); }
 }
+
+
+/* Shared Student course colors and icon sizing. */
+.student-course-icon,
+.campus-app.calendar-page .student-course-event {
+  background-color: var(--course-background);
+  color: var(--course-color);
+}
+
+.student-course-icon {
+  width: 40px;
+  height: 40px;
+}
+
+.campus-app.calendar-page .student-course-event {
+  border-inline-start: 3px solid var(--course-color);
+}
+
+.campus-app.calendar-page .student-course-event .calendar-event-title,
+.campus-app.calendar-page .student-course-event .calendar-event-teachers {
+  color: inherit;
+}

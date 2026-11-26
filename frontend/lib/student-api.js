@@ -58,12 +58,10 @@ export async function fetchStudentSessions(request = apiRequest) {
 }
 
 export async function fetchStudentTimetableData(request = apiRequest) {
-  const [courses, availableCourses, sessions, publication] = await Promise.all([
-    fetchStudentCourses(request),
-    fetchAvailableCourses(request),
+  const [sessions, publication] = await Promise.all([
     fetchStudentSessions(request),
     fetchStudentPublicationStatus(request),
   ]);
 
-  return { courses, availableCourses, sessions, publication };
+  return { sessions, publication };
 }

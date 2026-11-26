@@ -66,3 +66,18 @@ export async function fetchAllSessions(request) {
     if (batch.length < SESSION_PAGE_SIZE) return sessions;
   }
 }
+
+const COURSE_COLORS = [
+  ["#e8eef8", "#526b9b"],
+  ["#eee7f6", "#795d9c"],
+  ["#e5f1e9", "#47765c"],
+  ["#f7eedc", "#987a3e"],
+  ["#f8e5e5", "#a54f4f"],
+  ["#e1f0f2", "#437c86"],
+];
+
+
+export function getCourseColors(courseId) {
+  return COURSE_COLORS[courseId % COURSE_COLORS.length]
+    ?? COURSE_COLORS[0];
+}

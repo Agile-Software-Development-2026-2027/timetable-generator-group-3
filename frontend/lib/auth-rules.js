@@ -7,7 +7,7 @@ const BACKOFFICE_PATHS = ["/", "/rooms", "/courses", "/calendar", "/settings", "
 const ROLE_PATHS = {
   director: BACKOFFICE_PATHS,
   teacher: ["/my-schedule"],
-  student: ["/my-timetable"],
+  student: ["/my-timetable", "/my-courses"],
 };
 
 // Single source of truth for the header: a role always sees its links in this
@@ -15,7 +15,7 @@ const ROLE_PATHS = {
 export const NAV_LINKS_BY_ROLE = {
   director: [["/", "Degree programmes"], ["/rooms", "Rooms"], ["/teachers", "Teachers"], ["/students", "Students"], ["/courses", "Courses"], ["/data-loader", "Data Loader"], ["/calendar", "Open timetable"], ["/settings", "Slot configuration"], ["/users", "Users"]],
   teacher: [["/my-schedule", "My schedule"]],
-  student: [["/my-timetable", "My timetable"]],
+  student: [["/my-timetable", "My timetable"], ["/my-courses", "My courses"]],
 };
 
 export const LOGIN_PATH = "/login";

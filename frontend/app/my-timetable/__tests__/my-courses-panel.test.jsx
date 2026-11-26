@@ -20,14 +20,10 @@ function setup(overrides = {}) {
   return { ...render(<MyCoursesPanel {...props} />), ...props };
 }
 
-function selectElective() {
-  fireEvent.change(screen.getByLabelText("Add an extra course"), {
-    target: { value: "3" },
-  });
-}
-
 function addButton() {
-  return screen.getByRole("button", { name: "Add course" });
+  return screen.getByRole("button", {
+    name: "Add Computer Networks",
+  });
 }
 
 function removeButton() {
@@ -45,12 +41,12 @@ describe("MyCoursesPanel", () => {
     const { container } = setup();
 
     expect(screen.getByRole("region", {
-      name: "My courses",
+      name: "Your courses",
     })).toHaveClass("room-table-panel");
 
     expect(screen.getByText("2 courses")).toHaveClass("catalogue-total");
     expect(screen.getByRole("heading", {
-      name: "Assigned courses",
+      name: "Elective courses",
     })).toHaveClass("slot-section-title");
 
     expect(container.querySelector(".room-table-toolbar")).not.toBeNull();
@@ -61,7 +57,7 @@ describe("MyCoursesPanel", () => {
   it("displays assigned and extra courses", () => {
     setup();
 
-    expect(screen.getByRole("heading", { name: "My courses" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Your courses" })).toBeInTheDocument();
     expect(screen.getByText("Databases")).toBeInTheDocument();
     expect(screen.getByText("Statistics")).toBeInTheDocument();
     expect(screen.getByText("2 courses")).toBeInTheDocument();
@@ -79,27 +75,25 @@ describe("MyCoursesPanel", () => {
   it("excludes assigned and enrolled courses from available choices", () => {
     setup();
 
-    expect(screen.queryByRole("option", {
-      name: "Databases",
+    expect(screen.queryByRole("button", {
+      name: "Add Databases",
     })).not.toBeInTheDocument();
-    expect(screen.queryByRole("option", {
-      name: "Statistics",
+    expect(screen.queryByRole("button", {
+      name: "Add Statistics",
     })).not.toBeInTheDocument();
-    expect(screen.getByRole("option", {
-      name: "Computer Networks",
+    expect(screen.getByRole("button", {
+      name: "Add Computer Networks",
     })).toBeInTheDocument();
   });
 
   it("adds an extra course using its course ID", async () => {
     const { onAdd } = setup();
 
-    expect(addButton()).toBeDisabled();
-    selectElective();
+    expect(addButton()).toBeEnabled();
     fireEvent.click(addButton());
 
     await waitFor(() => expect(onAdd).toHaveBeenCalledWith(3));
-    await waitFor(() => expect(addButton()).toBeDisabled());
-    expect(screen.getByLabelText("Add an extra course")).toHaveValue("");
+    await waitFor(() => expect(addButton()).toBeEnabled());
   });
 
   it("removes an extra course using its course ID", async () => {
@@ -116,12 +110,10 @@ describe("MyCoursesPanel", () => {
     const onAdd = vi.fn(() => new Promise((done) => { resolve = done; }));
     const { onRemove } = setup({ onAdd });
 
-    selectElective();
     fireEvent.click(addButton());
 
     expect(addButton()).toBeDisabled();
     expect(removeButton()).toBeDisabled();
-    expect(screen.getByLabelText("Add an extra course")).toBeDisabled();
 
     fireEvent.click(addButton());
     fireEvent.click(removeButton());
@@ -137,22 +129,20 @@ describe("MyCoursesPanel", () => {
     setup({ loading: true });
 
     expect(screen.getByRole("status")).toHaveTextContent("Loading your courses");
-    expect(screen.queryByRole("button", { name: "Add course" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add Computer Networks" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", {
       name: "Remove Statistics",
     })).not.toBeInTheDocument();
   });
 
-  it("displays enrollment errors and preserves the selected course", async () => {
+  it("displays enrollment errors and permits retry", async () => {
     setup({
       onAdd: vi.fn().mockRejectedValue(new Error("Already enrolled")),
     });
 
-    selectElective();
     fireEvent.click(addButton());
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Already enrolled");
-    expect(screen.getByLabelText("Add an extra course")).toHaveValue("3");
     expect(addButton()).toBeEnabled();
   });
 
@@ -171,10 +161,11 @@ describe("MyCoursesPanel", () => {
   it("displays empty course and catalogue messages", () => {
     setup({ courses: [], availableCourses: [] });
 
-    expect(screen.getByText("No assigned courses.")).toBeInTheDocument();
-    expect(screen.getByText("No extra courses added.")).toBeInTheDocument();
+    expect(screen.getByText("No assigned or extra courses.")).toBeInTheDocument();
     expect(screen.getByText("No additional courses available.")).toBeInTheDocument();
-    expect(addButton()).toBeDisabled();
+    expect(screen.queryByRole("button", {
+      name: "Add Computer Networks",
+    })).not.toBeInTheDocument();
   });
 
   it("refreshes the course list when parent data changes", () => {
@@ -191,8 +182,8 @@ describe("MyCoursesPanel", () => {
     expect(screen.getByRole("button", {
       name: "Remove Computer Networks",
     })).toBeInTheDocument();
-    expect(screen.queryByRole("option", {
-      name: "Computer Networks",
+    expect(screen.queryByRole("button", {
+      name: "Add Computer Networks",
     })).not.toBeInTheDocument();
   });
 
@@ -201,11 +192,10 @@ describe("MyCoursesPanel", () => {
     vi.stubGlobal("fetch", request);
 
     const { onAdd } = setup();
-    selectElective();
     fireEvent.click(addButton());
 
     await waitFor(() => expect(onAdd).toHaveBeenCalledWith(3));
-    await waitFor(() => expect(addButton()).toBeDisabled());
+    await waitFor(() => expect(addButton()).toBeEnabled());
     expect(request).not.toHaveBeenCalled();
   });
 
@@ -214,6 +204,5 @@ describe("MyCoursesPanel", () => {
 
     expect(addButton()).toBeDisabled();
     expect(removeButton()).toBeDisabled();
-    expect(screen.getByLabelText("Add an extra course")).toBeDisabled();
   });
 });

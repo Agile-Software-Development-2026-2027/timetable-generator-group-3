@@ -11,9 +11,13 @@ import {
   getCalendarTimeRange,
   getCalendarWeekSettings,
   getResponsiveCalendarView,
+  getCourseColors,
 } from "../calendar/sessions.mjs";
 
+
 function sessionToEvent(session) {
+  const [background, color] = getCourseColors(session.course_id);
+
   const courseName = session.course_name || "Course";
   const roomCode = session.room_code || "Room not assigned";
   const teacherNames = session.teacher_names?.length
@@ -27,26 +31,37 @@ function sessionToEvent(session) {
     daysOfWeek: [(session.weekday + 1) % 7],
     startTime: session.start_time,
     endTime: session.end_time,
+    backgroundColor: background,
+    borderColor: color,
+    textColor: color,
     extendedProps: {
       courseName,
       roomCode,
       teacherNames,
       timeRange,
+      background,
+      color,
     },
   };
 }
 
 function renderSession(info) {
-  const { courseName, roomCode, teacherNames, timeRange } =
+  const { courseName, roomCode, teacherNames, timeRange, background, color } =
     info.event.extendedProps;
 
   return (
-    <div className="calendar-event-content">
+    <div
+      className="calendar-event-content student-course-event"
+      style={{
+        "--course-background": background,
+        "--course-color": color,
+      }}
+    >
       <strong className="calendar-event-title" title={courseName}>
         {courseName}
       </strong>
-      <span className="calendar-event-detail">{roomCode}</span>
       <span className="calendar-event-detail">{timeRange}</span>
+      <span className="calendar-event-detail">{roomCode}</span>
       <span className="calendar-event-teachers">{teacherNames}</span>
     </div>
   );
@@ -116,7 +131,13 @@ export default function StudentCalendar({
         headerToolbar={{
           left: "prev,next today",
           center: "title",
-          right: "timeGridWeek,listWeek",
+          right: "timeGridWeek,timeGridDay,listWeek",
+        }}
+        buttonText={{
+          today: "Today",
+          week: "Week",
+          day: "Day",
+          list: "List",
         }}
         events={events}
         editable={false}

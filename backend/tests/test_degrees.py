@@ -1,3 +1,7 @@
+import uuid
+
+from app.models import AppUser, Degree
+
 def test_create_degree_generates_years_and_semesters(client):
     response = client.post(
         "/degrees",
@@ -109,3 +113,39 @@ def test_list_degrees_keeps_course_counts_separate(client, course):
 
     assert degrees["Computer Science"]["courses"] == 1
     assert degrees["Mathematics"]["courses"] == 0
+
+def test_directors_only_see_assigned_degrees(
+    client, session, make_token
+):
+    director_one = AppUser(id=uuid.uuid4(), role="director")
+    director_two = AppUser(id=uuid.uuid4(), role="director")
+
+    degree_one = Degree(name="Computer Science")
+    degree_two = Degree(name="Mathematics")
+
+    director_one.degrees.append(degree_one)
+    director_two.degrees.append(degree_two)
+
+    session.add_all([director_one, director_two])
+    session.commit()
+    token_one = make_token(director_one.id)
+    token_two = make_token(director_two.id)
+
+    from fastapi.testclient import TestClient
+    from app.main import app
+
+    client_one = TestClient(
+        app, headers={"Authorization": f"Bearer {token_one}"}
+    )
+    client_two = TestClient(
+        app, headers={"Authorization": f"Bearer {token_two}"}
+    )
+
+    response_one = client_one.get("/degrees")
+    response_two = client_two.get("/degrees")
+
+    assert response_one.status_code == 200
+    assert response_two.status_code == 200
+
+    assert [d["name"] for d in response_one.json()] == ["Computer Science"]
+    assert [d["name"] for d in response_two.json()] == ["Mathematics"]

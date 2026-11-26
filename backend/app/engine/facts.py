@@ -7,7 +7,7 @@ from datetime import time
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from app.models import Course, Room, ScheduleSession, SlotConfig
+from app.models import Course, Room, ScheduleSession, SlotConfig, TeacherAvailability
 from app.slot_config import _build_grid, WEEKDAY_NAMES
 
 
@@ -25,6 +25,9 @@ class Problem:
     busy_rooms: set[tuple[int, int, int]] = field(default_factory=set)
     busy_teachers: set[tuple[int, int, int]] = field(default_factory=set)
     busy_groups: set[tuple[int, int, int]] = field(default_factory=set)
+    # KAN-57: (teacher_id, day, slot) from teacher availability ranges.
+    unavailable_teachers: set[tuple[int, int, int]] = field(default_factory=set)
+    preferred_slots: set[tuple[int, int, int]] = field(default_factory=set)
     # KAN-52: grid blocks per session and sessions per week, by course id.
     # A course missing from these maps uses one block per session and
     # weekly_hours sessions (the behaviour before multi-block sessions).
@@ -89,6 +92,26 @@ def start_slots(
         if fits:
             starts.append((day, index))
     return starts
+
+
+def availability_slots(
+    entries: list[TeacherAvailability],
+    slots: dict[tuple[int, int], tuple[time, time]],
+) -> tuple[set[tuple[int, int, int]], set[tuple[int, int, int]]]:
+    """KAN-57: map availability ranges to the grid slots they overlap.
+
+    Returns (unavailable, preferred) sets of (teacher_id, day, slot). Shared with
+    workload limits (KAN-72), which build on the same table and facts.
+    """
+    unavailable: set[tuple[int, int, int]] = set()
+    preferred: set[tuple[int, int, int]] = set()
+    for entry in entries:
+        target = unavailable if entry.availability_type == "unavailable" else preferred
+        for (day, index), (start, end) in slots.items():
+            if day == entry.weekday and _minute(entry.start_time) < _minute(end) \
+                    and _minute(entry.end_time) > _minute(start):
+                target.add((entry.teacher_id, day, index))
+    return unavailable, preferred
 
 
 def build_problem(session: Session, degree_id: int, semester_id: int | None) -> Problem:
@@ -178,11 +201,23 @@ def build_problem(session: Session, degree_id: int, semester_id: int | None) -> 
                 busy_teachers.add((teacher.id, day, index))
             busy.add(f"busy_group({existing.course.semester_id},{day},{index}).")
             busy_groups.add((existing.course.semester_id, day, index))
+    # KAN-57: unavailable ranges reuse the busy_teacher hard constraint;
+    # preferred ranges feed the prefers_slot soft constraint in model.lp.
+    teacher_ids = {teacher.id for c in courses for teacher in c.teachers}
+    entries = list(session.scalars(
+        select(TeacherAvailability).where(TeacherAvailability.teacher_id.in_(teacher_ids))
+    )) if teacher_ids else []
+    unavailable, preferred = availability_slots(entries, slots)
+    for teacher_id, day, index in unavailable:
+        busy.add(f"busy_teacher({teacher_id},{day},{index}).")
+    busy_teachers |= unavailable
     lines.extend(sorted(busy))
+    lines.extend(sorted(f"prefers_slot({t},{d},{s})." for t, d, s in preferred))
     group_capacity = {c.semester_id: len(slots) for c in courses}
     return Problem(
         courses, rooms, slots, "\n".join(lines), group_capacity,
         busy_rooms=busy_rooms, busy_teachers=busy_teachers, busy_groups=busy_groups,
         buffer_slots=buffer_slots,
         session_blocks=session_blocks, sessions_per_week=sessions_per_week,
+        unavailable_teachers=unavailable, preferred_slots=preferred,
     )

@@ -219,6 +219,7 @@ class TeacherAvailability(Base):
             "availability_type IN ('unavailable', 'preferred')",
             name="ck_availability_type",
         ),
+        Index("ix_teacher_availability_teacher_id", "teacher_id"),
     )
 
 

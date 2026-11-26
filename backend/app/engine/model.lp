@@ -48,13 +48,19 @@ occupies(C,R,D,S..S+B-1) :- assign(C,R,D,S), duration(C,B).
 
 % KAN-16 soft preference: prefer the smallest eligible room that still fits the group.
 % For each assignment, penalise by the room's capacity minus the number of enrolled
-% students.  Priority @1 is lower than the scheduling maximisation (@2), so the solver
+% students.  Priority @1 is lower than scheduling (@3) and teacher preferences (@2), so the solver
 % always prefers to schedule more courses before trying to tighten room fit.
 wasted_seats(C,R,W) :- assign(C,R,_,_), students(C,N), room(R,Cap), W = Cap - N.
 #minimize { W@1,C,R : wasted_seats(C,R,W) }.
 
+% KAN-57 soft preference: use the blocks teachers marked as preferred.
+% Written on occupies/4 (KAN-52) so every block of a session counts.
+% Priority @2 sits between scheduling completeness (@3) and room fit (@1).
+#maximize { 1@2,C,D,S : occupies(C,_,D,S), teaches(T,C), prefers_slot(T,D,S) }.
+
 % Maximize fully scheduled hours when the strict model is infeasible.
-% Priority @2 ensures scheduling completeness dominates room preference.
-#maximize { H@2,C : scheduled(C), course(C,H), mode(partial) }.
+% Priority @3 ensures scheduling completeness dominates teacher preferences
+% and room fit: a preference never makes the solver drop a course.
+#maximize { H@3,C : scheduled(C), course(C,H), mode(partial) }.
 #show assign/4.
 #show scheduled/1.

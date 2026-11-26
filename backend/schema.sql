@@ -131,6 +131,8 @@ CREATE TABLE teacher_availability (
 	FOREIGN KEY(teacher_id) REFERENCES teacher (id) ON DELETE CASCADE
 );
 
+CREATE INDEX ix_teacher_availability_teacher_id ON teacher_availability (teacher_id);
+
 -- Platform role of each Supabase Auth user (KAN-44). `id` is auth.users.id.
 -- The FK to auth.users and the RLS policy exist only here: the `auth` schema
 -- is not available in the SQLite test database used by the backend tests.

@@ -10,12 +10,14 @@ from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
+from app.auth import CurrentUser, get_current_user
 from app.database import get_session
-from app.models import Teacher, TeacherAvailability
+from app.models import AppUser, Teacher, TeacherAvailability
 from app.slot_config import WEEKDAY_NAMES, _load_or_create
 
 router = APIRouter(prefix="/teachers", tags=["availability"])
 Database = Annotated[Session, Depends(get_session)]
+SignedIn = Annotated[CurrentUser, Depends(get_current_user)]
 
 
 class AvailabilityEntry(BaseModel):
@@ -35,6 +37,15 @@ class AvailabilityView(AvailabilityEntry):
     id: int
 
     model_config = {"from_attributes": True}
+
+
+def _check_access(teacher_id: int, user: CurrentUser, session: Session) -> None:
+    """A director can use any record; a teacher only the one linked to their account (KAN-69)."""
+    if user.role == "director":
+        return
+    if user.role == "teacher" and session.get(AppUser, user.id).teacher_id == teacher_id:
+        return
+    raise HTTPException(403, "You can only read or change your own availability.")
 
 
 def _load_teacher(teacher_id: int, session: Session) -> Teacher:
@@ -82,15 +93,19 @@ def _list(teacher_id: int, session: Session) -> list[TeacherAvailability]:
 
 
 @router.get("/{teacher_id}/availability", response_model=list[AvailabilityView])
-def get_availability(teacher_id: int, session: Database) -> list[TeacherAvailability]:
+def get_availability(
+    teacher_id: int, session: Database, user: SignedIn
+) -> list[TeacherAvailability]:
+    _check_access(teacher_id, user, session)
     _load_teacher(teacher_id, session)
     return _list(teacher_id, session)
 
 
 @router.put("/{teacher_id}/availability", response_model=list[AvailabilityView])
 def replace_availability(
-    teacher_id: int, entries: list[AvailabilityEntry], session: Database
+    teacher_id: int, entries: list[AvailabilityEntry], session: Database, user: SignedIn
 ) -> list[TeacherAvailability]:
+    _check_access(teacher_id, user, session)
     _load_teacher(teacher_id, session)
     _validate_against_grid(entries, session)
     session.execute(

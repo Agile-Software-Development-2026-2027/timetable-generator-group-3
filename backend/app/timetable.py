@@ -90,6 +90,10 @@ def list_sessions(
     page_size: Annotated[int, Query(ge=1, le=MAX_PAGE_SIZE)] = DEFAULT_PAGE_SIZE,
     version: Literal["draft", "published"] | None = None,
 ) -> list[SessionView]:
+    if user.role == "student":
+        raise HTTPException(
+            403, "Students must use /students/me/timetable."
+        )
     if user.role != "director" and version == "draft":
         raise HTTPException(403, "Only directors can read draft timetables.")
     model = (

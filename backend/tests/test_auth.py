@@ -40,8 +40,11 @@ def test_valid_token_returns_id_and_role(client, session, make_token, role):
     response = _get_me(client, make_token(user.id))
 
     assert response.status_code == 200
-    assert response.json() == {"id": str(user.id), "role": role}
-
+    assert response.json() == {
+        "id": str(user.id),
+        "role": role,
+        "degree_ids": [],
+    }
 
 def test_auth_client_fixture_logs_in_with_the_given_role(auth_client):
     response = auth_client("teacher").get("/auth/me")
@@ -165,3 +168,14 @@ def test_director_degree_relationship(session):
 
     assert len(saved_user.degrees) == 1
     assert saved_user.degrees[0].name == "Computer Science"
+
+def test_auth_me_returns_assigned_degree_ids(client, session, make_token):
+    user = _add_user(session, role="director")
+    degree = Degree(name="Computer Science")
+    user.degrees.append(degree)
+    session.commit()
+
+    response = _get_me(client, make_token(user.id))
+
+    assert response.status_code == 200
+    assert response.json()["degree_ids"] == [degree.id]

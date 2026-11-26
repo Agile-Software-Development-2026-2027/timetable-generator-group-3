@@ -1,5 +1,8 @@
 import uuid
 
+from fastapi.testclient import TestClient
+
+from app.main import app
 from app.models import AppUser, Degree
 
 def test_create_degree_generates_years_and_semesters(client):
@@ -131,9 +134,6 @@ def test_directors_only_see_assigned_degrees(
     token_one = make_token(director_one.id)
     token_two = make_token(director_two.id)
 
-    from fastapi.testclient import TestClient
-    from app.main import app
-
     client_one = TestClient(
         app, headers={"Authorization": f"Bearer {token_one}"}
     )
@@ -143,6 +143,8 @@ def test_directors_only_see_assigned_degrees(
 
     response_one = client_one.get("/degrees")
     response_two = client_two.get("/degrees")
+    cross_access = client_one.get(f"/degrees/{degree_two.id}")
+    assert cross_access.status_code == 403
 
     assert response_one.status_code == 200
     assert response_two.status_code == 200

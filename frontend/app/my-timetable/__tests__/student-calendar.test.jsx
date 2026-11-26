@@ -21,7 +21,10 @@ vi.mock("@fullcalendar/react", async () => {
       return (
         <div data-testid="calendar-events">
           {props.events.map((event) => (
-            <div key={event.id}>
+            <div
+              key={event.id}
+              onClick={() => props.eventClick?.({ event })}
+            >
               {props.eventContent({
                 event: { extendedProps: event.extendedProps },
                 view: calendar.view,
@@ -229,5 +232,63 @@ describe("Student calendar design", () => {
 
     expect(calendar.props.headerToolbar.right)
       .toBe("timeGridWeek,timeGridDay,listWeek");
+  });
+});
+
+describe("Student session details", () => {
+  const detailedSession = {
+    ...session,
+    degree_name: "Computer Science",
+  };
+
+  function openSession() {
+    render(<StudentCalendar sessions={[detailedSession]} />);
+    fireEvent.click(screen.getByText("Databases"));
+    return screen.getByRole("dialog", { name: "Databases" });
+  }
+
+  it("opens the selected session with read-only details", () => {
+    const dialog = openSession();
+
+    expect(dialog).toHaveTextContent("Monday");
+    expect(dialog).toHaveTextContent("09:00\u201310:30");
+    expect(dialog).toHaveTextContent("R101");
+    expect(dialog).toHaveTextContent("Computer Science");
+    expect(dialog).toHaveTextContent("Ada Lovelace, Alan Turing");
+    expect(dialog.querySelector("input")).toBeNull();
+    expect(calendar.props.editable).toBe(false);
+    expect(calendar.props.eventInteractive).toBe(true);
+  });
+
+  it.each(["Close details", "Close session details"])(
+    "closes the dialog using %s",
+    (name) => {
+      openSession();
+      fireEvent.click(screen.getByRole("button", { name }));
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    }
+  );
+
+  it("closes the dialog when Escape is pressed", () => {
+    openSession();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("closes the dialog when clicking the backdrop", () => {
+    const dialog = openSession();
+    fireEvent.mouseDown(dialog.parentElement);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("shows the details of the selected class", () => {
+    render(<StudentCalendar sessions={[
+      detailedSession,
+      { ...detailedSession, id: 2, course_name: "Algorithms" },
+    ]} />);
+    fireEvent.click(screen.getByText("Algorithms"));
+    expect(screen.getByRole("dialog", {
+      name: "Algorithms",
+    })).toBeInTheDocument();
   });
 });

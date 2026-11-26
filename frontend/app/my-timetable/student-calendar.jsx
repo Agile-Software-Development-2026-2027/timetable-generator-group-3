@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import FullCalendar from "@fullcalendar/react";
+import SessionDetailsDialog from "../calendar/session-details-dialog.jsx";
 import timeGridPlugin from "@fullcalendar/react/timegrid";
 import listPlugin from "@fullcalendar/react/list";
 import breezyThemePlugin from "@fullcalendar/react/themes/breezy";
@@ -35,6 +36,7 @@ function sessionToEvent(session) {
     borderColor: color,
     textColor: color,
     extendedProps: {
+      session,
       courseName,
       roomCode,
       teacherNames,
@@ -72,6 +74,7 @@ export default function StudentCalendar({
   slotConfig = DEFAULT_SLOT_CONFIG,
 }) {
   const calendarRef = useRef(null);
+  const [selectedSession, setSelectedSession] = useState(null);
 
   useEffect(() => {
     function syncCalendarView() {
@@ -91,6 +94,22 @@ export default function StudentCalendar({
 
     return () => window.removeEventListener("resize", syncCalendarView);
   }, []);
+
+  useEffect(() => {
+    if (!selectedSession) return;
+
+    function handleSessionKeyDown(event) {
+      if (event.key === "Escape") {
+        setSelectedSession(null);
+      }
+    }
+
+    document.addEventListener("keydown", handleSessionKeyDown);
+
+    return () => {
+      document.removeEventListener("keydown", handleSessionKeyDown);
+    };
+  }, [selectedSession]);
 
   const workingDays = [...new Set([
     ...slotConfig.working_days,
@@ -157,7 +176,15 @@ export default function StudentCalendar({
         height="auto"
         nowIndicator
         eventContent={renderSession}
+        eventClick={(info) => setSelectedSession(info.event.extendedProps.session)}
+        eventInteractive
       />
+      {selectedSession && (
+        <SessionDetailsDialog
+          session={selectedSession}
+          onClose={() => setSelectedSession(null)}
+        />
+      )}
     </section>
   );
 }

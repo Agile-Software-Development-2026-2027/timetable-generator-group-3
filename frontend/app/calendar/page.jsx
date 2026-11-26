@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AppNav } from "../components/app-shell.jsx";
 import { PublicationPanel } from "./publication-panel.jsx";
+import SessionDetailsDialog from "./session-details-dialog.jsx";
 import { apiRequest as request } from "../../lib/api.js";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/react/daygrid";
@@ -832,28 +833,11 @@ export default function TimetablePage() {
           </div>
         </section>
       </div>)}
-      {selectedSession && <div className="session-details-backdrop" role="presentation"
-        onMouseDown={(event) => {
-          if (event.target === event.currentTarget) setSelectedSession(null);
-        }}>
-        <section className="session-details-dialog" role="dialog" aria-modal="true"
-          aria-labelledby="session-details-title">
-          <div className="session-details-heading">
-            <div>
-              <p className="eyebrow mb-1">TIMETABLE SESSION</p>
-              <h2 id="session-details-title">{selectedSession.course_name}</h2>
-            </div>
-            <button type="button" className="session-details-close" aria-label="Close session details"
-              onClick={() => setSelectedSession(null)}>Ã—</button>
-          </div>
-          <dl className="session-details-list">
-            <div><dt>Day</dt><dd>{["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"][selectedSession.weekday]}</dd></div>
-            <div><dt>Time</dt><dd>{selectedSession.start_time.slice(0, 5)}â€“{selectedSession.end_time.slice(0, 5)}</dd></div>
-            <div><dt>Room</dt><dd>{selectedSession.room_code || "Not assigned"}</dd></div>
-            <div><dt>Degree programme</dt><dd>{selectedSession.degree_name}</dd></div>
-            <div><dt>Teacher{selectedSession.teacher_names?.length === 1 ? "" : "s"}</dt>
-              <dd>{selectedSession.teacher_names?.length ? selectedSession.teacher_names.join(", ") : "Not assigned"}</dd></div>
-          </dl>
+      {selectedSession && (
+        <SessionDetailsDialog
+          session={selectedSession}
+          onClose={() => setSelectedSession(null)}
+        >
           <div className="session-color-setting">
             <label htmlFor="session-color">Color for this class</label>
             <div className="session-color-controls">
@@ -867,12 +851,8 @@ export default function TimetablePage() {
             <p>Changes only this scheduled class and are saved in this browser.</p>
             {sessionColorError && <p className="session-color-error" role="alert">{sessionColorError}</p>}
           </div>
-          <div className="session-details-actions">
-            <button type="button" className="btn btn-campus"
-              onClick={() => setSelectedSession(null)}>Close details</button>
-          </div>
-        </section>
-      </div>}
+        </SessionDetailsDialog>
+      )}
       {generationConfirmationOpen && <div className="generation-confirm-backdrop" role="presentation"
         onMouseDown={(event) => {
           if (event.target === event.currentTarget) closeGenerationConfirmation();

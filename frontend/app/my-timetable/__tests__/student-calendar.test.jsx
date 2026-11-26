@@ -206,3 +206,28 @@ describe("StudentCalendar", () => {
     expect(request).not.toHaveBeenCalled();
   });
 });
+
+
+describe("Student calendar design", () => {
+  it("uses consistent colors for the same course", () => {
+    render(<StudentCalendar sessions={[
+      session,
+      { ...session, id: 2 },
+      { ...session, id: 3, course_id: 12 },
+    ]} />);
+
+    const [first, second, third] = calendar.props.events;
+
+    expect(first.backgroundColor).toBe(second.backgroundColor);
+    expect(first.backgroundColor).not.toBe(third.backgroundColor);
+    expect(first.borderColor).toBeTruthy();
+    expect(first.textColor).toBeTruthy();
+  });
+
+  it("provides week, day and list calendar views", () => {
+    render(<StudentCalendar sessions={[session]} />);
+
+    expect(calendar.props.headerToolbar.right)
+      .toBe("timeGridWeek,timeGridDay,listWeek");
+  });
+});

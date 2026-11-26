@@ -201,34 +201,37 @@ describe("Student API client", () => {
     await expect(removeExtraCourse(2, request)).rejects.toBe(error);
   });
 
-  it("retrieves all data required by the student timetable page", async () => {
+  it("retrieves only the data required by the student timetable page", async () => {
     const data = {
-      courses: [assigned, extra],
-      availableCourses: [available],
       sessions: [{ id: 1, course_id: 1 }],
       publication: { published: true },
     };
 
     const responses = {
-      "/students/me/courses": data.courses,
-      "/students/me/available-courses": data.availableCourses,
       [sessionPath(1)]: data.sessions,
       "/students/me/timetable-status": data.publication,
     };
     const request = vi.fn(async (path) => responses[path]);
 
     expect(await fetchStudentTimetableData(request)).toEqual(data);
-    expect(request).toHaveBeenCalledTimes(4);
+    expect(request).toHaveBeenCalledTimes(2);
+
     Object.keys(responses).forEach((path) => {
       expect(request).toHaveBeenCalledWith(path);
     });
+
+    expect(request).not.toHaveBeenCalledWith("/students/me/courses");
+    expect(request).not.toHaveBeenCalledWith("/students/me/available-courses");
   });
 
-  it("rejects combined data retrieval when a request fails", async () => {
-    const error = new Error("Course catalogue unavailable");
+  it.each([
+    sessionPath(1),
+    "/students/me/timetable-status",
+  ])("rejects timetable data retrieval when %s fails", async (failedPath) => {
+    const error = new Error("Timetable data unavailable");
     const request = vi.fn(async (path) => {
-      if (path === "/students/me/available-courses") throw error;
-      return [];
+      if (path === failedPath) throw error;
+      return path === sessionPath(1) ? [] : { published: true };
     });
 
     await expect(fetchStudentTimetableData(request)).rejects.toBe(error);

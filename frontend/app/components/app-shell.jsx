@@ -10,7 +10,7 @@ import { useAuth } from "./auth-provider.jsx";
 const NAV_ICONS = {
   "/": School, "/rooms": Building2, "/teachers": Users, "/students": GraduationCap, "/courses": BookOpen,
   "/data-loader": ArrowDownToLine, "/calendar": CalendarDays, "/settings": Settings2,
-  "/my-schedule": CalendarDays, "/my-timetable": CalendarDays, "/users": UserCog,
+  "/my-schedule": CalendarDays, "/my-timetable": CalendarDays, "/my-courses": GraduationCap, "/users": UserCog,
 };
 
 const ROLE_LABELS = { director: "Programme director", teacher: "Teacher", student: "Student" };

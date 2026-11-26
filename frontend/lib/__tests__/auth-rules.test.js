@@ -90,7 +90,10 @@ describe("navLinksFor", () => {
   it("gives each role only its own links", () => {
     expect(navLinksFor("director").map(([href]) => href)).toEqual(["/", "/rooms", "/teachers", "/students", "/courses", "/data-loader", "/calendar", "/settings", "/users"]);
     expect(navLinksFor("teacher")).toEqual([["/my-schedule", "My schedule"]]);
-    expect(navLinksFor("student")).toEqual([["/my-timetable", "My timetable"]]);
+    expect(navLinksFor("student")).toEqual([
+      ["/my-timetable", "My timetable"],
+      ["/my-courses", "My courses"],
+    ]);
     expect(navLinksFor(undefined)).toEqual([]);
   });
 });
@@ -154,5 +157,31 @@ describe("KAN-59 student management permissions", () => {
 
     expect(navLinksFor("student").map(([href]) => href))
       .not.toContain("/students");
+  });
+});
+
+
+describe("Student personal courses permissions", () => {
+  it("allows a student to open My courses", () => {
+    expect(canVisit("student", "/my-courses")).toBe(true);
+    expect(redirectFor("/my-courses", signedIn("student"))).toBeNull();
+  });
+
+  it.each(["director", "teacher"])(
+    "keeps a %s out of My courses",
+    (role) => {
+      expect(canVisit(role, "/my-courses")).toBe(false);
+      expect(redirectFor("/my-courses", signedIn(role)))
+        .toBe(homeFor(role));
+    }
+  );
+
+  it("requires authentication for My courses", () => {
+    expect(redirectFor("/my-courses", { status: "signed-out" }))
+      .toBe("/login");
+  });
+
+  it("does not allow an unrelated route prefix", () => {
+    expect(canVisit("student", "/my-coursesfoo")).toBe(false);
   });
 });

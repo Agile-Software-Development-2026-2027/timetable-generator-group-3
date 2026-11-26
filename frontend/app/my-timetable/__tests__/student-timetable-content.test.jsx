@@ -245,3 +245,50 @@ describe("Student timetable content", () => {
     expect(screen.queryByText("Databases class")).not.toBeInTheDocument();
   });
 });
+
+
+describe("Separated Student pages", () => {
+  it("renders the calendar without course management controls", async () => {
+    setup({ view: "timetable" });
+
+    expect(await screen.findByText("Databases class"))
+      .toBeInTheDocument();
+
+    expect(screen.getByText("Published")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Courses"))
+      .not.toBeInTheDocument();
+  });
+
+  it("renders courses without loading a calendar component", async () => {
+    setup({
+      view: "courses",
+      Calendar: undefined,
+      loadData: vi.fn().mockResolvedValue({
+        courses: [assigned],
+        availableCourses: [elective],
+      }),
+    });
+
+    expect(await screen.findByText("Databases"))
+      .toBeInTheDocument();
+
+    expect(screen.queryByLabelText("Calendar"))
+      .not.toBeInTheDocument();
+
+    expect(screen.queryByText("No timetable published yet."))
+      .not.toBeInTheDocument();
+  });
+
+  it("displays the unpublished status on the timetable page", async () => {
+    setup({
+      view: "timetable",
+      loadData: vi.fn().mockResolvedValue(makeData({
+        sessions: [],
+        publication: { published: false },
+      })),
+    });
+
+    expect(await screen.findByText("Unpublished"))
+      .toBeInTheDocument();
+  });
+});

@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { AppNav } from "../components/app-shell.jsx";
+import { useAuth } from "../components/auth-provider.jsx";
 
 export default function StudentTimetableContent({
   Calendar,
@@ -8,6 +10,7 @@ export default function StudentTimetableContent({
   loadData,
   addCourse,
   removeCourse,
+  view = "both",
 }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -78,6 +81,9 @@ export default function StudentTimetableContent({
     }
   }
 
+  const showCourses = view !== "timetable";
+  const showCalendar = view !== "courses";
+
   const hasSessions = Boolean(data?.sessions?.length);
   const isPublished = data?.publication?.published === true;
 
@@ -98,21 +104,47 @@ export default function StudentTimetableContent({
       )}
 
       {loading && (
-        <p role="status" className="slot-card mb-3 py-3 text-secondary">Loading your timetable...</p>
+        <p role="status" className="slot-card mb-3 py-3 text-secondary">Loading your {view === "courses" ? "courses" : "timetable"}...</p>
       )}
 
       {data && (
         <>
-          <CoursesPanel
+          {showCourses && <CoursesPanel
             courses={data.courses}
             availableCourses={data.availableCourses}
             loading={loading}
             onAdd={(courseId) => updateEnrollment(addCourse, courseId)}
             onRemove={(courseId) => updateEnrollment(removeCourse, courseId)}
-          />
+          />}
 
-          {!loading && (
+          {showCalendar && !loading && (
             <>
+              {view === "timetable" && (
+                <section
+                  className="room-table-panel mb-3"
+                  aria-label="Timetable publication"
+                >
+                  <div className="d-flex flex-wrap align-items-center justify-content-between gap-3 p-3">
+                    <div>
+                      <h2 className="slot-section-title mb-1">
+                        Personal timetable
+                      </h2>
+                      <p className="text-secondary small mb-0">
+                        {data.sessions?.length ?? 0} scheduled classes
+                      </p>
+                    </div>
+                    <span
+                      className={`badge ${
+                        isPublished
+                          ? "bg-success-subtle text-success-emphasis"
+                          : "bg-warning-subtle text-warning-emphasis"
+                      }`}
+                    >
+                      {isPublished ? "Published" : "Unpublished"}
+                    </span>
+                  </div>
+                </section>
+              )}
               {!isPublished && (
                 <p role="status" className="slot-card mb-3 py-3 text-secondary">
                   {hasSessions
@@ -134,6 +166,62 @@ export default function StudentTimetableContent({
           )}
         </>
       )}
+    </div>
+  );
+}
+
+
+export function StudentPage({
+  current,
+  title,
+  description,
+  view,
+  ...contentProps
+}) {
+  const auth = useAuth();
+  const accountId = auth.me?.id;
+
+  const canAccess =
+    auth.status === "signed-in" &&
+    auth.role === "student" &&
+    typeof accountId === "string" &&
+    accountId.trim().length > 0;
+
+  return (
+    <div className="campus-app calendar-page">
+      <AppNav current={current} />
+
+      <main className="container degrees-main py-4">
+        <header className="degrees-heading mb-3">
+          <p className="eyebrow mb-2">
+            UNIVERSITY OF CALABRIA / TIMETABLE
+          </p>
+
+          <h1 className="display-5 fw-semibold mb-1">
+            {title}
+          </h1>
+
+          <p className="text-secondary mb-0">
+            {description}
+          </p>
+        </header>
+
+        {auth.status === "loading" ? (
+          <p className="slot-card py-3" role="status">
+            Checking your session...
+          </p>
+        ) : canAccess ? (
+          <StudentTimetableContent
+            {...contentProps}
+            key={accountId}
+            view={view}
+          />
+        ) : (
+          <p className="slot-card py-3 text-secondary" role="status">
+            A valid student account is required to view your {view === "courses" ? "courses" : "timetable"}.
+          </p>
+        )}
+      </main>
     </div>
   );
 }

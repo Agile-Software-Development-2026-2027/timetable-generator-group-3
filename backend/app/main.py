@@ -9,6 +9,7 @@ from app.database import Base, engine
 from app.degrees import router as degrees_router
 from app.rooms import router as rooms_router
 from app.teachers import router as teachers_router
+from app.student_me import router as student_me_router
 from app.students import router as students_router
 from app.timetable import router as timetable_router
 from app.timetable_publication import router as publication_router
@@ -48,6 +49,7 @@ app.include_router(auth_router)
 app.include_router(degrees_router)
 app.include_router(rooms_router)
 app.include_router(teachers_router)
+app.include_router(student_me_router)
 app.include_router(students_router)
 app.include_router(timetable_router)
 app.include_router(publication_router)

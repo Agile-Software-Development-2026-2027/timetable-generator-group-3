@@ -23,7 +23,7 @@ def test_roles_see_correct_timetable_versions(session, course, auth_client):
     # Before publication: draft is visible only to directors.
     assert len(director.get(url).json()) == 1
     assert teacher.get(url).json() == []
-    assert student.get(url).json() == []
+    assert student.get(url).status_code == 403
 
     # Teachers and students must not request drafts.
     assert teacher.get(url + "&version=draft").status_code == 403
@@ -34,7 +34,7 @@ def test_roles_see_correct_timetable_versions(session, course, auth_client):
     assert response.status_code == 200, response.text
 
     assert len(teacher.get(url).json()) == 1
-    assert len(student.get(url).json()) == 1
+    assert student.get(url).status_code == 403
     assert len(director.get(url + "&version=published").json()) == 1
 
     # Modify the draft after publication.
@@ -46,8 +46,12 @@ def test_roles_see_correct_timetable_versions(session, course, auth_client):
     director_sessions = director.get(url).json()
     assert director_sessions[0]["start_time"].startswith("11:00")
 
-    # Students and teachers still see the old published snapshot.
-    for client in (teacher, student):
-        published = client.get(url).json()
-        assert len(published) == 1
-        assert published[0]["start_time"].startswith("09:00")
+    # Teachers still see the old published snapshot.
+    published = teacher.get(url).json()
+    assert len(published) == 1
+    assert published[0]["start_time"].startswith("09:00")
+
+    # Students must use their dedicated personal timetable endpoint.
+    response = student.get(url)
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Students must use /students/me/timetable."

@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.auth import CurrentUser, get_current_user, require_degree_access, require_role
 from app.database import get_session
-from app.models import Course, Degree, Semester, Year
+from app.models import AppUser, Course, Degree, Semester, Year
 
 router = APIRouter(prefix="/degrees", tags=["degrees"])
 Database = Annotated[Session, Depends(get_session)]
@@ -109,9 +109,14 @@ def create_degree(
         for year_number in range(1, data.years + 1)
     ]
     session.add(degree)
+    
+    director = session.get(AppUser, user.id)
+    director.degrees.append(degree)
     session.commit()
+    
+    user.degree_ids.append(degree.id)
+    
     return get_degree(degree.id, session, user)
-
 
 @router.get("/{degree_id}", response_model=DegreeView)
 def get_degree(

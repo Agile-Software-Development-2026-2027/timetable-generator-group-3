@@ -139,6 +139,15 @@ def unscheduled_course_reason(
             f"needs {needed}.",
         )
 
+    # KAN-57: the teacher marked every slot of the grid as unavailable.
+    for teacher in course.teachers:
+        blocked = {(d, s) for t, d, s in problem.unavailable_teachers if t == teacher.id}
+        if not slots - blocked:
+            return _reason(
+                "Teacher availability",
+                f"{teacher.name} has no available slot for {course.name}.",
+            )
+
     assignments = _solution_assignments(solution)
     courses_by_id = {item.id: item for item in problem.courses}
     needed_blocks = problem.required_blocks(course)

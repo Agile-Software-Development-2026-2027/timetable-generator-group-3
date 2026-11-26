@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
 from app.auth import router as auth_router
+from app.availability import router as availability_router
 from app.database import Base, engine
 from app.degrees import router as degrees_router
 from app.rooms import router as rooms_router
@@ -51,6 +52,7 @@ app.include_router(rooms_router)
 app.include_router(teachers_router)
 app.include_router(student_me_router)
 app.include_router(students_router)
+app.include_router(availability_router)
 app.include_router(timetable_router)
 app.include_router(publication_router)
 app.include_router(seed_router)

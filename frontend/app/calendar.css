@@ -1,0 +1,136 @@
+/* Timetable calendar (FullCalendar) with the same look as the tables: white card,
+   light grey header, hairline grid lines, small grey labels and pastel session cards. */
+
+.campus-app.calendar-page .timetable-card [class*="fc-breezy-"] {
+  --fc-breezy-background: #fff;
+  --fc-breezy-faint: #f8f9f9;
+  --fc-breezy-muted: #f5f6f7;
+  --fc-breezy-strong: #eef0f1;
+  --fc-breezy-border: #f0f2f3;
+  --fc-breezy-muted-border: #f5f6f7;
+  --fc-breezy-strong-border: #e5e9ea;
+  --fc-breezy-foreground: #69757a;
+  --fc-breezy-muted-foreground: #929ca0;
+  --fc-breezy-faint-foreground: #a0a9ad;
+  --fc-breezy-strong-foreground: #383838;
+  --fc-breezy-primary: #b71918;
+  --fc-breezy-primary-over: #6f0b0a;
+  --fc-breezy-event: #fae9e8;
+  --fc-breezy-event-contrast: #85312e;
+  --fc-breezy-now: #b71918;
+  --fc-breezy-highlight: #b719180d;
+  --fc-breezy-secondary: #fff;
+  --fc-breezy-secondary-over: #f2f3f4;
+  --fc-breezy-secondary-border: #e5e9ea;
+  --fc-breezy-secondary-foreground: #576268;
+  font-size: 10px;
+}
+
+/* Card: same as the table panels. */
+.campus-app.calendar-page .timetable-card { padding: 0; border: 1px solid #e8edef; border-radius: 11px; box-shadow: 0 2px 8px #23313a05; background: #fff; }
+.campus-app.calendar-page .timetable-card .fc-breezy-n5m,
+.campus-app.calendar-page .timetable-card > div[class*="fc-breezy-"] { border: 0; border-radius: 0; }
+.campus-app.calendar-page .timetable-calendar-heading { margin: 0; padding: 18px 19px 13px; border-bottom: 0; }
+.campus-app.calendar-page .timetable-calendar-heading h2 { font-size: 14px; font-weight: 700; letter-spacing: -.015em; color: #383838; }
+.campus-app.calendar-page .timetable-calendar-heading p { font-size: 11px; color: #899499; }
+.campus-app.calendar-page .timetable-calendar-heading .schedule-count { padding: 4px 8px; border: 0; border-radius: 5px; background: #f0f2f3; color: #69757b; font-size: 9px; }
+.campus-app.calendar-page .timetable-calendar-heading .schedule-count strong { font-size: 11px; color: #383838; }
+.campus-app.calendar-page .timetable-calendar-heading .schedule-count > span { color: #69757b; font-weight: 600; }
+
+/* Filters row: compact selects like the table search box. */
+.campus-app.calendar-page .timetable-filters { margin: 0; padding: 0 19px 13px; gap: 8px; }
+.campus-app.calendar-page .timetable-filters .form-label { margin-bottom: 4px; font-size: 9px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: #9da6aa; }
+.campus-app.calendar-page .timetable-filters .form-select,
+.campus-app.calendar-page .timetable-search-field .form-control { min-height: 32px; height: 32px; padding-top: 0; padding-bottom: 0; border: 1px solid #e5e9ea; border-radius: 6px; font-size: 10px; color: #424b4f; }
+
+/* Toolbar: title and small outline / segmented buttons. */
+.campus-app.calendar-page .timetable-card > div[class*="fc-breezy-"] > div:first-child { padding: 10px 19px; border-top: 1px solid #edf0f1; border-bottom: 1px solid #edf0f1; }
+.campus-app.calendar-page .timetable-card .fc-breezy-n5m button,
+.campus-app.calendar-page .timetable-card .fc .fc-header-toolbar button { min-height: 27px; padding: 4px 9px; border: 1px solid #e6eaeb; border-radius: 6px; background: #fff; color: #68757a; font-size: 10px; font-weight: 600; box-shadow: none; }
+.campus-app.calendar-page .timetable-card .fc-breezy-n5m button:hover { background: #f2f3f4; color: #383838; }
+.campus-app.calendar-page .timetable-card .fc-breezy-n5m button[aria-selected="true"] { border-color: #f3d8d7; background: #faeae9; color: #a71918; }
+.campus-app.calendar-page .timetable-card .fc .fc-toolbar-title,
+.campus-app.calendar-page .timetable-card [class*="fc-breezy-"] h2 { font-size: 12px; font-weight: 700; color: #383838; }
+
+/* Grid: header like the table header, faint lines, small labels. */
+.campus-app.calendar-page .timetable-card .fc .fc-col-header-cell,
+.campus-app.calendar-page .timetable-card [role="columnheader"] { background: #f8f9f9; color: #929ca0; font-size: 9px; font-weight: 600; }
+.campus-app.calendar-page .timetable-card .fc .fc-col-header-cell-cushion { padding: 10px 6px; color: #929ca0; text-decoration: none; }
+.campus-app.calendar-page .timetable-card .fc .fc-timegrid-slot-label,
+.campus-app.calendar-page .timetable-card .fc .fc-timegrid-axis { color: #a0a9ad; font-size: 9px; }
+.campus-app.calendar-page .timetable-card .calendar-empty-slot { background: #fff; }
+
+/* Sessions: pastel card with a coloured left edge, as on the other screens. */
+.campus-app.calendar-page .timetable-card .timetable-session-event { border: 0; border-left: 3px solid #c73d3b; border-radius: 4px; box-shadow: none; }
+.campus-app.calendar-page .calendar-event-content { gap: 3px; padding: 5px 6px 4px; font-size: 8px; color: #85312e; }
+.campus-app.calendar-page .calendar-event-content .calendar-event-title { font-size: 9px; font-weight: 700; line-height: 1.25; color: #85312e; }
+.campus-app.calendar-page .calendar-event-teachers { color: #85312eb3; }
+
+/* Legend: small pills in the card footer. */
+.campus-app.calendar-page .calendar-legend { gap: 6px; font-size: 9px; color: #7d898e; }
+.campus-app.calendar-page .calendar-legend > span { padding: 4px 7px; border: 0; border-radius: 5px; background: #f0f2f3; font-weight: 600; }
+.campus-app.calendar-page .calendar-legend-swatch { width: 7px; height: 7px; border: 0; border-radius: 50%; }
+.campus-app.calendar-page .calendar-legend-empty { background: #d6dbdd; }
+.campus-app.calendar-page .calendar-legend-occupied { background: #c73d3b; }
+
+/* "Create a timetable" card: same look as the table panels. One row with a compact
+   degree select and same-size buttons; only "Generate" is a filled red button. */
+.campus-app.calendar-page .timetable-generation { padding: 18px 19px; border: 1px solid #e8edef; border-radius: 11px; box-shadow: 0 2px 8px #23313a05; background: #fff; }
+.campus-app.calendar-page .timetable-generation-intro { gap: 12px; margin-bottom: 16px; }
+.campus-app.calendar-page .timetable-generation-mark { flex: 0 0 34px; width: 34px; height: 34px; border: 0; border-radius: 9px; background: #faeae9; color: #b71918; }
+.campus-app.calendar-page .timetable-generation-mark svg { width: 18px; height: 18px; }
+.campus-app.calendar-page .timetable-generation-intro h2 { font-size: 14px; font-weight: 700; letter-spacing: -.015em; color: #383838; }
+.campus-app.calendar-page .timetable-generation-intro p { margin-top: 3px; font-size: 11px; color: #899499; }
+
+.campus-app.calendar-page .timetable-controls { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 12px; }
+.campus-app.calendar-page .timetable-degree-field { flex: 0 1 320px; }
+.campus-app.calendar-page .timetable-degree-field .form-label { margin-bottom: 4px; font-size: 9px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: #9da6aa; }
+.campus-app.calendar-page .timetable-degree-field .form-select { min-height: 34px; height: 34px; padding-top: 0; padding-bottom: 0; border: 1px solid #e5e9ea; border-radius: 6px; font-size: 11px; color: #424b4f; box-shadow: none; }
+.campus-app.calendar-page .timetable-degree-field .form-select:focus { border-color: #b71918; box-shadow: 0 0 0 3px #b7191818; }
+.campus-app.calendar-page .timetable-controls-footer { flex: 1 1 auto; }
+.campus-app.calendar-page .timetable-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+
+/* Every button in the row: same height, padding and font. */
+.campus-app.calendar-page .timetable-actions .btn { min-height: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; padding: 0 13px; border-radius: 7px; font-size: 11px; font-weight: 600; white-space: nowrap; box-shadow: none; }
+.campus-app.calendar-page .timetable-actions .btn-campus { border: 1px solid #b71918; background: #b71918; color: #fff; box-shadow: 0 2px 4px #b719181a; }
+.campus-app.calendar-page .timetable-actions .btn-campus:hover:not(:disabled) { border-color: #6f0b0a; background: #6f0b0a; }
+.campus-app.calendar-page .timetable-actions .btn-outline-danger,
+.campus-app.calendar-page .timetable-actions .btn-outline-secondary,
+.campus-app.calendar-page .timetable-actions .timetable-publication-toggle { border: 1px solid #e1e6e8; background: #fff; color: #576268; }
+.campus-app.calendar-page .timetable-actions .btn-outline-secondary:hover,
+.campus-app.calendar-page .timetable-actions .timetable-publication-toggle:hover { border-color: #c6cdcf; background: #fafbfb; color: #383838; }
+.campus-app.calendar-page .timetable-actions .btn-outline-danger:hover:not(:disabled) { border-color: #f3d8d7; background: #faeae9; color: #a71918; }
+.campus-app.calendar-page .timetable-actions .timetable-publication-publish { border: 1px solid #b71918; background: #fff; color: #b71918; }
+.campus-app.calendar-page .timetable-actions .timetable-publication-publish:hover:not(:disabled) { background: #faeae9; color: #8f1514; }
+.campus-app.calendar-page .timetable-actions .btn:disabled { opacity: .55; }
+
+/* The publication buttons sit in the same row, without their own box. */
+.campus-app.calendar-page .timetable-actions > .timetable-publication-inline { display: contents; }
+.campus-app.calendar-page .timetable-publication-actions { display: contents; }
+
+@media (max-width: 760px) {
+  .campus-app.calendar-page .timetable-degree-field { flex-basis: 100%; }
+  .campus-app.calendar-page .timetable-actions .btn { flex: 1 1 calc(50% - 8px); }
+}
+
+
+/* Shared Student course colors and icon sizing. */
+.student-course-icon,
+.campus-app.calendar-page .student-course-event {
+  background-color: var(--course-background);
+  color: var(--course-color);
+}
+
+.student-course-icon {
+  width: 40px;
+  height: 40px;
+}
+
+.campus-app.calendar-page .student-course-event {
+  border-inline-start: 3px solid var(--course-color);
+}
+
+.campus-app.calendar-page .student-course-event .calendar-event-title,
+.campus-app.calendar-page .student-course-event .calendar-event-teachers {
+  color: inherit;
+}

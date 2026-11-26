@@ -3,10 +3,11 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from app.database import get_session
-from app.models import Course, Degree, Semester, Year
+from app.models import Course, Degree, Semester, Student, Year
 
 router = APIRouter(prefix="/degrees", tags=["degrees"])
 Database = Annotated[Session, Depends(get_session)]
@@ -168,6 +169,13 @@ def update_degree(degree_id: int, data: DegreeInput, session: Database) -> Degre
         )
         if course_exists:
             raise HTTPException(409, "Years containing courses cannot be removed.")
+        student_exists = session.scalar(
+            select(Student.id)
+            .where(Student.year_id.in_([year.id for year in removed_years]))
+            .limit(1)
+        )
+        if student_exists is not None:
+            raise HTTPException(409, "Years containing students cannot be removed.")
     for year in degree.years:
         removed_semesters = [
             semester
@@ -211,7 +219,13 @@ def update_degree(degree_id: int, data: DegreeInput, session: Database) -> Degre
             if number not in present_semesters:
                 year.semesters.append(Semester(number=number))
         year.semesters.sort(key=lambda semester: semester.number)
-    session.commit()
+    try:
+        session.commit()
+    except IntegrityError as error:
+        session.rollback()
+        raise HTTPException(
+            409, "The degree structure is referenced by existing records."
+        ) from error
     return get_degree(degree_id, session)
 
 
@@ -222,5 +236,15 @@ def delete_degree(degree_id: int, session: Database) -> None:
         raise HTTPException(404, "Degree not found.")
     if session.scalar(select(Course.id).where(Course.degree_id == degree_id).limit(1)):
         raise HTTPException(409, "A degree with courses cannot be deleted.")
-    session.delete(degree)
-    session.commit()
+    if session.scalar(
+        select(Student.id).where(Student.degree_id == degree_id).limit(1)
+    ) is not None:
+        raise HTTPException(409, "A degree with students cannot be deleted.")
+    try:
+        session.delete(degree)
+        session.commit()
+    except IntegrityError as error:
+        session.rollback()
+        raise HTTPException(
+            409, "The degree is referenced by existing records."
+        ) from error

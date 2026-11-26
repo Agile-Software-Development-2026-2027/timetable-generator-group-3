@@ -419,3 +419,5 @@ def test_timetable_session_rejects_unknown_room(client, course):
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Room not found."
+
+pytestmark = pytest.mark.usefixtures("legacy_director_client")

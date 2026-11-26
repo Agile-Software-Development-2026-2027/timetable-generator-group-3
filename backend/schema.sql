@@ -159,3 +159,89 @@ ALTER TABLE app_user ENABLE ROW LEVEL SECURITY;
 CREATE POLICY app_user_select_own ON app_user
 	FOR SELECT TO authenticated
 	USING ((SELECT auth.uid()) = id);
+-- KAN-71: Draft and published timetable separation
+-- Brian applies this migration to Supabase.
+-- Do not copy draft sessions automatically.
+
+
+CREATE TABLE published_session (
+    id SERIAL PRIMARY KEY,
+    degree_id INTEGER NOT NULL
+        REFERENCES degree(id) ON DELETE CASCADE,
+    course_id INTEGER NOT NULL
+        REFERENCES course(id) ON DELETE CASCADE,
+    room_id INTEGER
+        REFERENCES room(id) ON DELETE SET NULL,
+    weekday INTEGER NOT NULL,
+    start_time TIME WITHOUT TIME ZONE NOT NULL,
+    end_time TIME WITHOUT TIME ZONE NOT NULL,
+
+    CONSTRAINT ck_published_weekday
+        CHECK (weekday BETWEEN 0 AND 6),
+    CONSTRAINT ck_published_time_order
+        CHECK (start_time < end_time)
+);
+
+CREATE INDEX ix_published_session_degree
+    ON published_session(degree_id);
+
+CREATE TABLE timetable_publication (
+    degree_id INTEGER PRIMARY KEY
+        REFERENCES degree(id) ON DELETE CASCADE,
+    published_at TIMESTAMP WITH TIME ZONE
+        NOT NULL DEFAULT now(),
+    published_by UUID NOT NULL
+        REFERENCES app_user(id) ON DELETE RESTRICT
+);
+
+
+-- KAN-59: Student profiles and extra course enrollments.
+-- Account linking is handled separately by KAN-69.
+
+CREATE TABLE student (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    student_number VARCHAR(32) NOT NULL UNIQUE,
+    degree_id INTEGER NOT NULL
+        REFERENCES degree(id) ON DELETE RESTRICT,
+    year_id INTEGER NOT NULL
+        REFERENCES year(id) ON DELETE RESTRICT,
+
+    CONSTRAINT ck_student_name_not_empty
+        CHECK (length(trim(name)) > 0),
+    CONSTRAINT ck_student_number_not_empty
+        CHECK (length(trim(student_number)) > 0)
+);
+
+CREATE UNIQUE INDEX uq_student_number_ci
+    ON student (lower(student_number));
+
+CREATE TABLE enrollment (
+    student_id INTEGER NOT NULL
+        REFERENCES student(id) ON DELETE CASCADE,
+    course_id INTEGER NOT NULL
+        REFERENCES course(id) ON DELETE CASCADE,
+    enrolled_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (student_id, course_id)
+);
+
+-- Student data is accessed through the authorized backend only.
+-- No public or authenticated Data API policies are granted.
+ALTER TABLE student ENABLE ROW LEVEL SECURITY;
+ALTER TABLE enrollment ENABLE ROW LEVEL SECURITY;
+
+-- KAN-69: Link each account to its teacher or student record.
+-- A teacher account points to a teacher, a student account to a student, and a
+-- director to neither. Deleting the teacher or student also deletes the
+-- app_user row, so that login loses its role (the Supabase user is kept).
+-- Before applying: every existing 'teacher' or 'student' row in app_user must be
+-- linked or removed, otherwise the CHECK fails. To find them:
+--   SELECT id, role FROM app_user WHERE role <> 'director';
+ALTER TABLE app_user
+    ADD COLUMN teacher_id INTEGER UNIQUE REFERENCES teacher (id) ON DELETE CASCADE,
+    ADD COLUMN student_id INTEGER UNIQUE REFERENCES student (id) ON DELETE CASCADE,
+    ADD CONSTRAINT ck_app_user_linked_record CHECK (
+        (role = 'director' AND teacher_id IS NULL AND student_id IS NULL)
+        OR (role = 'teacher' AND teacher_id IS NOT NULL AND student_id IS NULL)
+        OR (role = 'student' AND student_id IS NOT NULL AND teacher_id IS NULL)
+    );

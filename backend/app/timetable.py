@@ -1,17 +1,19 @@
 from datetime import time
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session, contains_eager, joinedload
 
+from app.auth import CurrentUser, get_current_user, require_director
 from app.database import get_session
-from app.models import Course, Degree, Room, ScheduleSession, course_teacher
+from app.models import Course, Degree, PublishedSession, Room, ScheduleSession, course_teacher
 
 
 router = APIRouter(tags=["timetable"])
 Database = Annotated[Session, Depends(get_session)]
+Director = Annotated[CurrentUser, Depends(require_director)]
 
 DEFAULT_PAGE_SIZE = 100
 MAX_PAGE_SIZE = 500
@@ -39,14 +41,14 @@ class SessionView(SessionInput):
     teacher_names: list[str]
 
 
-def sessions_query():
+def sessions_query(model=ScheduleSession):
     return (
-        select(ScheduleSession, Degree.name)
-        .join(ScheduleSession.course)
+        select(model, Degree.name)
+        .join(model.course)
         .join(Degree, Degree.id == Course.degree_id)
         .options(
-            contains_eager(ScheduleSession.course).selectinload(Course.teachers),
-            joinedload(ScheduleSession.room),
+            contains_eager(model.course).selectinload(Course.teachers),
+            joinedload(model.room),
         )
     )
 
@@ -77,6 +79,7 @@ def get_session_view(session_id: int, session: Session) -> SessionView:
 def list_sessions(
     session: Database,
     response: Response,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
     degree_id: int | None = None,
     year_id: int | None = None,
     semester_id: int | None = None,
@@ -85,43 +88,46 @@ def list_sessions(
     weekday: Annotated[int | None, Query(ge=0, le=6)] = None,
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(ge=1, le=MAX_PAGE_SIZE)] = DEFAULT_PAGE_SIZE,
+    version: Literal["draft", "published"] | None = None,
 ) -> list[SessionView]:
+    if user.role == "student":
+        raise HTTPException(
+            403, "Students must use /students/me/timetable."
+        )
+    if user.role != "director" and version == "draft":
+        raise HTTPException(403, "Only directors can read draft timetables.")
+    model = (
+        ScheduleSession if user.role == "director" and version != "published"
+        else PublishedSession
+    )
     filters = []
     if degree_id is not None:
         filters.append(Course.degree_id == degree_id)
+        if model is PublishedSession:
+            filters.append(PublishedSession.degree_id == degree_id)
     if year_id is not None:
         filters.append(Course.year_id == year_id)
     if semester_id is not None:
         filters.append(Course.semester_id == semester_id)
     if teacher_id is not None:
-        filters.append(
-            Course.id.in_(
-                select(course_teacher.c.course_id).where(
-                    course_teacher.c.teacher_id == teacher_id
-                )
+        filters.append(Course.id.in_(
+            select(course_teacher.c.course_id).where(
+                course_teacher.c.teacher_id == teacher_id
             )
-        )
+        ))
     if room_id is not None:
-        filters.append(ScheduleSession.room_id == room_id)
+        filters.append(model.room_id == room_id)
     if weekday is not None:
-        filters.append(ScheduleSession.weekday == weekday)
+        filters.append(model.weekday == weekday)
 
-    # The body stays a plain list; the total lets the backoffice draw page numbers.
     total = session.scalar(
-        select(func.count(ScheduleSession.id))
-        .join(ScheduleSession.course)
-        .where(*filters)
+        select(func.count(model.id)).join(model.course).where(*filters)
     )
     response.headers["X-Total-Count"] = str(total)
-
     rows = session.execute(
-        sessions_query()
-        .where(*filters)
-        .order_by(
-            ScheduleSession.weekday, ScheduleSession.start_time, ScheduleSession.id
-        )
-        .offset((page - 1) * page_size)
-        .limit(page_size)
+        sessions_query(model).where(*filters)
+        .order_by(model.weekday, model.start_time, model.id)
+        .offset((page - 1) * page_size).limit(page_size)
     )
     return [session_view(record, degree_name) for record, degree_name in rows]
 
@@ -147,7 +153,7 @@ def save_session(
 
 
 @router.post("/timetable/sessions", response_model=SessionView, status_code=201)
-def create_session(data: SessionInput, session: Database) -> SessionView:
+def create_session(data: SessionInput, session: Database, _director: Director) -> SessionView:
     record = save_session(ScheduleSession(), data, session)
     session.add(record)
     session.commit()
@@ -159,6 +165,7 @@ def update_session(
     session_id: int,
     data: SessionInput,
     session: Database,
+    _director: Director,
 ) -> SessionView:
     record = session.get(ScheduleSession, session_id)
 
@@ -175,6 +182,7 @@ def update_session(
 def clear_sessions(
     session: Database,
     degree_id: Annotated[int, Query(gt=0)],
+    _director: Director,
 ) -> None:
     # degree_id is required so a bare DELETE can never wipe every timetable.
     if session.get(Degree, degree_id) is None:
@@ -191,7 +199,7 @@ def clear_sessions(
 
 
 @router.delete("/timetable/sessions/{session_id}", status_code=204)
-def delete_session(session_id: int, session: Database) -> None:
+def delete_session(session_id: int, session: Database, _director: Director) -> None:
     record = session.get(ScheduleSession, session_id)
 
     if record is None:

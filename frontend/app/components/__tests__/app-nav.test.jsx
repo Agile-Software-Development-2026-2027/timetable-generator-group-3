@@ -30,9 +30,9 @@ describe("AppNav", () => {
     expect(screen.getByRole("link", { name: "University of Calabria" })).toHaveAttribute("href", "/my-schedule");
   });
 
-  it("shows a student only My timetable", () => {
+  it("shows a student My timetable and My courses", () => {
     renderNav("/my-timetable", signedIn("student"));
-    expect(linkLabels()).toEqual(["My timetable"]);
+    expect(linkLabels()).toEqual(["My timetable", "My courses"]);
     expect(screen.getByRole("link", { name: "University of Calabria" })).toHaveAttribute("href", "/my-timetable");
   });
 
@@ -56,4 +56,26 @@ describe("AppNav", () => {
     expect(linkLabels()).toEqual([]);
     expect(screen.queryByRole("button", { name: "Log out" })).not.toBeInTheDocument();
   });
+});
+
+
+describe("Student course navigation", () => {
+  it("highlights My courses when that page is active", () => {
+    renderNav("/my-courses", signedIn("student"));
+
+    expect(screen.getByRole("link", { name: "My courses" }))
+      .toHaveAttribute("aria-current", "page");
+
+    expect(screen.getByRole("link", { name: "My timetable" }))
+      .not.toHaveAttribute("aria-current");
+  });
+
+  it.each(["director", "teacher"])(
+    "does not show My courses to a %s",
+    (role) => {
+      renderNav(undefined, signedIn(role));
+      expect(screen.queryByRole("link", { name: "My courses" }))
+        .not.toBeInTheDocument();
+    }
+  );
 });

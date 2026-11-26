@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 
 from app.config import Settings, get_settings
 from app.database import get_session
-from app.models import AppUser
+from app.models import AppUser, Student, Teacher
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -106,8 +106,62 @@ def get_current_user(
     return CurrentUser(id=user.id, role=user.role)
 
 
-@router.get("/me")
-def read_current_user(
+def require_director(
     user: Annotated[CurrentUser, Depends(get_current_user)],
 ) -> CurrentUser:
+    """Require a signed-in director for draft-mutating operations."""
+    if user.role != "director":
+        raise HTTPException(403, "Only directors can modify draft timetables.")
     return user
+
+
+class AccountView(CurrentUser):
+    """GET /auth/me: the caller plus the record their account is linked to (KAN-69)."""
+
+    teacher_id: int | None = None
+    student_id: int | None = None
+
+
+def _account(user: CurrentUser, session: Session) -> AppUser:
+    # Already loaded by get_current_user in this session, so no extra query.
+    return session.get(AppUser, user.id)
+
+
+# teacher_id and student_id are left out when empty, as in the KAN-44 contract.
+@router.get("/me", response_model=AccountView, response_model_exclude_none=True)
+def read_current_user(
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    session: Annotated[Session, Depends(get_session)],
+) -> AccountView:
+    account = _account(user, session)
+    return AccountView(**user.model_dump(), teacher_id=account.teacher_id, student_id=account.student_id)
+
+
+def get_current_teacher(
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    session: Annotated[Session, Depends(get_session)],
+) -> Teacher:
+    """The teacher record of the signed-in teacher (for KAN-58's endpoints)."""
+    if user.role != "teacher":
+        raise HTTPException(403, "Only teachers can use this.")
+    teacher = _account(user, session).teacher
+    if teacher is None:
+        raise HTTPException(403, "Your account is not linked to a teacher record.")
+    return teacher
+
+
+def get_current_student(
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    session: Annotated[Session, Depends(get_session)],
+) -> Student:
+    """The student profile of the signed-in student (for KAN-59's /students/me endpoints).
+
+    It is loaded in the request's database session, so an endpoint can pass it
+    straight to the student services together with its own `session`.
+    """
+    if user.role != "student":
+        raise HTTPException(403, "Only students can use this.")
+    student = _account(user, session).student
+    if student is None:
+        raise HTTPException(403, "Your account is not linked to a student profile.")
+    return student

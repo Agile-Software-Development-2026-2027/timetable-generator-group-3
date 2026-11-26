@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { AppNav } from "../components/app-shell.jsx";
+import { PublicationPanel } from "./publication-panel.jsx";
+import SessionDetailsDialog from "./session-details-dialog.jsx";
 import { apiRequest as request } from "../../lib/api.js";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/react/daygrid";
@@ -75,6 +77,7 @@ export default function TimetablePage() {
   const [lastGenerationResult, setLastGenerationResult] = useState(null);
   const [generationConfirmationOpen, setGenerationConfirmationOpen] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [publicationRevision, setPublicationRevision] = useState(0);
   const [selectedSession, setSelectedSession] = useState(null);
   const calendarRef = useRef(null);
   const calendarScopeInitializedRef = useRef(false);
@@ -399,6 +402,7 @@ export default function TimetablePage() {
         setGenerationError("Generation completed, but its summary could not be saved in this browser.");
       }
       setSessions(await fetchAllSessions(request));
+      setPublicationRevision((value) => value + 1);
       setScheduleError("");
     } catch (error) {
       setGenerationResult(null);
@@ -429,6 +433,7 @@ export default function TimetablePage() {
       );
 
       setSessions(await fetchAllSessions(request));
+      setPublicationRevision((value) => value + 1);
       setGenerationResult(null);
       setLastGenerationResult(null);
 
@@ -541,10 +546,10 @@ export default function TimetablePage() {
       : "Teacher not assigned";
     const startTime = item.start_time.slice(0, 5);
     const endTime = item.end_time.slice(0, 5);
-    const timeRange = `${startTime}–${endTime}`;
+    const timeRange = `${startTime}â€“${endTime}`;
     return {
       id: String(item.id),
-      title: `${courseName} · ${roomCode} · ${timeRange} · ${teacherNames}`,
+      title: `${courseName} Â· ${roomCode} Â· ${timeRange} Â· ${teacherNames}`,
       daysOfWeek: [(item.weekday + 1) % 7], startTime: item.start_time, endTime: item.end_time,
       extendedProps: {
         course_id: item.course_id,
@@ -587,7 +592,7 @@ export default function TimetablePage() {
           </span>
           <div>
             <h2>Create a timetable</h2>
-            <p>Choose a degree programme and we’ll find suitable times and rooms for its courses.</p>
+            <p>Choose a degree programme and we'll find suitable times and rooms for its courses.</p>
           </div>
         </div>
         <div className="timetable-controls">
@@ -608,7 +613,7 @@ export default function TimetablePage() {
             <div className="timetable-actions">
               <button ref={generateButtonRef} type="submit" className="btn btn-campus"
                 disabled={generating}>
-                {generating ? "Generating…" : "Generate timetable"}
+                {generating ? "Generating..." : "Generate timetable"}
               </button>
               <button
               type="button"
@@ -622,12 +627,18 @@ export default function TimetablePage() {
                 className="btn btn-outline-secondary" onClick={() => setGenerationResult(lastGenerationResult)}>
                 View last result
               </button>}
+              <PublicationPanel
+                degreeId={selectedDegreeId}
+                degreeName={degreeName}
+                revision={publicationRevision}
+              />
             </div>
           </div>
         </div>
       </form>
+
       {!scheduleError && !sessions.length && <div className="empty-calendar mb-3">
-        <span className="empty-calendar-icon" aria-hidden="true">▦</span>
+        <span className="empty-calendar-icon" aria-hidden="true">â–¦</span>
         <span><strong>No timetable has been generated for {calendarScope}</strong>
           <small>There are no scheduled classes yet.</small></span>
       </div>}
@@ -702,7 +713,7 @@ export default function TimetablePage() {
           </div>
         </div>
         {!scheduleError && sessions.length > 0 && visibleSessions.length === 0 && <div className="empty-calendar mb-3">
-          <span className="empty-calendar-icon" aria-hidden="true">▦</span>
+          <span className="empty-calendar-icon" aria-hidden="true">â–¦</span>
           <span><strong>{normalizedCalendarSearch ? "No classes match your search" : "No timetable for this selection"}</strong>
             <small>{normalizedCalendarSearch
               ? "Try a different course, teacher, or room."
@@ -755,10 +766,10 @@ export default function TimetablePage() {
         <section className="generation-result-dialog" role="dialog" aria-modal="true" aria-live="polite"
           aria-labelledby="generation-results-heading">
           <button type="button" className="session-details-close generation-result-close"
-            aria-label="Close generation summary" onClick={() => setGenerationResult(null)}>×</button>
+            aria-label="Close generation summary" onClick={() => setGenerationResult(null)}>Ã—</button>
           <div className={`generation-results-summary generation-summary-${generationResult.status}`}>
             <span className="generation-summary-icon" aria-hidden="true">
-              {generationResult.status === "ok" ? "✓" : generationResult.status === "partial" ? "!" : "×"}
+              {generationResult.status === "ok" ? "âœ“" : generationResult.status === "partial" ? "!" : "Ã—"}
             </span>
             <div className="generation-summary-copy">
               <h2 id="generation-results-heading">
@@ -822,28 +833,11 @@ export default function TimetablePage() {
           </div>
         </section>
       </div>)}
-      {selectedSession && <div className="session-details-backdrop" role="presentation"
-        onMouseDown={(event) => {
-          if (event.target === event.currentTarget) setSelectedSession(null);
-        }}>
-        <section className="session-details-dialog" role="dialog" aria-modal="true"
-          aria-labelledby="session-details-title">
-          <div className="session-details-heading">
-            <div>
-              <p className="eyebrow mb-1">TIMETABLE SESSION</p>
-              <h2 id="session-details-title">{selectedSession.course_name}</h2>
-            </div>
-            <button type="button" className="session-details-close" aria-label="Close session details"
-              onClick={() => setSelectedSession(null)}>×</button>
-          </div>
-          <dl className="session-details-list">
-            <div><dt>Day</dt><dd>{["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"][selectedSession.weekday]}</dd></div>
-            <div><dt>Time</dt><dd>{selectedSession.start_time.slice(0, 5)}–{selectedSession.end_time.slice(0, 5)}</dd></div>
-            <div><dt>Room</dt><dd>{selectedSession.room_code || "Not assigned"}</dd></div>
-            <div><dt>Degree programme</dt><dd>{selectedSession.degree_name}</dd></div>
-            <div><dt>Teacher{selectedSession.teacher_names?.length === 1 ? "" : "s"}</dt>
-              <dd>{selectedSession.teacher_names?.length ? selectedSession.teacher_names.join(", ") : "Not assigned"}</dd></div>
-          </dl>
+      {selectedSession && (
+        <SessionDetailsDialog
+          session={selectedSession}
+          onClose={() => setSelectedSession(null)}
+        >
           <div className="session-color-setting">
             <label htmlFor="session-color">Color for this class</label>
             <div className="session-color-controls">
@@ -857,12 +851,8 @@ export default function TimetablePage() {
             <p>Changes only this scheduled class and are saved in this browser.</p>
             {sessionColorError && <p className="session-color-error" role="alert">{sessionColorError}</p>}
           </div>
-          <div className="session-details-actions">
-            <button type="button" className="btn btn-campus"
-              onClick={() => setSelectedSession(null)}>Close details</button>
-          </div>
-        </section>
-      </div>}
+        </SessionDetailsDialog>
+      )}
       {generationConfirmationOpen && <div className="generation-confirm-backdrop" role="presentation"
         onMouseDown={(event) => {
           if (event.target === event.currentTarget) closeGenerationConfirmation();
@@ -919,7 +909,7 @@ export default function TimetablePage() {
     <option value="">All semesters</option>
     {semesters.map((semester) => (
       <option key={semester.id} value={semester.id}>
-        Year {semester.year_number} – Semester {semester.number}
+        Year {semester.year_number} â€“ Semester {semester.number}
       </option>
     ))}
   </select>
@@ -998,7 +988,7 @@ onClick={confirmGeneration}>Generate timetable</button>
             aria-label="Timetable generation in progress" aria-valuetext="Generation in progress">
             <span />
           </div>
-          <p className="generation-loading-note">Checking course, room, and teacher constraints…</p>
+          <p className="generation-loading-note">Checking course, room, and teacher constraintsâ€¦</p>
         </section>
       </div>}
     </main>

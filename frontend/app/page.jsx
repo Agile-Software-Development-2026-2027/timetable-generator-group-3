@@ -1,5 +1,7 @@
 "use client";
 
+import { Pencil, Trash2 } from "lucide-react";
+
 import { Fragment, useEffect, useState } from "react";
 import { pageNumbers, pageSizes, paginate } from "./rooms/room-table.mjs";
 import { AppNav } from "./components/app-shell";
@@ -191,8 +193,8 @@ export default function DegreesPage() {
                         <td className="text-end room-number">{degree.courses}</td>
                         <td>
                           <div className="room-actions">
-                            <button type="button" className="btn btn-edit" aria-label={`Edit ${degree.name}`} onClick={() => editSelected(degree)}><ActionIcon name="edit" /><span>Edit</span></button>
-                            <button type="button" className="btn btn-delete" aria-label={`Delete ${degree.name}`} onClick={() => openDeleteConfirm(degree)}><ActionIcon name="delete" /><span>Delete</span></button>
+                            <button type="button" className="btn btn-edit" title="Edit" aria-label={`Edit ${degree.name}`} onClick={() => editSelected(degree)}><Pencil size={14} aria-hidden="true" /></button>
+                            <button type="button" className="btn btn-delete" title="Delete" aria-label={`Delete ${degree.name}`} onClick={() => openDeleteConfirm(degree)}><Trash2 size={14} aria-hidden="true" /></button>
                           </div>
                         </td>
                       </tr>

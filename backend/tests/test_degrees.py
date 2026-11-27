@@ -117,6 +117,7 @@ def test_list_degrees_keeps_course_counts_separate(client, course):
     assert degrees["Computer Science"]["courses"] == 1
     assert degrees["Mathematics"]["courses"] == 0
 
+
 def test_directors_only_see_assigned_degrees(
     client, session, make_token
 ):

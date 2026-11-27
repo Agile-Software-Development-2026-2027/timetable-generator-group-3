@@ -72,6 +72,69 @@ describe("KAN-67 preflight API helper", () => {
     );
   });
 
+  it("requests warnings for the selected semester", async () => {
+    mockResponse({ warnings: [warning] });
+
+    const controller = new window.AbortController();
+
+    const result = await fetchPreflightWarnings(7, {
+      semesterId: "3",
+      signal: controller.signal,
+    });
+
+    expect(result).toEqual([warning]);
+
+    expect(fetch).toHaveBeenCalledWith(
+      `${API_URL}/timetable/preflight?degree_id=7&semester_id=3`,
+      expect.objectContaining({
+        signal: controller.signal,
+        headers: expect.objectContaining({
+          Authorization: "Bearer test-access-token",
+        }),
+      })
+    );
+
+    expect(fetch.mock.calls[0][1]).not.toHaveProperty("semesterId");
+  });
+
+  it.each([undefined, null, ""])(
+    "preserves degree-wide validation for semester: %s",
+    async (semesterId) => {
+      mockResponse({ warnings: [] });
+
+      await fetchPreflightWarnings(7, { semesterId });
+
+      expect(fetch).toHaveBeenCalledWith(
+        `${API_URL}/timetable/preflight?degree_id=7`,
+        expect.any(Object)
+      );
+    }
+  );
+
+  it.each([0, -1, "abc", 1.5, "0"])(
+    "rejects invalid semester ID: %s",
+    async (semesterId) => {
+      await expect(
+        fetchPreflightWarnings(7, { semesterId })
+      ).rejects.toThrow("Please select a valid semester.");
+
+      expect(fetch).not.toHaveBeenCalled();
+    }
+  );
+
+  it("propagates semester ownership errors", async () => {
+    mockResponse({
+      detail: "Semester not found in selected degree.",
+    }, 404);
+
+    await expect(
+      fetchPreflightWarnings(7, { semesterId: 99 })
+    ).rejects.toMatchObject({
+      status: 404,
+      message: "Semester not found in selected degree.",
+    });
+  });
+
   it("returns an empty array for a clean dataset", async () => {
     mockResponse({ warnings: [] });
 

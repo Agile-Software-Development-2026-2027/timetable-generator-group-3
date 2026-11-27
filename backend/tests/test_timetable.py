@@ -15,7 +15,7 @@ def session_payload(course_id, **overrides):
 @pytest.fixture()
 def director_timetable_client(director_client, session, course):
     director = session.query(AppUser).filter_by(role="director").one()
-    director.degrees.append(course.degree)
+    director.degrees.append(session.get(Degree, course.degree_id))
     session.commit()
     return director_client
 

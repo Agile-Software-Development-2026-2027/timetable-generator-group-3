@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
@@ -12,6 +12,7 @@ from app.auth import CurrentUser, require_director
 from app.database import get_session
 from app.engine.engine import solve
 from app.engine.facts import build_problem
+from app.engine.preflight import PreflightWarning, check_preflight
 from app.engine.reasons import unscheduled_course_reason
 from app.engine.validation import validate_solution
 from app.models import Degree, Room, ScheduleSession, Semester
@@ -37,6 +38,27 @@ class GenerateResult(BaseModel):
     # KAN-77: sessions the generated scope needs (only the selected semester).
     total_sessions: int = 0
     unscheduled: list[Unscheduled]
+
+
+class PreflightResult(BaseModel):
+    warnings: list[PreflightWarning]
+
+
+@router.get(
+    "/timetable/preflight",
+    response_model=PreflightResult,
+    response_model_exclude_none=True,
+)
+def preflight_timetable(
+    session: Database,
+    _director: Director,
+    degree_id: Annotated[int, Query(gt=0)],
+) -> PreflightResult:
+    if session.get(Degree, degree_id) is None:
+        raise HTTPException(404, "Degree not found.")
+
+    problem = build_problem(session, degree_id, None)
+    return PreflightResult(warnings=check_preflight(problem))
 
 
 @router.post("/timetable/generate", response_model=GenerateResult)

@@ -2,7 +2,7 @@
 
 import { BookOpen, Pencil, Trash2 } from "lucide-react";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AppNav, Notification, useNotification } from "../components/app-shell.jsx";
 import { emptyTeacherForm, matches, request, teacherFormErrors, teacherFormFromTeacher, teacherPayload, toggleId } from "./teacher-form.mjs";
 import { pageNumbers, pageSizes, paginate } from "../rooms/room-table.mjs";
@@ -22,6 +22,7 @@ export default function TeachersPage() {
   const [viewTarget, setViewTarget] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [notification, notify] = useNotification();
+  const preflightLinkHandled = useRef(false);
 
   async function refresh() {
     try {
@@ -45,6 +46,25 @@ export default function TeachersPage() {
     setDeleteTarget(null);
     setFormOpen(true);
   }
+
+  // KAN-67: open the existing form for a linked teacher.
+  useEffect(() => {
+    if (preflightLinkHandled.current || loadState !== "ready") return;
+
+    const params = new window.URLSearchParams(window.location.search);
+    const targetId = params.get("edit");
+
+    if (!targetId) return;
+
+    const teacher = teachers.find(
+      (item) => String(item.id) === targetId
+    );
+
+    if (!teacher) return;
+
+    preflightLinkHandled.current = true;
+    openForm(teacher);
+  }, [teachers, loadState]);
 
   function closeForm() {
     setFormOpen(false);

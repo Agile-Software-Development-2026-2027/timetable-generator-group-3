@@ -46,21 +46,38 @@ occupies(C,R,D,S..S+B-1) :- assign(C,R,D,S), duration(C,B).
 :- occupies(C,_,D,S), teaches(T,C), busy_teacher(T,D,S).
 :- occupies(C,_,D,S), group(C,G), busy_group(G,D,S).
 
+% Soft priorities, highest first:
+%   @4 scheduling completeness (partial mode)
+%   @3 spread a course's sessions over different days (KAN-55)
+%   @2 teacher preferred slots (KAN-57)
+%   @1 room fit (KAN-16)
+
+% KAN-55 soft preference: spread a course's sessions over different days.
+% same_day(C,D,S) is a session of C starting at S that is not the first one of
+% C on day D, so a day with k sessions of C costs k-1. This makes 2+1+1 better
+% than 3+1 when the sessions cannot all go on different days. It never blocks
+% a solution: it only ranks the valid ones. starts/3 drops the room first, so
+% the rule pairs start slots (slots^2 per course and day) instead of every
+% room and slot combination (rooms^2 x slots^2).
+starts(C,D,S) :- assign(C,_,D,S).
+same_day(C,D,S2) :- starts(C,D,S1), starts(C,D,S2), S1 < S2.
+#minimize { 1@3,C,D,S : same_day(C,D,S) }.
+
 % KAN-16 soft preference: prefer the smallest eligible room that still fits the group.
 % For each assignment, penalise by the room's capacity minus the number of enrolled
-% students.  Priority @1 is lower than scheduling (@3) and teacher preferences (@2), so the solver
-% always prefers to schedule more courses before trying to tighten room fit.
+% students.  Priority @1 is the lowest, so the solver always prefers to schedule
+% more courses, spread them and honour teacher preferences before tightening room fit.
 wasted_seats(C,R,W) :- assign(C,R,_,_), students(C,N), room(R,Cap), W = Cap - N.
 #minimize { W@1,C,R : wasted_seats(C,R,W) }.
 
 % KAN-57 soft preference: use the blocks teachers marked as preferred.
 % Written on occupies/4 (KAN-52) so every block of a session counts.
-% Priority @2 sits between scheduling completeness (@3) and room fit (@1).
+% Priority @2 sits below spreading sessions (@3) and above room fit (@1).
 #maximize { 1@2,C,D,S : occupies(C,_,D,S), teaches(T,C), prefers_slot(T,D,S) }.
 
 % Maximize fully scheduled hours when the strict model is infeasible.
-% Priority @3 ensures scheduling completeness dominates teacher preferences
-% and room fit: a preference never makes the solver drop a course.
-#maximize { H@3,C : scheduled(C), course(C,H), mode(partial) }.
+% Priority @4 ensures scheduling completeness dominates every preference:
+% spreading sessions or a teacher preference never makes the solver drop a course.
+#maximize { H@4,C : scheduled(C), course(C,H), mode(partial) }.
 #show assign/4.
 #show scheduled/1.

@@ -36,9 +36,12 @@ CREATE TABLE slot_config (
 	start_time TIME WITHOUT TIME ZONE NOT NULL, 
 	end_time TIME WITHOUT TIME ZONE NOT NULL, 
 	block_minutes INTEGER NOT NULL, 
+	break_start TIME WITHOUT TIME ZONE, 
+	break_end TIME WITHOUT TIME ZONE, 
 	PRIMARY KEY (id), 
 	CONSTRAINT ck_slot_block_minutes_positive CHECK (block_minutes > 0), 
-	CONSTRAINT ck_slot_config_singleton CHECK (id = 1)
+	CONSTRAINT ck_slot_config_singleton CHECK (id = 1), 
+	CONSTRAINT ck_slot_config_break CHECK ((break_start IS NULL AND break_end IS NULL) OR break_start < break_end)
 );
 
 CREATE TABLE teacher (

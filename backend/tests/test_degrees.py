@@ -63,7 +63,7 @@ def test_list_degrees_reports_course_count(director_client):
 def test_degree_details_reports_per_year_course_counts_after_adding_year(
     director_client, course, session
 ):
-   director = session.query(AppUser).filter_by(role="director").one()
+    director = session.query(AppUser).filter_by(role="director").one()
     director.degrees.append(course.degree)
     session.commit()
     degree_id = course.degree_id

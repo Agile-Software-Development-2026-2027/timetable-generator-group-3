@@ -112,6 +112,9 @@ def auth_client(client, session, make_token):
 
     return _auth_client
 
+@pytest.fixture()
+def director_client(auth_client):
+    return auth_client("director")
 
 @pytest.fixture()
 def course(session):

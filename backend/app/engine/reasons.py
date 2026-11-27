@@ -148,6 +148,8 @@ def _teacher_workload_reason(
     problem: Problem,
     course: Course,
     solution: Solution | None,
+    *,
+    teacher_id: int | None = None,
 ) -> str | None:
     """KAN-72: explain provable workload restrictions.
 
@@ -160,6 +162,9 @@ def _teacher_workload_reason(
     lengths = problem.session_lengths(course)
 
     for teacher in course.teachers:
+        if teacher_id is not None and teacher.id != teacher_id:
+            continue
+
         workload = problem.teacher_workloads.get(teacher.id)
 
         if workload is None:

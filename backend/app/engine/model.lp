@@ -58,10 +58,85 @@ occupies(C,R,D,S..S+B-1) :- placed(C,B,R,D,S).
 :- occupies(C,_,D,S), teaches(T,C), busy_teacher(T,D,S).
 :- occupies(C,_,D,S), group(C,G), busy_group(G,D,S).
 
+% KAN-72: teacher workload constraints.
+% Count actual teaching blocks, including fixed external commitments.
+% Unavailable slots are not teaching blocks.
+
+workload_teacher(T) :- max_daily_slots(T,_).
+workload_teacher(T) :- max_teaching_days(T,_).
+workload_teacher(T) :- max_consecutive_slots(T,_).
+
+new_teaching(T,D,S) :-
+    workload_teacher(T), teaches(T,C), occupies(C,_,D,S).
+
+teaching_block(T,D,S) :- new_teaching(T,D,S).
+teaching_block(T,D,S) :- external_teaching(T,D,S), workload_teacher(T).
+
+% Maximum daily teaching hours.
+% Existing violations are tolerated only when not made worse.
+
+external_daily(T,D,E) :-
+    max_daily_slots(T,_), slot(D,_),
+    E = #count { S : external_teaching(T,D,S) }.
+
+daily_limit(T,D,L) :-
+    max_daily_slots(T,M), external_daily(T,D,E), E <= M, L = M.
+
+daily_limit(T,D,L) :-
+    max_daily_slots(T,M), external_daily(T,D,E), E > M, L = E.
+
+:- daily_limit(T,D,L),
+   #count { S : teaching_block(T,D,S) } > L.
+
+% Maximum distinct teaching days per week.
+
+teaching_day(T,D) :- teaching_block(T,D,_).
+external_day(T,D) :- external_teaching(T,D,_).
+
+external_days(T,E) :-
+    max_teaching_days(T,_),
+    E = #count { D : external_day(T,D) }.
+
+weekly_day_limit(T,L) :-
+    max_teaching_days(T,M), external_days(T,E), E <= M, L = M.
+
+weekly_day_limit(T,L) :-
+    max_teaching_days(T,M), external_days(T,E), E > M, L = E.
+
+:- weekly_day_limit(T,L),
+   #count { D : teaching_day(T,D) } > L.
+
+% Maximum consecutive teaching hours.
+% Follow actual grid adjacency, so lunch breaks interrupt a teaching run.
+% Track whether a consecutive run contains any newly scheduled teaching.
+
+teaching_run(T,D,S,1) :-
+    max_consecutive_slots(T,_), teaching_block(T,D,S).
+
+teaching_run(T,D,S2,N+1) :-
+    teaching_run(T,D,S1,N), next_slot(D,S1,S2),
+    teaching_block(T,D,S2).
+
+new_teaching_run(T,D,S,1) :-
+    max_consecutive_slots(T,_), new_teaching(T,D,S).
+
+new_teaching_run(T,D,S2,N+1) :-
+    new_teaching_run(T,D,S1,N), next_slot(D,S1,S2),
+    teaching_block(T,D,S2).
+
+new_teaching_run(T,D,S2,N+1) :-
+    teaching_run(T,D,S1,N), next_slot(D,S1,S2),
+    new_teaching(T,D,S2).
+
+% A pre-existing external-only violation does not invalidate the solution,
+% but a new assignment must not create or extend an excessive teaching run.
+
+:- max_consecutive_slots(T,M), new_teaching_run(T,_,_,N), N > M.
+
 % Soft priorities, highest first:
 %   @4 scheduling completeness (partial mode)
 %   @3 spread a course's sessions over different days (KAN-55)
-%   @2 teacher preferred slots (KAN-57)
+%   @2 teacher preferred slots (KAN-57) and part of day (KAN-72)
 %   @1 room fit (KAN-16)
 
 % KAN-55 soft preference: spread a course's sessions over different days.
@@ -86,6 +161,13 @@ wasted_seats(C,R,W) :- assign(C,R,_,_), students(C,N), room(R,Cap), W = Cap - N.
 % Written on occupies/4 (KAN-52) so every block of a session counts.
 % Priority @2 sits below spreading sessions (@3) and above room fit (@1).
 #maximize { 1@2,C,D,S : occupies(C,_,D,S), teaches(T,C), prefers_slot(T,D,S) }.
+
+% KAN-72 soft preference: reward teaching in the preferred part of day.
+% A distinct tuple tag keeps this reward separate from KAN-57.
+#maximize {
+    1@2,workload_part,T,C,D,S :
+        occupies(C,_,D,S), teaches(T,C), prefers_part_slot(T,D,S)
+}.
 
 % Maximize fully scheduled hours when the strict model is infeasible.
 % Priority @4 ensures scheduling completeness dominates every preference:

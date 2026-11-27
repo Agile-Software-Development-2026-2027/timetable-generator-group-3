@@ -7,11 +7,30 @@ from datetime import time
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from app.models import Course, Room, ScheduleSession, SlotConfig, TeacherAvailability
+from app.models import (
+    Course,
+    Room,
+    ScheduleSession,
+    SlotConfig,
+    TeacherAvailability,
+    TeacherPreferences,
+)
 from app.slot_config import _build_grid, WEEKDAY_NAMES
 
 
 DEFAULT_SESSION_MINUTES = 60
+
+
+@dataclass(frozen=True)
+class TeacherWorkload:
+    """Optional teacher workload limits expressed in grid slots."""
+
+    max_daily_slots: int | None = None
+    max_teaching_days: int | None = None
+    max_consecutive_slots: int | None = None
+    preferred_part_of_day: str | None = None
+    max_hours_per_day: int | None = None
+    max_consecutive_hours: int | None = None
 
 
 @dataclass
@@ -36,6 +55,10 @@ class Problem:
     # KAN-78: blocks of each session, by course id, when a course mixes session
     # lengths (e.g. [3, 2]). Takes precedence over the two maps above.
     session_parts: dict[int, list[int]] = field(default_factory=dict)
+    # KAN-72: workload limits and existing teaching commitments.
+    block_minutes: int = DEFAULT_SESSION_MINUTES
+    teacher_workloads: dict[int, TeacherWorkload] = field(default_factory=dict)
+    external_teaching: set[tuple[int, int, int]] = field(default_factory=set)
 
     def session_lengths(self, course) -> list[int]:
         """Blocks of every weekly session of a course, longest first."""
@@ -154,6 +177,75 @@ def availability_slots(
     return unavailable, preferred
 
 
+def workload_limits(
+    preferences: list[TeacherPreferences],
+    block_minutes: int,
+) -> dict[int, TeacherWorkload]:
+    """Convert optional hour limits into whole-slot upper bounds."""
+
+    def to_slots(hours: int | None) -> int | None:
+        if hours is None:
+            return None
+        return hours * 60 // block_minutes
+
+    return {
+        entry.teacher_id: TeacherWorkload(
+            max_daily_slots=to_slots(entry.max_hours_per_day),
+            max_hours_per_day=entry.max_hours_per_day,
+            max_consecutive_hours=entry.max_consecutive_hours,
+            max_teaching_days=entry.max_teaching_days,
+            max_consecutive_slots=to_slots(entry.max_consecutive_hours),
+            preferred_part_of_day=(
+                entry.preferred_part_of_day
+                if entry.preferred_part_of_day in ("morning", "afternoon")
+                else None
+            ),
+        )
+        for entry in preferences
+    }
+
+
+def workload_facts(
+    workloads: dict[int, TeacherWorkload],
+    slots: dict[tuple[int, int], tuple[time, time]],
+    external_teaching: set[tuple[int, int, int]],
+) -> list[str]:
+    """Build KAN-72 workload facts for the scheduling model."""
+    lines: list[str] = []
+
+    for teacher_id, workload in sorted(workloads.items()):
+        limits = (
+            ("max_daily_slots", workload.max_daily_slots),
+            ("max_teaching_days", workload.max_teaching_days),
+            ("max_consecutive_slots", workload.max_consecutive_slots),
+        )
+        for predicate, value in limits:
+            if value is not None:
+                lines.append(f"{predicate}({teacher_id},{value}).")
+
+        if workload.preferred_part_of_day is not None:
+            for (day, index), (start, _) in sorted(slots.items()):
+                part = "morning" if start < time(13, 0) else "afternoon"
+                if part == workload.preferred_part_of_day:
+                    lines.append(
+                        f"prefers_part_slot({teacher_id},{day},{index})."
+                    )
+
+    # External teaching is distinct from unavailable time.
+    for teacher_id, day, index in sorted(external_teaching):
+        if teacher_id in workloads:
+            lines.append(f"external_teaching({teacher_id},{day},{index}).")
+
+    # Consecutive slots must also be contiguous in actual clock time.
+    if any(w.max_consecutive_slots is not None for w in workloads.values()):
+        for (day, index), (_, end) in sorted(slots.items()):
+            following = slots.get((day, index + 1))
+            if following is not None and end == following[0]:
+                lines.append(f"next_slot({day},{index},{index + 1}).")
+
+    return lines
+
+
 def build_problem(session: Session, degree_id: int, semester_id: int | None) -> Problem:
     query = select(Course).options(selectinload(Course.teachers)).where(
         Course.degree_id == degree_id
@@ -226,6 +318,7 @@ def build_problem(session: Session, degree_id: int, semester_id: int | None) -> 
     busy_rooms: set[tuple[int, int, int]] = set()
     busy_teachers: set[tuple[int, int, int]] = set()
     busy_groups: set[tuple[int, int, int]] = set()
+    external_teaching: set[tuple[int, int, int]] = set()
     for existing in external:
         if existing.course_id in selected_ids:
             continue
@@ -240,6 +333,7 @@ def build_problem(session: Session, degree_id: int, semester_id: int | None) -> 
             for teacher in existing.course.teachers:
                 busy.add(f"busy_teacher({teacher.id},{day},{index}).")
                 busy_teachers.add((teacher.id, day, index))
+                external_teaching.add((teacher.id, day, index))
             busy.add(f"busy_group({existing.course.semester_id},{day},{index}).")
             busy_groups.add((existing.course.semester_id, day, index))
     # KAN-57: unavailable ranges reuse the busy_teacher hard constraint;
@@ -248,12 +342,21 @@ def build_problem(session: Session, degree_id: int, semester_id: int | None) -> 
     entries = list(session.scalars(
         select(TeacherAvailability).where(TeacherAvailability.teacher_id.in_(teacher_ids))
     )) if teacher_ids else []
+    preferences = list(session.scalars(
+        select(TeacherPreferences).where(
+            TeacherPreferences.teacher_id.in_(teacher_ids)
+        )
+    )) if teacher_ids else []
+
+    workloads = workload_limits(preferences, config.block_minutes)
+
     unavailable, preferred = availability_slots(entries, slots)
     for teacher_id, day, index in unavailable:
         busy.add(f"busy_teacher({teacher_id},{day},{index}).")
     busy_teachers |= unavailable
     lines.extend(sorted(busy))
     lines.extend(sorted(f"prefers_slot({t},{d},{s})." for t, d, s in preferred))
+    lines.extend(workload_facts(workloads, slots, external_teaching))
     group_capacity = {c.semester_id: len(slots) for c in courses}
     return Problem(
         courses, rooms, slots, "\n".join(lines), group_capacity,
@@ -261,4 +364,7 @@ def build_problem(session: Session, degree_id: int, semester_id: int | None) -> 
         buffer_slots=buffer_slots,
         session_parts=session_parts,
         unavailable_teachers=unavailable, preferred_slots=preferred,
+        block_minutes=config.block_minutes,
+        teacher_workloads=workloads,
+        external_teaching=external_teaching,
     )

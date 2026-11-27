@@ -7,7 +7,7 @@ import pytest
 
 from app.engine.facts import Problem, TeacherWorkload
 from app.engine.preflight import check_preflight
-from app.models import Room, ScheduleSession, Teacher
+from app.models import Course, Degree, Room, ScheduleSession, Semester, Teacher, Year
 
 
 @pytest.fixture
@@ -517,3 +517,103 @@ def test_preflight_sample_dataset_performance(auth_client, session):
     assert maximum < 1.0, (
         f"Sample dataset exceeded 1 second: {maximum:.3f}s"
     )
+
+def test_preflight_selected_semester(
+    preflight_client, session, course,
+):
+    second_semester = Semester(
+        number=2,
+        year_id=course.year_id,
+    )
+    session.add(second_semester)
+    session.flush()
+
+    other_course = Course(
+        name="Oversized course",
+        degree_id=course.degree_id,
+        year_id=course.year_id,
+        semester_id=second_semester.id,
+        weekly_hours=2,
+        enrolled_students=200,
+    )
+    other_course.teachers = list(course.teachers)
+    session.add(other_course)
+    session.commit()
+
+    endpoint = f"/timetable/preflight?degree_id={course.degree_id}"
+
+    degree_response = preflight_client.get(endpoint)
+
+    assert degree_response.status_code == 200
+    assert any(
+        item["type"] == "room_capacity"
+        and item["course_id"] == other_course.id
+        for item in degree_response.json()["warnings"]
+    )
+
+    first_response = preflight_client.get(
+        f"{endpoint}&semester_id={course.semester_id}"
+    )
+
+    assert first_response.status_code == 200
+    assert first_response.json() == {"warnings": []}
+
+    second_response = preflight_client.get(
+        f"{endpoint}&semester_id={second_semester.id}"
+    )
+
+    assert second_response.status_code == 200
+
+    warnings = second_response.json()["warnings"]
+
+    assert any(
+        item["type"] == "room_capacity"
+        and item["course_id"] == other_course.id
+        for item in warnings
+    )
+
+
+def test_preflight_semester_from_another_degree(
+    preflight_client, session, course,
+):
+    semester = Semester(number=1)
+    degree = Degree(
+        name="Another degree",
+        years=[Year(number=1, semesters=[semester])],
+    )
+
+    session.add(degree)
+    session.commit()
+
+    response = preflight_client.get(
+        f"/timetable/preflight?degree_id={course.degree_id}"
+        f"&semester_id={semester.id}"
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == (
+        "Semester not found in selected degree."
+    )
+
+
+def test_preflight_nonexistent_semester(
+    preflight_client, course,
+):
+    response = preflight_client.get(
+        f"/timetable/preflight?degree_id={course.degree_id}"
+        "&semester_id=999999"
+    )
+
+    assert response.status_code == 404
+
+
+@pytest.mark.parametrize("semester_id", ["0", "-1", "abc", ""])
+def test_preflight_invalid_semester(
+    preflight_client, course, semester_id,
+):
+    response = preflight_client.get(
+        f"/timetable/preflight?degree_id={course.degree_id}"
+        f"&semester_id={semester_id}"
+    )
+
+    assert response.status_code == 422

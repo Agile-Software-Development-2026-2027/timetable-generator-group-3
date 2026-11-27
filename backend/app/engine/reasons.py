@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from app.engine.engine import Solution
-from app.engine.facts import Problem, start_slots
+from app.engine.facts import DEFAULT_SESSION_MINUTES, Problem, start_slots
 from app.models import Course, Room
 
 Slot = tuple[int, int]
@@ -14,6 +14,42 @@ def _room_list(rooms: list[Room]) -> str:
 
 def _reason(category: str, message: str) -> str:
     return f"{category}: {message}"
+
+
+def _slots(count: int) -> str:
+    return f"{count} slot" if count == 1 else f"{count} slots"
+
+
+def _block_minutes(problem: Problem) -> int | None:
+    """Length of one grid slot, or None when the slots carry no times (tests)."""
+    for start, end in problem.slots.values():
+        if start is not None and end is not None:
+            return (end.hour * 60 + end.minute) - (start.hour * 60 + start.minute)
+    return None
+
+
+def _grid_capacity_message(
+    problem: Problem, semester_courses: list, capacity: int, required: int
+) -> str:
+    """KAN-77: the need is for the whole semester and counted in slots.
+
+    When sessions do not fill whole slots (e.g. 60-minute sessions on a
+    90-minute grid), say so: that is usually why the semester does not fit.
+    """
+    block = _block_minutes(problem)
+    grid = _slots(capacity) + (f" of {block} min" if block else "")
+    message = f"Grid has {grid}; this semester needs {_slots(required)}."
+    if not block:
+        return message
+    rounded = sorted({
+        minutes for item in semester_courses
+        if (minutes := getattr(item, "session_duration_minutes", None) or DEFAULT_SESSION_MINUTES)
+        % block
+    })
+    if rounded:
+        lengths = " and ".join(str(minutes) for minutes in rounded)
+        message += f" Sessions of {lengths} minutes are rounded up to whole {block}-minute slots."
+    return message
 
 
 def _room_constraint_reason(course: Course, rooms: list[Room]) -> str:
@@ -119,7 +155,6 @@ def unscheduled_course_reason(
         item for item in problem.courses if item.semester_id == course.semester_id
     ]
     semester_required = sum(problem.required_blocks(item) for item in semester_courses)
-    semester_hours = sum(item.weekly_hours for item in semester_courses)
     externally_busy_group_slots: set[Slot] = {
         (day, slot)
         for semester_id, day, slot in problem.busy_groups
@@ -127,16 +162,11 @@ def unscheduled_course_reason(
     }
     group_grid_capacity = len(slots - externally_busy_group_slots)
     if semester_required > group_grid_capacity:
-        available_slot_label = "slot" if group_grid_capacity == 1 else "slots"
-        if semester_required == semester_hours:
-            required_label = "hour" if semester_required == 1 else "hours"
-            needed = f"{semester_required} weekly {required_label}"
-        else:
-            needed = f"{semester_required} slots"
         return _reason(
             "Grid capacity",
-            f"Grid has {group_grid_capacity} {available_slot_label}; this semester "
-            f"needs {needed}.",
+            _grid_capacity_message(
+                problem, semester_courses, group_grid_capacity, semester_required
+            ),
         )
 
     # KAN-57: the teacher marked every slot of the grid as unavailable.

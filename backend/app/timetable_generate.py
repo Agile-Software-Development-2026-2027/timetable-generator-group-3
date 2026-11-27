@@ -34,6 +34,8 @@ class Unscheduled(BaseModel):
 class GenerateResult(BaseModel):
     status: Literal["ok", "partial", "infeasible"]
     sessions_created: int
+    # KAN-77: sessions the generated scope needs (only the selected semester).
+    total_sessions: int = 0
     unscheduled: list[Unscheduled]
 
 
@@ -50,13 +52,14 @@ def generate_timetable(payload: GenerateInput, session: Database, _director: Dir
     # This does not protect against uncoordinated manual CRUD writes.
     session.scalars(select(Room).order_by(Room.id).with_for_update()).all()
     problem = build_problem(session, payload.degree_id, payload.semester_id)
+    total = sum(problem.sessions_of(course) for course in problem.courses)
     if not problem.courses:
         session.rollback()
-        return GenerateResult(status="infeasible", sessions_created=0, unscheduled=[])
+        return GenerateResult(status="infeasible", sessions_created=0, total_sessions=total, unscheduled=[])
     if not problem.rooms or not problem.slots:
         session.rollback()
         return GenerateResult(
-            status="infeasible", sessions_created=0,
+            status="infeasible", sessions_created=0, total_sessions=total,
             unscheduled=[Unscheduled(course_id=c.id, name=c.name,
                                      reason=unscheduled_course_reason(problem, c, None))
                          for c in problem.courses],
@@ -67,7 +70,7 @@ def generate_timetable(payload: GenerateInput, session: Database, _director: Dir
         if solution is None:
             session.rollback()
             return GenerateResult(
-                status="infeasible", sessions_created=0,
+                status="infeasible", sessions_created=0, total_sessions=total,
                 unscheduled=[Unscheduled(course_id=c.id, name=c.name,
                          reason=unscheduled_course_reason(problem, c, None))
                          for c in problem.courses],
@@ -78,7 +81,7 @@ def generate_timetable(payload: GenerateInput, session: Database, _director: Dir
             # Never erase an existing timetable on an infeasible result.
             session.rollback()
             return GenerateResult(
-                status="infeasible", sessions_created=0,
+                status="infeasible", sessions_created=0, total_sessions=total,
                 unscheduled=[Unscheduled(course_id=c.id, name=c.name,
                                          reason=unscheduled_course_reason(problem, c, solution))
                              for c in missing],
@@ -100,6 +103,7 @@ def generate_timetable(payload: GenerateInput, session: Database, _director: Dir
         return GenerateResult(
             status="partial" if missing else "ok",
             sessions_created=len(solution.assignments),
+            total_sessions=total,
             unscheduled=[Unscheduled(
                 course_id=c.id, name=c.name,
                 reason=unscheduled_course_reason(problem, c, solution),

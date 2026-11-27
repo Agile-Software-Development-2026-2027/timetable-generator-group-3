@@ -16,7 +16,7 @@ def test_generation_creates_exact_hours_and_can_regenerate(client, session, cour
 
     first = client.post("/timetable/generate", json=payload)
     assert first.status_code == 200, first.text
-    assert first.json() == {"status": "ok", "sessions_created": 4, "unscheduled": []}
+    assert first.json() == {"status": "ok", "sessions_created": 4, "total_sessions": 4, "unscheduled": []}
 
     second = client.post("/timetable/generate", json=payload)
     assert second.status_code == 200, second.text
@@ -105,7 +105,7 @@ def test_unscheduled_reason_identifies_teacher_and_grid_constraints():
     course.weekly_hours = 2
     problem.busy_teachers.clear()
     assert unscheduled_course_reason(problem, course, None) == (
-        "Grid capacity: Grid has 1 slot; this semester needs 2 weekly hours."
+        "Grid capacity: Grid has 1 slot of 60 min; this semester needs 2 slots."
     )
 
 
@@ -167,7 +167,7 @@ def test_clear_removes_only_selected_degree_and_allows_regenerate(client, sessio
     assert [s["course_id"] for s in remaining] == [other.id]
 
     regenerated = client.post("/timetable/generate", json={"degree_id": course.degree_id})
-    assert regenerated.json() == {"status": "ok", "sessions_created": 4, "unscheduled": []}
+    assert regenerated.json() == {"status": "ok", "sessions_created": 4, "total_sessions": 4, "unscheduled": []}
 
 
 def test_clear_requires_existing_degree(client):
@@ -276,3 +276,46 @@ def test_generation_saves_real_start_and_end_of_multi_block_sessions(
     assert total == course.weekly_hours * 60  # all weekly hours, not half of them
 
 pytestmark = pytest.mark.usefixtures("legacy_director_client")
+
+
+def test_total_sessions_counts_only_the_generated_semester_in_sessions(
+    client, session, course,
+):
+    """KAN-77: the summary total is the scope's sessions, not the degree's hours."""
+    other_semester = Semester(number=2, year_id=course.year_id)
+    session.add_all([Room(code="MT1", capacity=110), other_semester])
+    session.flush()
+    session.add_all([
+        Course(name="Long sessions", degree_id=course.degree_id, year_id=course.year_id,
+               semester_id=course.semester_id, weekly_hours=6, enrolled_students=30,
+               session_duration_minutes=120),
+        Course(name="Other semester", degree_id=course.degree_id, year_id=course.year_id,
+               semester_id=other_semester.id, weekly_hours=5, enrolled_students=30),
+    ])
+    session.commit()
+
+    result = client.post("/timetable/generate", json={
+        "degree_id": course.degree_id, "semester_id": course.semester_id,
+    })
+
+    assert result.status_code == 200, result.text
+    # The fixture course has 4 one-hour sessions; 6 hours in 2-hour sessions is 3.
+    assert result.json()["total_sessions"] == 7
+
+
+def test_grid_capacity_reason_explains_rounded_up_sessions():
+    """KAN-77: 60-minute sessions on a 90-minute grid take a whole slot each."""
+    course = SimpleNamespace(
+        id=1, name="Virtual Reality", semester_id=1, weekly_hours=3,
+        session_duration_minutes=60, enrolled_students=20,
+        requires_lab=False, requires_projector=False, teachers=[],
+    )
+    room = SimpleNamespace(id=1, code="MT1", capacity=100, is_lab=False, has_projector=False)
+    slots = {(0, 0): (time(8, 30), time(10)), (0, 1): (time(10), time(11, 30))}
+    problem = Problem(courses=[course], rooms=[room], slots=slots, facts="",
+                      group_capacity={1: 2}, session_blocks={1: 1}, sessions_per_week={1: 3})
+
+    assert unscheduled_course_reason(problem, course, None) == (
+        "Grid capacity: Grid has 2 slots of 90 min; this semester needs 3 slots. "
+        "Sessions of 60 minutes are rounded up to whole 90-minute slots."
+    )

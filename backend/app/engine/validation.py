@@ -30,8 +30,114 @@ def _check_session_fits(
             )
 
 
+class ConsecutiveWorkloadError(InvalidScheduleError):
+    """A teacher's consecutive teaching limit was exceeded."""
+
+
+def _check_teacher_workloads(
+    problem: Problem,
+    occupied_teachers: set[tuple[int, int, int]],
+) -> None:
+    """KAN-72: independently validate hard teacher workload limits.
+
+    External teaching contributes to workload, but unavailable time does not.
+    Existing external-only violations may remain when new assignments do
+    not worsen them.
+    """
+    for teacher_id, workload in problem.teacher_workloads.items():
+        new_slots = {
+            (day, slot)
+            for tid, day, slot in occupied_teachers
+            if tid == teacher_id
+        }
+
+        if not new_slots:
+            continue
+
+        external_slots = {
+            (day, slot)
+            for tid, day, slot in problem.external_teaching
+            if tid == teacher_id
+        }
+
+        all_slots = new_slots | external_slots
+
+        # Maximum teaching hours per day.
+        if workload.max_daily_slots is not None:
+            external_counts = Counter(day for day, _ in external_slots)
+            daily_counts = Counter(day for day, _ in all_slots)
+
+            for day, count in sorted(daily_counts.items()):
+                limit = max(
+                    workload.max_daily_slots,
+                    external_counts[day],
+                )
+
+                if count > limit:
+                    raise InvalidScheduleError(
+                        f"Teacher {teacher_id} exceeds the maximum daily "
+                        f"teaching workload on day {day}: "
+                        f"{count} slots, allowed {limit}."
+                    )
+
+        # Maximum distinct teaching days.
+        if workload.max_teaching_days is not None:
+            external_days = {day for day, _ in external_slots}
+            teaching_days = {day for day, _ in all_slots}
+
+            limit = max(
+                workload.max_teaching_days,
+                len(external_days),
+            )
+
+            if len(teaching_days) > limit:
+                raise InvalidScheduleError(
+                    f"Teacher {teacher_id} exceeds the maximum teaching "
+                    f"days: {len(teaching_days)}, allowed {limit}."
+                )
+
+        # Maximum consecutive teaching hours.
+        if workload.max_consecutive_slots is not None:
+            previous: tuple[int, int] | None = None
+            run_length = 0
+            run_has_new = False
+
+            for current in sorted(all_slots):
+                day, slot = current
+
+                contiguous = (
+                    previous is not None
+                    and previous[0] == day
+                    and previous[1] + 1 == slot
+                    and previous in problem.slots
+                    and current in problem.slots
+                    and problem.slots[previous][1]
+                    == problem.slots[current][0]
+                )
+
+                if not contiguous:
+                    run_length = 0
+                    run_has_new = False
+
+                run_length += 1
+                run_has_new = run_has_new or current in new_slots
+
+                if (
+                    run_has_new
+                    and run_length > workload.max_consecutive_slots
+                ):
+                    raise ConsecutiveWorkloadError(
+                        f"Teacher {teacher_id} exceeds the maximum "
+                        f"consecutive teaching workload on day {day}: "
+                        f"{run_length} slots, allowed "
+                        f"{workload.max_consecutive_slots}."
+                    )
+
+                previous = current
+
+
 def validate_solution(problem: Problem, solution: Solution) -> None:
-    """Check hours, room eligibility, overlaps and external reservations.
+    """Check hours, eligibility, overlaps, reservations and teacher workloads.
 
     This is a safety check, independent from the constraints in model.lp.
     Existing sessions outside the replacement scope are represented by
@@ -96,6 +202,9 @@ def validate_solution(problem: Problem, solution: Solution) -> None:
             ).append((slot, room.id))
         counts[course.id] += 1
         lengths.setdefault(course.id, []).append(len(covered))
+
+    # KAN-72: independently verify teacher workload constraints.
+    _check_teacher_workloads(problem, occupied_teachers)
 
     # Different rooms require enough intervening slots for the room transition.
     for (semester_id, day), group_assignments in group_day_assignments.items():

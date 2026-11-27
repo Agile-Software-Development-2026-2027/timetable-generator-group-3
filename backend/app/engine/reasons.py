@@ -3,6 +3,11 @@ from __future__ import annotations
 
 from app.engine.engine import Solution
 from app.engine.facts import DEFAULT_SESSION_MINUTES, Problem, start_slots
+from app.engine.validation import (
+    ConsecutiveWorkloadError,
+    InvalidScheduleError,
+    _check_teacher_workloads,
+)
 from app.models import Course, Room
 
 Slot = tuple[int, int]
@@ -120,6 +125,212 @@ def _fitting_sessions(problem: Problem, course: Course, starts: list[Slot]) -> i
     return count
 
 
+def _workload_limit_text(
+    problem: Problem,
+    slots: int,
+    configured_hours: int | None = None,
+) -> str:
+    """Describe a whole-slot workload limit in hours or minutes."""
+    minutes = (
+        configured_hours * 60
+        if configured_hours is not None
+        else slots * problem.block_minutes
+    )
+
+    if minutes % 60 == 0:
+        hours = minutes // 60
+        return f"{hours} hour" if hours == 1 else f"{hours} hours"
+
+    return f"{minutes} minutes"
+
+
+def _teacher_workload_reason(
+    problem: Problem,
+    course: Course,
+    solution: Solution | None,
+) -> str | None:
+    """KAN-72: explain provable workload restrictions.
+
+    Capacity estimates are upper bounds. They deliberately ignore some
+    room and group restrictions to avoid incorrectly blaming workload.
+    """
+    courses_by_id = {item.id: item for item in problem.courses}
+    assignments = _solution_assignments(solution)
+    needed = problem.required_blocks(course)
+    lengths = problem.session_lengths(course)
+
+    for teacher in course.teachers:
+        workload = problem.teacher_workloads.get(teacher.id)
+
+        if workload is None:
+            continue
+
+        external = {
+            (day, slot)
+            for tid, day, slot in problem.external_teaching
+            if tid == teacher.id
+        }
+
+        scheduled: set[Slot] = set()
+
+        for assignment in assignments:
+            if assignment.course_id == course.id:
+                continue
+
+            other = courses_by_id.get(assignment.course_id)
+
+            if other is not None and any(
+                item.id == teacher.id for item in other.teachers
+            ):
+                scheduled.update(_covered(problem, assignment))
+
+        teaching = external | scheduled
+
+        unavailable = {
+            (day, slot)
+            for tid, day, slot in problem.busy_teachers
+            if tid == teacher.id
+        }
+
+        free = set(problem.slots) - teaching - unavailable
+
+        # Do not blame workload if availability alone is insufficient.
+        if len(free) < needed:
+            continue
+
+        free_by_day: dict[int, int] = {}
+        for day, _ in free:
+            free_by_day[day] = free_by_day.get(day, 0) + 1
+
+        # Maximum daily teaching hours.
+        if workload.max_daily_slots is not None:
+            limit = workload.max_daily_slots
+            remaining = 0
+
+            for day, count in free_by_day.items():
+                existing = sum(d == day for d, _ in teaching)
+                external_count = sum(d == day for d, _ in external)
+                effective_limit = max(limit, external_count)
+
+                remaining += min(
+                    count,
+                    max(0, effective_limit - existing),
+                )
+
+            if remaining < needed or max(lengths) > limit:
+                duration = _workload_limit_text(
+                    problem, limit, workload.max_hours_per_day
+                )
+
+                return _reason(
+                    "Teacher workload",
+                    f"{teacher.name} cannot teach more than "
+                    f"{duration} on any day.",
+                )
+
+        # Maximum teaching days.
+        if workload.max_teaching_days is not None:
+            limit = workload.max_teaching_days
+            external_days = {day for day, _ in external}
+            teaching_days = {day for day, _ in teaching}
+
+            effective_limit = max(limit, len(external_days))
+
+            remaining_days = max(
+                0, effective_limit - len(teaching_days)
+            )
+
+            existing_day_capacity = sum(
+                count for day, count in free_by_day.items()
+                if day in teaching_days
+            )
+
+            new_day_capacity = sorted(
+                (
+                    count for day, count in free_by_day.items()
+                    if day not in teaching_days
+                ),
+                reverse=True,
+            )
+
+            capacity = existing_day_capacity + sum(
+                new_day_capacity[:remaining_days]
+            )
+
+            if capacity < needed:
+                unit = "day" if limit == 1 else "days"
+
+                return _reason(
+                    "Teacher workload",
+                    f"{teacher.name} cannot teach more than "
+                    f"{limit} {unit} per week.",
+                )
+
+        # Maximum consecutive teaching hours.
+        if workload.max_consecutive_slots is not None:
+            limit = workload.max_consecutive_slots
+            duration = _workload_limit_text(
+                problem, limit, workload.max_consecutive_hours
+            )
+
+            if max(lengths) > limit:
+                return _reason(
+                    "Teacher workload",
+                    f"{teacher.name} cannot teach more than "
+                    f"{duration} consecutively.",
+                )
+
+            # Test whether each required session length has at least
+            # one feasible placement under the consecutive-hours limit.
+            # Ignore rooms and other teachers here: they are checked
+            # separately by the existing explanation logic.
+            baseline = {
+                (teacher.id, day, slot)
+                for day, slot in scheduled
+            }
+
+            for length in sorted(set(lengths)):
+                available_starts = [
+                    (day, slot)
+                    for day, slot in start_slots(problem.slots, length)
+                    if all(
+                        (day, slot + offset) in free
+                        for offset in range(length)
+                    )
+                ]
+
+                if not available_starts:
+                    continue
+
+                feasible = False
+
+                for day, slot in available_starts:
+                    candidate = baseline | {
+                        (teacher.id, day, slot + offset)
+                        for offset in range(length)
+                    }
+
+                    try:
+                        _check_teacher_workloads(problem, candidate)
+                    except ConsecutiveWorkloadError:
+                        continue
+                    except InvalidScheduleError:
+                        feasible = True
+                        break
+                    else:
+                        feasible = True
+                        break
+
+                if not feasible:
+                    return _reason(
+                        "Teacher workload",
+                        f"{teacher.name} cannot teach more than "
+                        f"{duration} consecutively.",
+                    )
+
+    return None
+
+
 def unscheduled_course_reason(
     problem: Problem,
     course: Course,
@@ -211,6 +422,11 @@ def unscheduled_course_reason(
                 f"{teacher.name} has {free_count} free slots; course needs "
                 f"{_need_text(problem, course)}.",
             )
+
+    # KAN-72: distinguish workload restrictions from unavailability.
+    workload_reason = _teacher_workload_reason(problem, course, solution)
+    if workload_reason is not None:
+        return workload_reason
 
     group_busy_slots = set(externally_busy_group_slots)
     for assignment in assignments:

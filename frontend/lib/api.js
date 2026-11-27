@@ -36,3 +36,29 @@ export async function apiRequest(path, { token, headers, ...options } = {}) {
   }
   return body;
 }
+
+
+// KAN-67: check the selected degree before timetable generation.
+export async function fetchPreflightWarnings(degreeId, options = {}) {
+  const id = Number(degreeId);
+
+  if (!Number.isSafeInteger(id) || id <= 0) {
+    throw new Error("Please select a valid degree programme.");
+  }
+
+  const result = await apiRequest(
+    `/timetable/preflight?degree_id=${encodeURIComponent(id)}`,
+    options
+  );
+
+  if (!Array.isArray(result?.warnings) || result.warnings.some(
+    (warning) => !warning
+      || typeof warning.type !== "string"
+      || !["error", "warning"].includes(warning.severity)
+      || typeof warning.message !== "string"
+  )) {
+    throw new Error("The server returned an invalid preflight response.");
+  }
+
+  return result.warnings;
+}

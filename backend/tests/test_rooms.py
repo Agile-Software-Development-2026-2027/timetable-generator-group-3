@@ -1,6 +1,6 @@
 import pytest
 
-from app.models import AppUser, Room, ScheduleSession
+from app.models import AppUser, Degree, Room, ScheduleSession
 
 LECTURE_HALL = {
     "code": "MT1",

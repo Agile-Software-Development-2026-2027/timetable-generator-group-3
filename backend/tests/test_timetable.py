@@ -1,5 +1,7 @@
 import pytest
 
+from app.models import AppUser
+
 def session_payload(course_id, **overrides):
     return {
         "course_id": course_id,

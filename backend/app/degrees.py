@@ -124,7 +124,6 @@ def get_degree(
     session: Database,
     user: Annotated[CurrentUser, Depends(get_current_user)],
 ) -> DegreeView:
-    require_degree_access(degree_id, user)
     degree = session.scalar(
         select(Degree)
         .where(Degree.id == degree_id)
@@ -132,6 +131,8 @@ def get_degree(
     )
     if degree is None:
         raise HTTPException(404, "Degree not found.")
+        
+    require_degree_access(degree_id, user)
     year_ids = [year.id for year in degree.years]
     course_counts = {}
     semester_ids = [
@@ -252,10 +253,11 @@ def delete_degree(
     session: Database,
     user: Annotated[CurrentUser, Depends(get_current_user)],
 ) -> None:
-    require_degree_access(degree_id, user)
     degree = session.get(Degree, degree_id)
     if degree is None:
         raise HTTPException(404, "Degree not found.")
+            
+    require_degree_access(degree_id, user)
     if session.scalar(select(Course.id).where(Course.degree_id == degree_id).limit(1)):
         raise HTTPException(409, "A degree with courses cannot be deleted.")
     session.delete(degree)

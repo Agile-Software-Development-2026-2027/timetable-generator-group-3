@@ -1,6 +1,6 @@
 import pytest
 
-from app.models import AppUser
+from app.models import AppUser, Degree
 
 def session_payload(course_id, **overrides):
     return {

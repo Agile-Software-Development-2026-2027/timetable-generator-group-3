@@ -186,9 +186,26 @@ describe("KAN-67 preflight panel", () => {
 
     expect(
       within(panel).getByRole("link", {
-        name: "Edit teacher",
+        name: "Edit workload preferences",
       })
-    ).toHaveAttribute("href", "/teachers?edit=5");
+    ).toHaveAttribute("href", "/teachers?workload=5");
+  });
+
+  it("links availability warnings to the availability editor", () => {
+    render(<PreflightPanel warnings={[{
+      type: "teacher_unavailable",
+      severity: "error",
+      message: "Teacher has no available teaching slots.",
+      teacher_id: 5,
+    }]} />);
+
+    const panel = openPanel();
+
+    expect(
+      within(panel).getByRole("link", {
+        name: "Edit teacher availability",
+      })
+    ).toHaveAttribute("href", "/teachers?availability=5");
   });
 
   it("does not create links without valid record IDs", () => {

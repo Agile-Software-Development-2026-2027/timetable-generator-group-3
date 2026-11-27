@@ -43,6 +43,20 @@ export function preflightWarningLink(warning) {
   }
 
   if (Number.isSafeInteger(warning.teacher_id) && warning.teacher_id > 0) {
+    if (warning.type === "teacher_unavailable") {
+      return {
+        href: `/teachers?availability=${warning.teacher_id}`,
+        label: "Edit teacher availability",
+      };
+    }
+
+    if (warning.type === "teacher_workload") {
+      return {
+        href: `/teachers?workload=${warning.teacher_id}`,
+        label: "Edit workload preferences",
+      };
+    }
+
     return {
       href: `/teachers?edit=${warning.teacher_id}`,
       label: "Edit teacher",

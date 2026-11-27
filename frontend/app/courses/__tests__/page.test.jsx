@@ -45,6 +45,19 @@ describe("CoursesPage teacher assignments", () => {
     expect(screen.getByLabelText("Course name")).toHaveValue("Databases");
   });
 
+  it("accepts a maximum session length that does not divide the weekly hours (KAN-78)", async () => {
+    mockApi([rossi, bianchi]);
+    render(<CoursesPage />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Edit Databases" }));
+    const dialog = await screen.findByRole("dialog", { name: "Edit course" });
+    fireEvent.change(within(dialog).getByLabelText("Required weekly hours"), { target: { value: "5" } });
+    fireEvent.change(within(dialog).getByLabelText(/^Max session length/), { target: { value: "180" } });
+
+    expect(within(dialog).getByTestId("session-plan")).toHaveTextContent("Sessions per week: 3 h + 2 h");
+    expect(within(dialog).queryByRole("alert")).not.toBeInTheDocument();
+  });
+
   it("shows a prominent success popup after updating a course", async () => {
     mockApi([rossi, bianchi]);
     render(<CoursesPage />);

@@ -166,8 +166,8 @@ def list_courses(
 
     if user.role == "director":
         query = query.where(Course.degree_id.in_(user.degree_ids))
-        if user.role == "director" and degree_id is not None:
-        require_degree_access(degree_id, user)
+        if degree_id is not None:
+            require_degree_access(degree_id, user)
     if degree_id is not None:
         query = query.where(Course.degree_id == degree_id)
 

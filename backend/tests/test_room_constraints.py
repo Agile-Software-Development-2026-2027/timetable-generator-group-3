@@ -7,7 +7,7 @@ from types import SimpleNamespace
 
 from app.engine.facts import Problem
 from app.engine.reasons import unscheduled_course_reason
-from app.models import Course, Degree, Room, Semester, Year
+from app.models import AppUser, Course, Degree, Room, Semester, Year
 
 
 # ---------------------------------------------------------------------------
@@ -34,12 +34,16 @@ def _make_course(session, *, degree, year, semester, **kwargs):
     return c
 
 
-def _degree_and_semester(session, name="Test Degree"):
+def _degree_and_semester(session, director_client, name="Test Degree"):
     semester = Semester(number=1)
     year = Year(number=1, semesters=[semester])
     degree = Degree(name=name, years=[year])
     session.add(degree)
     session.flush()
+
+    director = session.query(AppUser).filter_by(role="director").one()
+    director.degrees.append(degree)
+
     session.commit()
     return degree, year, semester
 
@@ -49,15 +53,15 @@ def _degree_and_semester(session, name="Test Degree"):
 # ---------------------------------------------------------------------------
 
 class TestCapacityConstraint:
-    def test_room_too_small_returns_infeasible(self, client, session):
-        degree, year, sem = _degree_and_semester(session)
+    def test_room_too_small_returns_infeasible(self, director_client, session):
+        degree, year, sem = _degree_and_semester(session, director_client)
         _make_course(session, degree=degree, year=year, semester=sem,
                      enrolled_students=50)
         small = Room(code="SMALL", capacity=30)
         session.add(small)
         session.commit()
 
-        result = client.post("/timetable/generate", json={"degree_id": degree.id})
+        result = director_client.post("/timetable/generate", json={"degree_id": degree.id})
         assert result.status_code == 200
         body = result.json()
         assert body["status"] == "infeasible"
@@ -65,27 +69,27 @@ class TestCapacityConstraint:
         assert "Room capacity" in body["unscheduled"][0]["reason"]
         assert "30" in body["unscheduled"][0]["reason"]  # shows the too-small room
 
-    def test_exact_capacity_room_is_accepted(self, client, session):
-        degree, year, sem = _degree_and_semester(session)
+    def test_exact_capacity_room_is_accepted(self, director_client, session):
+        degree, year, sem = _degree_and_semester(session, director_client)
         _make_course(session, degree=degree, year=year, semester=sem,
                      enrolled_students=30)
         exact = Room(code="EXACT", capacity=30)
         session.add(exact)
         session.commit()
 
-        result = client.post("/timetable/generate", json={"degree_id": degree.id})
+        result = director_client.post("/timetable/generate", json={"degree_id": degree.id})
         assert result.status_code == 200
         assert result.json()["status"] == "ok"
 
-    def test_oversized_room_is_accepted(self, client, session):
-        degree, year, sem = _degree_and_semester(session)
+    def test_oversized_room_is_accepted(self, director_client, session):
+        degree, year, sem = _degree_and_semester(session, director_client)
         _make_course(session, degree=degree, year=year, semester=sem,
                      enrolled_students=30)
         big = Room(code="BIG", capacity=200)
         session.add(big)
         session.commit()
 
-        result = client.post("/timetable/generate", json={"degree_id": degree.id})
+        result = director_client.post("/timetable/generate", json={"degree_id": degree.id})
         assert result.status_code == 200
         assert result.json()["status"] == "ok"
 
@@ -95,40 +99,40 @@ class TestCapacityConstraint:
 # ---------------------------------------------------------------------------
 
 class TestLabConstraint:
-    def test_non_lab_room_rejected_for_lab_course(self, client, session):
-        degree, year, sem = _degree_and_semester(session)
+    def test_non_lab_room_rejected_for_lab_course(self, director_client, session):
+        degree, year, sem = _degree_and_semester(session, director_client)
         _make_course(session, degree=degree, year=year, semester=sem,
                      enrolled_students=20, requires_lab=True)
         session.add(Room(code="LEC", capacity=100, is_lab=False))
         session.commit()
 
-        result = client.post("/timetable/generate", json={"degree_id": degree.id})
+        result = director_client.post("/timetable/generate", json={"degree_id": degree.id})
         assert result.status_code == 200
         body = result.json()
         assert body["status"] == "infeasible"
         reason = body["unscheduled"][0]["reason"]
         assert "Lab" in reason or "lab" in reason
 
-    def test_lab_room_accepted_for_lab_course(self, client, session):
-        degree, year, sem = _degree_and_semester(session)
+    def test_lab_room_accepted_for_lab_course(self, director_client, session):
+        degree, year, sem = _degree_and_semester(session, director_client)
         _make_course(session, degree=degree, year=year, semester=sem,
                      enrolled_students=20, requires_lab=True)
         session.add(Room(code="LAB1", capacity=40, is_lab=True))
         session.commit()
 
-        result = client.post("/timetable/generate", json={"degree_id": degree.id})
+        result = director_client.post("/timetable/generate", json={"degree_id": degree.id})
         assert result.status_code == 200
         assert result.json()["status"] == "ok"
 
-    def test_lab_room_not_required_when_course_has_no_lab_flag(self, client, session):
-        degree, year, sem = _degree_and_semester(session)
+    def test_lab_room_not_required_when_course_has_no_lab_flag(self, director_client, session):
+        degree, year, sem = _degree_and_semester(session, director_client)
         _make_course(session, degree=degree, year=year, semester=sem,
                      enrolled_students=20, requires_lab=False)
         # Only a non-lab room available — should still be OK
         session.add(Room(code="LEC", capacity=40, is_lab=False))
         session.commit()
 
-        result = client.post("/timetable/generate", json={"degree_id": degree.id})
+        result = director_client.post("/timetable/generate", json={"degree_id": degree.id})
         assert result.status_code == 200
         assert result.json()["status"] == "ok"
 
@@ -138,33 +142,33 @@ class TestLabConstraint:
 # ---------------------------------------------------------------------------
 
 class TestProjectorConstraint:
-    def test_no_projector_room_rejected_for_projector_course(self, client, session):
-        degree, year, sem = _degree_and_semester(session)
+    def test_no_projector_room_rejected_for_projector_course(self, director_client, session):
+        degree, year, sem = _degree_and_semester(session, director_client)
         _make_course(session, degree=degree, year=year, semester=sem,
                      enrolled_students=20, requires_projector=True)
         session.add(Room(code="PLAIN", capacity=50, has_projector=False))
         session.commit()
 
-        result = client.post("/timetable/generate", json={"degree_id": degree.id})
+        result = director_client.post("/timetable/generate", json={"degree_id": degree.id})
         assert result.status_code == 200
         body = result.json()
         assert body["status"] == "infeasible"
         reason = body["unscheduled"][0]["reason"]
         assert "projector" in reason.lower()
 
-    def test_projector_room_accepted_for_projector_course(self, client, session):
-        degree, year, sem = _degree_and_semester(session)
+    def test_projector_room_accepted_for_projector_course(self, director_client, session):
+        degree, year, sem = _degree_and_semester(session, director_client)
         _make_course(session, degree=degree, year=year, semester=sem,
                      enrolled_students=20, requires_projector=True)
         session.add(Room(code="PROJ", capacity=50, has_projector=True))
         session.commit()
 
-        result = client.post("/timetable/generate", json={"degree_id": degree.id})
+        result = director_client.post("/timetable/generate", json={"degree_id": degree.id})
         assert result.status_code == 200
         assert result.json()["status"] == "ok"
 
-    def test_lab_and_projector_both_required(self, client, session):
-        degree, year, sem = _degree_and_semester(session)
+    def test_lab_and_projector_both_required(self, director_client, session):
+        degree, year, sem = _degree_and_semester(session, director_client)
         _make_course(session, degree=degree, year=year, semester=sem,
                      enrolled_students=20, requires_lab=True, requires_projector=True)
         # Room that is a lab but has no projector
@@ -172,7 +176,7 @@ class TestProjectorConstraint:
                          is_lab=True, has_projector=False))
         session.commit()
 
-        result = client.post("/timetable/generate", json={"degree_id": degree.id})
+        result = director_client.post("/timetable/generate", json={"degree_id": degree.id})
         body = result.json()
         assert body["status"] == "infeasible"
         # Room that satisfies both
@@ -180,7 +184,7 @@ class TestProjectorConstraint:
                          is_lab=True, has_projector=True))
         session.commit()
 
-        result2 = client.post("/timetable/generate", json={"degree_id": degree.id})
+        result2 = director_client.post("/timetable/generate", json={"degree_id": degree.id})
         assert result2.json()["status"] == "ok"
 
 
@@ -189,9 +193,9 @@ class TestProjectorConstraint:
 # ---------------------------------------------------------------------------
 
 class TestSmallestRoomPreference:
-    def test_smallest_eligible_room_is_preferred(self, client, session):
+    def test_smallest_eligible_room_is_preferred(self, director_client, session):
         """Given multiple fitting rooms, the engine should assign the smallest one."""
-        degree, year, sem = _degree_and_semester(session)
+        degree, year, sem = _degree_and_semester(session, director_client)
         _make_course(session, degree=degree, year=year, semester=sem,
                      enrolled_students=30, weekly_hours=1)
         # Add rooms from largest to smallest so insertion order is not the reason
@@ -200,18 +204,18 @@ class TestSmallestRoomPreference:
         session.add(Room(code="TIGHT", capacity=30))   # smallest that fits exactly
         session.commit()
 
-        result = client.post("/timetable/generate", json={"degree_id": degree.id})
+        result = director_client.post("/timetable/generate", json={"degree_id": degree.id})
         assert result.status_code == 200
         body = result.json()
         assert body["status"] == "ok"
-        sessions = client.get("/timetable/sessions").json()
+        sessions = director_client.get("/timetable/sessions").json()
         assert len(sessions) == 1
         # The assigned room should be the tightest fit (30-seat), not the 500-seat
         assert sessions[0]["room_code"] == "TIGHT"
 
-    def test_smallest_lab_is_preferred_for_lab_course(self, client, session):
+    def test_smallest_lab_is_preferred_for_lab_course(self, director_client, session):
         """For a lab course, the smallest eligible lab should be preferred."""
-        degree, year, sem = _degree_and_semester(session)
+        degree, year, sem = _degree_and_semester(session, director_client)
         _make_course(session, degree=degree, year=year, semester=sem,
                      enrolled_students=20, requires_lab=True, weekly_hours=1)
         # A large non-lab (ineligible) and two labs of different sizes
@@ -220,10 +224,10 @@ class TestSmallestRoomPreference:
         session.add(Room(code="SMALL-LAB", capacity=25, is_lab=True))  # snug fit
         session.commit()
 
-        result = client.post("/timetable/generate", json={"degree_id": degree.id})
+        result = director_client.post("/timetable/generate", json={"degree_id": degree.id})
         assert result.status_code == 200
         assert result.json()["status"] == "ok"
-        sessions = client.get("/timetable/sessions").json()
+        sessions = director_client.get("/timetable/sessions").json()
         assert sessions[0]["room_code"] == "SMALL-LAB"
 
 

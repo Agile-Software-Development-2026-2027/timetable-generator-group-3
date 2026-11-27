@@ -25,6 +25,8 @@ pytestmark = pytest.mark.usefixtures("legacy_director_client")
         (5, 120, 60, [2, 2, 1]),
         (4, 60, 60, [1, 1, 1, 1]),   # same as before KAN-78
         (6, 120, 30, [4, 4, 4]),     # 2-hour sessions on a 30-minute grid
+        (5, 180, 30, [6, 4]),        # whole hours on a 30-minute grid: 3 h + 2 h
+        (5, 90, 30, [3, 3, 2, 2]),   # 1.5 + 1.5 + 1 + 1 h
         (5, 60, 90, [1, 1, 1, 1, 1]),  # 60-minute sessions take a whole 90-minute block
     ],
 )

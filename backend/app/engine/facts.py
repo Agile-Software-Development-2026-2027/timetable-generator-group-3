@@ -88,9 +88,15 @@ def session_lengths(course, block_minutes: int) -> list[int]:
     blocks, so a course never gets less time than requested.
     """
     longest = getattr(course, "session_duration_minutes", None) or DEFAULT_SESSION_MINUTES
-    # Split in whole blocks when the session length is a multiple of the block;
-    # otherwise in whole sessions, each rounded up to whole blocks.
-    unit = block_minutes if longest % block_minutes == 0 else longest
+    # Split in whole hours when the grid allows it (classes are 2 h + 3 h, not
+    # 2.5 h + 2.5 h), else in whole blocks, else in whole sessions; each part
+    # is then rounded up to whole blocks.
+    if longest % 60 == 0 and 60 % block_minutes == 0:
+        unit = 60
+    elif longest % block_minutes == 0:
+        unit = block_minutes
+    else:
+        unit = longest
     total_units = max(1, _ceil_div(course.weekly_hours * 60, unit))
     max_units = max(1, longest // unit)
     count = _ceil_div(total_units, max_units)

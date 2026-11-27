@@ -33,7 +33,7 @@ def create_room(director_client, **overrides):
 @pytest.fixture()
 def director_room_client(director_client, session, course):
     director = session.query(AppUser).filter_by(role="director").one()
-    director.degrees.append(course.degree)
+    director.degrees.append(session.get(Degree, course.degree_id))
     session.commit()
     return director_client
 

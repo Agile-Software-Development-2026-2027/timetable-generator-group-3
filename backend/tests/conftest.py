@@ -131,23 +131,3 @@ def course(session):
     session.add(course)
     session.commit()
     return course
-
-def test_directors_only_see_assigned_degrees(
-    client, auth_client, session
-):
-    from app.models import AppUser
-
-    director_one = auth_client("director")
-    director_two = auth_client("director")
-
-    degree_one = Degree(name="Computer Science")
-    degree_two = Degree(name="Mathematics")
-
-    session.add_all([degree_one, degree_two])
-    session.flush()
-
-    user_one = session.query(AppUser).filter(
-        AppUser.id == uuid.UUID(
-            director_one.headers["Authorization"].split(" ")[-1]
-        )
-    ).first()

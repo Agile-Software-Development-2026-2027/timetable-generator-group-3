@@ -53,11 +53,17 @@ def preflight_timetable(
     session: Database,
     _director: Director,
     degree_id: Annotated[int, Query(gt=0)],
+    semester_id: Annotated[int | None, Query(gt=0)] = None,
 ) -> PreflightResult:
     if session.get(Degree, degree_id) is None:
         raise HTTPException(404, "Degree not found.")
 
-    problem = build_problem(session, degree_id, None)
+    if semester_id is not None:
+        sem = session.get(Semester, semester_id)
+        if sem is None or sem.year.degree_id != degree_id:
+            raise HTTPException(404, "Semester not found in selected degree.")
+
+    problem = build_problem(session, degree_id, semester_id)
     return PreflightResult(warnings=check_preflight(problem))
 
 

@@ -46,10 +46,20 @@ export async function fetchPreflightWarnings(degreeId, options = {}) {
     throw new Error("Please select a valid degree programme.");
   }
 
-  const result = await apiRequest(
-    `/timetable/preflight?degree_id=${encodeURIComponent(id)}`,
-    options
-  );
+  const { semesterId, ...requestOptions } = options;
+  let path = `/timetable/preflight?degree_id=${encodeURIComponent(id)}`;
+
+  if (semesterId !== undefined && semesterId !== null && semesterId !== "") {
+    const semester = Number(semesterId);
+
+    if (!Number.isSafeInteger(semester) || semester <= 0) {
+      throw new Error("Please select a valid semester.");
+    }
+
+    path += `&semester_id=${encodeURIComponent(semester)}`;
+  }
+
+  const result = await apiRequest(path, requestOptions);
 
   if (!Array.isArray(result?.warnings) || result.warnings.some(
     (warning) => !warning

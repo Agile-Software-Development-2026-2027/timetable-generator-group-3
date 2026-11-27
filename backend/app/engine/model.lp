@@ -9,18 +9,30 @@ invalid_room(C,R) :- requires_lab(C), room(R,_), not is_lab(R).
 invalid_room(C,R) :- requires_projector(C), room(R,_), not has_projector(R).
 eligible(C,R) :- course(C,_), room(R,_), not invalid_room(C,R).
 
-% KAN-52: assign(C,R,D,S) is the START slot of one session of course C.
-% Every selected course receives exactly N sessions, and a session may only
-% start where its duration(C,B) blocks fit in the day (start_ok from facts.py).
-N { assign(C,R,D,S) : eligible(C,R), start_ok(C,D,S) } N :-
-    sessions(C,N), scheduled(C).
+% KAN-52/KAN-78: part(C,B,N) says course C has N weekly sessions of B
+% consecutive blocks; a course may mix lengths (e.g. one 3-block and one
+% 2-block session). fits(B,D,S) says a B-block session can start at (D,S)
+% without running past the end of the day or across a gap such as the lunch
+% break. Older facts with one length per course, sessions(C,N), duration(C,B)
+% and start_ok(C,D,S), are still accepted.
+part(C,B,N) :- sessions(C,N), duration(C,B).
+start_at(C,B,D,S) :- part(C,B,_), fits(B,D,S).
+start_at(C,B,D,S) :- duration(C,B), start_ok(C,D,S).
+
+% placed(C,B,R,D,S): a B-block session of course C in room R, starting at (D,S).
+% Every selected course receives exactly N sessions of each length B.
+N { placed(C,B,R,D,S) : eligible(C,R), start_at(C,B,D,S) } N :-
+    part(C,B,N), scheduled(C).
+
+% assign(C,R,D,S) is the START slot of a session, whatever its length.
+assign(C,R,D,S) :- placed(C,_,R,D,S).
 
 % A session occupies its room for every block from S to S+B-1.
-occupies(C,R,D,S..S+B-1) :- assign(C,R,D,S), duration(C,B).
+occupies(C,R,D,S..S+B-1) :- placed(C,B,R,D,S).
 
 % Two sessions of the same course never overlap, in the same or another room.
-:- assign(C,R1,D,S1), assign(C,R2,D,S2), (R1,S1) != (R2,S2),
-   duration(C,B), S1 <= S2, S2 < S1 + B.
+:- placed(C,B1,R1,D,S1), placed(C,B2,R2,D,S2), (B1,R1,S1) != (B2,R2,S2),
+   S1 <= S2, S2 < S1 + B1.
 
 % All hard constraints below are written on occupies/4, so they hold for
 % every block of a session, not only for its start.
@@ -79,5 +91,5 @@ wasted_seats(C,R,W) :- assign(C,R,_,_), students(C,N), room(R,Cap), W = Cap - N.
 % Priority @4 ensures scheduling completeness dominates every preference:
 % spreading sessions or a teacher preference never makes the solver drop a course.
 #maximize { H@4,C : scheduled(C), course(C,H), mode(partial) }.
-#show assign/4.
+#show placed/5.
 #show scheduled/1.

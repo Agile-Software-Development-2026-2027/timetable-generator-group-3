@@ -2,7 +2,7 @@ import re
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session, joinedload
 
@@ -24,24 +24,14 @@ class CourseInput(BaseModel):
     year_id: int
     semester_id: int
     weekly_hours: int = Field(gt=0)
+    # KAN-78: the longest a session may last. The weekly hours are split into
+    # the fewest sessions that don't exceed it (5 h with 180 min is 3 h + 2 h).
     session_duration_minutes: int = Field(
         default=60, gt=0, strict=True
     )
     enrolled_students: int = Field(gt=0)
     requires_lab: bool = False
     requires_projector: bool = False
-
-    @model_validator(mode="after")
-    def validate_session_duration(self):
-        total_minutes = self.weekly_hours * 60
-
-        if total_minutes % self.session_duration_minutes != 0:
-            raise ValueError(
-                "Session duration must divide weekly teaching "
-                "minutes exactly."
-            )
-
-        return self
 
     @field_validator("name", mode="before")
     @classmethod
@@ -111,7 +101,8 @@ def course_view(course: Course) -> CourseView:
         semester=course.semester.number,
         weekly_hours=course.weekly_hours,
         session_duration_minutes=course.session_duration_minutes,
-        sessions_per_week=(course.weekly_hours * 60) // course.session_duration_minutes,
+        # KAN-78: the session length is a maximum; the last sessions may be shorter.
+        sessions_per_week=-(-(course.weekly_hours * 60) // course.session_duration_minutes),
         enrolled_students=course.enrolled_students,
         requires_lab=course.requires_lab,
         requires_projector=course.requires_projector,

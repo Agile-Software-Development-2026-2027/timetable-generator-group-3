@@ -86,7 +86,6 @@ CREATE TABLE course (
 	CONSTRAINT uq_course_semester_name UNIQUE (semester_id, name), 
 	CONSTRAINT ck_course_weekly_hours_positive CHECK (weekly_hours > 0), 
        CONSTRAINT ck_course_session_duration_positive CHECK (session_duration_minutes > 0),
-       CONSTRAINT ck_course_session_duration_divides_week CHECK ((weekly_hours * 60) % session_duration_minutes = 0),
 	CONSTRAINT ck_course_enrolled_students_positive CHECK (enrolled_students > 0), 
 	CONSTRAINT ck_course_name_not_empty CHECK (length(trim(name)) > 0), 
 	FOREIGN KEY(degree_id) REFERENCES degree (id) ON DELETE RESTRICT, 

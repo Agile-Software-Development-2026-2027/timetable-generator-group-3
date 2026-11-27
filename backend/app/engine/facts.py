@@ -33,20 +33,40 @@ class Problem:
     # weekly_hours sessions (the behaviour before multi-block sessions).
     session_blocks: dict[int, int] = field(default_factory=dict)
     sessions_per_week: dict[int, int] = field(default_factory=dict)
+    # KAN-78: blocks of each session, by course id, when a course mixes session
+    # lengths (e.g. [3, 2]). Takes precedence over the two maps above.
+    session_parts: dict[int, list[int]] = field(default_factory=dict)
+
+    def session_lengths(self, course) -> list[int]:
+        """Blocks of every weekly session of a course, longest first."""
+        parts = self.session_parts.get(course.id)
+        if parts:
+            return parts
+        sessions = self.sessions_per_week.get(course.id, course.weekly_hours)
+        return [self.session_blocks.get(course.id, 1)] * sessions
 
     def blocks_of(self, course_id: int) -> int:
-        return self.session_blocks.get(course_id, 1)
+        """Blocks of the longest session of a course."""
+        parts = self.session_parts.get(course_id)
+        return max(parts) if parts else self.session_blocks.get(course_id, 1)
 
     def sessions_of(self, course) -> int:
-        return self.sessions_per_week.get(course.id, course.weekly_hours)
+        return len(self.session_lengths(course))
 
     def required_blocks(self, course) -> int:
         """Grid blocks a course occupies in one week."""
-        return self.sessions_of(course) * self.blocks_of(course.id)
+        return sum(self.session_lengths(course))
 
-    def covered_slots(self, course_id: int, day: int, start: int) -> list[tuple[int, int]]:
-        """Every (day, slot) of a session that starts at (day, start)."""
-        return [(day, start + offset) for offset in range(self.blocks_of(course_id))]
+    def covered_slots(
+        self, course_id: int, day: int, start: int, blocks: int | None = None
+    ) -> list[tuple[int, int]]:
+        """Every (day, slot) of a session that starts at (day, start).
+
+        `blocks` is the length of that session; it defaults to the longest
+        session of the course.
+        """
+        length = blocks or self.blocks_of(course_id)
+        return [(day, start + offset) for offset in range(length)]
 
 
 def _minute(t: time) -> int:
@@ -57,18 +77,32 @@ def _ceil_div(a: int, b: int) -> int:
     return -(-a // b)
 
 
-def session_shape(course, block_minutes: int) -> tuple[int, int]:
-    """Return (blocks per session, sessions per week) for a course.
+def session_lengths(course, block_minutes: int) -> list[int]:
+    """KAN-78: blocks of each weekly session of a course, longest first.
 
-    The session length comes from `session_duration_minutes` (KAN-51) and
-    falls back to 60 minutes. Both values round up, so a course is never
-    given less time than requested when the lengths do not divide exactly
-    (the courses API validates exact multiples).
+    `session_duration_minutes` is the longest a session may last (falls back
+    to 60 minutes). The weekly hours are split evenly into the fewest sessions
+    that don't exceed it: with a 3-hour maximum, 5 h is 3 + 2, 4 h is 2 + 2 and
+    11 h is 3 + 3 + 3 + 2. When the length divides the weekly hours, every
+    session has that length (the KAN-52 behaviour). Lengths round up to whole
+    blocks, so a course never gets less time than requested.
     """
-    minutes = getattr(course, "session_duration_minutes", None) or DEFAULT_SESSION_MINUTES
-    blocks = max(1, _ceil_div(minutes, block_minutes))
-    sessions = max(1, _ceil_div(course.weekly_hours * 60, minutes))
-    return blocks, sessions
+    longest = getattr(course, "session_duration_minutes", None) or DEFAULT_SESSION_MINUTES
+    # Split in whole blocks when the session length is a multiple of the block;
+    # otherwise in whole sessions, each rounded up to whole blocks.
+    unit = block_minutes if longest % block_minutes == 0 else longest
+    total_units = max(1, _ceil_div(course.weekly_hours * 60, unit))
+    max_units = max(1, longest // unit)
+    count = _ceil_div(total_units, max_units)
+    base, extra = divmod(total_units, count)
+    units = [base + 1] * extra + [base] * (count - extra)
+    return [max(1, _ceil_div(size * unit, block_minutes)) for size in units]
+
+
+def session_shape(course, block_minutes: int) -> tuple[int, int]:
+    """Return (blocks of the longest session, sessions per week) for a course."""
+    lengths = session_lengths(course, block_minutes)
+    return max(lengths), len(lengths)
 
 
 def start_slots(
@@ -142,24 +176,21 @@ def build_problem(session: Session, degree_id: int, semester_id: int | None) -> 
     # KAN-53: minimum 15-minute travel buffer, rounded up to whole slots.
     buffer_slots = (15 + config.block_minutes - 1) // config.block_minutes
     lines: list[str] = [f"buffer_slots({buffer_slots})."]
-    session_blocks: dict[int, int] = {}
-    sessions_per_week: dict[int, int] = {}
-    starts_by_blocks: dict[int, list[tuple[int, int]]] = {}
+    session_parts: dict[int, list[int]] = {}
+    lengths_in_use: set[int] = set()
     for c in courses:
-        # KAN-52: a session lasts `blocks` consecutive slots, `sessions` times a week.
-        blocks, sessions = session_shape(c, config.block_minutes)
-        session_blocks[c.id] = blocks
-        sessions_per_week[c.id] = sessions
-        if blocks not in starts_by_blocks:
-            starts_by_blocks[blocks] = start_slots(slots, blocks)
+        # KAN-52/KAN-78: part(C,B,N) — N weekly sessions of B consecutive blocks.
+        parts = session_lengths(c, config.block_minutes)
+        session_parts[c.id] = parts
+        lengths_in_use.update(parts)
         lines.extend((
             f"course({c.id},{c.weekly_hours}).",
-            f"sessions({c.id},{sessions}).",
-            f"duration({c.id},{blocks}).",
             f"students({c.id},{c.enrolled_students}).",
             f"group({c.id},{c.semester_id}).",
         ))
-        lines.extend(f"start_ok({c.id},{day},{index})." for day, index in starts_by_blocks[blocks])
+        lines.extend(
+            f"part({c.id},{blocks},{parts.count(blocks)})." for blocks in sorted(set(parts))
+        )
         if c.requires_lab:
             lines.append(f"requires_lab({c.id}).")
         if c.requires_projector:
@@ -174,6 +205,10 @@ def build_problem(session: Session, degree_id: int, semester_id: int | None) -> 
             lines.append(f"has_projector({r.id}).")
     for day, index in slots:
         lines.append(f"slot({day},{index}).")
+    # fits(B,D,S): a session of B blocks can start at (D,S) without running past
+    # the end of the day or across a gap in the grid (e.g. the lunch break).
+    for blocks in sorted(lengths_in_use):
+        lines.extend(f"fits({blocks},{day},{index})." for day, index in start_slots(slots, blocks))
 
     # Exclude ALL sessions for courses in this scope: they will be replaced.
     selected_ids = {c.id for c in courses}
@@ -218,6 +253,6 @@ def build_problem(session: Session, degree_id: int, semester_id: int | None) -> 
         courses, rooms, slots, "\n".join(lines), group_capacity,
         busy_rooms=busy_rooms, busy_teachers=busy_teachers, busy_groups=busy_groups,
         buffer_slots=buffer_slots,
-        session_blocks=session_blocks, sessions_per_week=sessions_per_week,
+        session_parts=session_parts,
         unavailable_teachers=unavailable, preferred_slots=preferred,
     )

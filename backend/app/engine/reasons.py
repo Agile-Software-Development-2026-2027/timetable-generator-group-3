@@ -94,7 +94,9 @@ def _solution_assignments(solution: Solution | None):
 
 def _covered(problem: Problem, assignment) -> list[Slot]:
     """Every (day, slot) block of a scheduled session (KAN-52)."""
-    return problem.covered_slots(assignment.course_id, assignment.day, assignment.slot)
+    return problem.covered_slots(
+        assignment.course_id, assignment.day, assignment.slot, assignment.blocks
+    )
 
 
 def _need_text(problem: Problem, course: Course) -> str:

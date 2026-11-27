@@ -47,6 +47,7 @@ def validate_solution(problem: Problem, solution: Solution) -> None:
     buffer_slots = problem.buffer_slots
 
     counts: Counter[int] = Counter()
+    lengths: dict[int, list[int]] = {}
     group_day_assignments: dict[tuple[int, int], list[tuple[int, int]]] = {}
     occupied_rooms: set[tuple[int, int, int]] = set()
     occupied_groups: set[tuple[int, int, int]] = set()
@@ -68,7 +69,7 @@ def validate_solution(problem: Problem, solution: Solution) -> None:
             raise InvalidScheduleError(f"Course {course.id} requires a projector.")
 
         # KAN-52: a session covers duration consecutive blocks from its start slot.
-        covered = problem.covered_slots(course.id, a.day, a.slot)
+        covered = problem.covered_slots(course.id, a.day, a.slot, a.blocks)
         _check_session_fits(problem, course.id, covered)
 
         for day, slot in covered:
@@ -94,6 +95,7 @@ def validate_solution(problem: Problem, solution: Solution) -> None:
                 (course.semester_id, day), []
             ).append((slot, room.id))
         counts[course.id] += 1
+        lengths.setdefault(course.id, []).append(len(covered))
 
     # Different rooms require enough intervening slots for the room transition.
     for (semester_id, day), group_assignments in group_day_assignments.items():
@@ -114,4 +116,10 @@ def validate_solution(problem: Problem, solution: Solution) -> None:
         if counts[course.id] != expected:
             raise InvalidScheduleError(
                 f"Course {course.id}: expected {expected} sessions, got {counts[course.id]}."
+            )
+        # KAN-78: the sessions must have the lengths the course asks for.
+        if expected and sorted(lengths[course.id]) != sorted(problem.session_lengths(course)):
+            raise InvalidScheduleError(
+                f"Course {course.id}: sessions of {sorted(lengths[course.id])} blocks, "
+                f"expected {sorted(problem.session_lengths(course))}."
             )

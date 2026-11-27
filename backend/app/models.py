@@ -164,10 +164,6 @@ class Course(Base):
             name="ck_course_session_duration_positive"
         ),
         CheckConstraint(
-            "(weekly_hours * 60) % session_duration_minutes = 0",
-            name="ck_course_session_duration_divides_week"
-        ),
-        CheckConstraint(
             "enrolled_students > 0", name="ck_course_enrolled_students_positive"
         ),
         CheckConstraint("length(trim(name)) > 0", name="ck_course_name_not_empty"),

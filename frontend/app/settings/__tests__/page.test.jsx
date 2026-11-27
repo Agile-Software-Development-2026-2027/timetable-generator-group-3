@@ -93,6 +93,7 @@ describe("SettingsPage", () => {
     expect(puts()[0][0]).toMatch(/\/slot-config$/);
     expect(JSON.parse(puts()[0][1].body)).toEqual({
       working_days: [0, 1, 2, 3, 4], start_time: "08:00:00", end_time: "18:00:00", block_minutes: 120,
+      break_start: null, break_end: null,
     });
   });
 

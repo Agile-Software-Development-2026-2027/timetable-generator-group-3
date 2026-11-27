@@ -1,12 +1,15 @@
 import { describe, it, expect } from "vitest";
-import { formatDays, slotFormErrors, slotFormFromConfig, slotPayload, slotPreview, toMinutes } from "../slot-config.mjs";
+import { dayBlockTimes, formatDays, slotFormErrors, slotFormFromConfig, slotPayload, slotPreview, toMinutes } from "../slot-config.mjs";
 
 const valid = { working_days: [0, 1, 2, 3, 4], start_time: "09:00", end_time: "18:00", block_minutes: "60" };
 
 describe("slot configuration helpers", () => {
   it("builds a form from the API config", () => {
     const config = { working_days: [4, 0], start_time: "08:30", end_time: "17:00", block_minutes: 90 };
-    expect(slotFormFromConfig(config)).toEqual({ working_days: [0, 4], start_time: "08:30", end_time: "17:00", block_minutes: "90" });
+    expect(slotFormFromConfig(config)).toEqual({
+      working_days: [0, 4], start_time: "08:30", end_time: "17:00", block_minutes: "90",
+      break_start: "", break_end: "",
+    });
   });
 
   it("converts HH:MM to minutes", () => {
@@ -52,6 +55,30 @@ describe("slot configuration helpers", () => {
   it("builds the PUT payload", () => {
     expect(slotPayload({ ...valid, working_days: [3, 1] })).toEqual({
       working_days: [1, 3], start_time: "09:00:00", end_time: "18:00:00", block_minutes: 60,
+      break_start: null, break_end: null,
     });
+  });
+
+  // KAN-78: optional lunch break.
+  it("sends and reads the lunch break", () => {
+    const form = { ...valid, break_start: "13:00", break_end: "14:00" };
+    expect(slotPayload(form)).toMatchObject({ break_start: "13:00:00", break_end: "14:00:00" });
+    expect(slotFormFromConfig({ ...form, working_days: [0], block_minutes: 60, break_start: "13:00", break_end: "14:00" }))
+      .toMatchObject({ break_start: "13:00", break_end: "14:00" });
+  });
+
+  it("leaves the lunch break blocks out of the slot count", () => {
+    const form = { ...valid, working_days: [0], break_start: "13:00", break_end: "14:00" };
+    expect(dayBlockTimes(form).filter((item) => item.inBreak)).toEqual([{ start: 780, inBreak: true }]);
+    expect(slotPreview(form)).toContain("lunch 13:00–14:00");
+    expect(slotPreview(form)).toContain("8 slots/day");
+  });
+
+  it.each([
+    [{ break_start: "13:00" }, "break_end", "Enter both lunch break times"],
+    [{ break_start: "14:00", break_end: "13:00" }, "break_end", "must end after it starts"],
+    [{ break_start: "07:00", break_end: "08:00" }, "break_start", "within the daily schedule"],
+  ])("rejects an invalid lunch break %o", (change, field, message) => {
+    expect(slotFormErrors({ ...valid, ...change })[field]).toContain(message);
   });
 });

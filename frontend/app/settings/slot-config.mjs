@@ -1,6 +1,8 @@
 export const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((short, value) => ({ value, short }));
 
-export const emptySlotForm = { working_days: [], start_time: "", end_time: "", block_minutes: "" };
+export const emptySlotForm = {
+  working_days: [], start_time: "", end_time: "", block_minutes: "", break_start: "", break_end: "",
+};
 
 export function slotFormFromConfig(config) {
   return {
@@ -8,6 +10,8 @@ export function slotFormFromConfig(config) {
     start_time: config.start_time.slice(0, 5),
     end_time: config.end_time.slice(0, 5),
     block_minutes: String(config.block_minutes),
+    break_start: config.break_start?.slice(0, 5) ?? "",
+    break_end: config.break_end?.slice(0, 5) ?? "",
   };
 }
 
@@ -36,7 +40,39 @@ export function slotFormErrors(form) {
   else if (start !== null && end !== null && end > start && end - start < block) {
     errors.block_minutes = "The time range is shorter than one block.";
   }
+  // KAN-78: the lunch break is optional; both times or neither.
+  const hasBreakStart = Boolean(form.break_start);
+  const hasBreakEnd = Boolean(form.break_end);
+  if (hasBreakStart !== hasBreakEnd) {
+    errors[hasBreakStart ? "break_end" : "break_start"] = "Enter both lunch break times, or leave both empty.";
+  } else if (hasBreakStart) {
+    const breakStart = toMinutes(form.break_start);
+    const breakEnd = toMinutes(form.break_end);
+    if (breakStart === null) errors.break_start = "Enter a valid time.";
+    else if (breakEnd === null) errors.break_end = "Enter a valid time.";
+    else if (breakEnd <= breakStart) errors.break_end = "The lunch break must end after it starts.";
+    else if (start !== null && end !== null && (breakStart < start || breakEnd > end)) {
+      errors.break_start = "The lunch break must be within the daily schedule.";
+    }
+  }
   return errors;
+}
+
+// KAN-78: every block of the day, flagged when it overlaps the lunch break
+// (the engine leaves those blocks out, like backend/app/slot_config.py).
+export function dayBlockTimes(form) {
+  const start = toMinutes(form.start_time);
+  const end = toMinutes(form.end_time);
+  const block = Number(form.block_minutes);
+  if (start === null || end === null || !(block > 0)) return [];
+  const breakStart = toMinutes(form.break_start);
+  const breakEnd = toMinutes(form.break_end);
+  const hasBreak = breakStart !== null && breakEnd !== null && breakEnd > breakStart;
+  const blocks = [];
+  for (let cursor = start; cursor + block <= end; cursor += block) {
+    blocks.push({ start: cursor, inBreak: hasBreak && cursor < breakEnd && cursor + block > breakStart });
+  }
+  return blocks;
 }
 
 // [0,1,2,3,4] -> "Mon–Fri"; [0,2,4] -> "Mon, Wed, Fri".
@@ -51,9 +87,10 @@ export function formatDays(days) {
 export function slotPreview(form) {
   if (Object.keys(slotFormErrors(form)).length) return null;
   const block = Number(form.block_minutes);
-  const perDay = Math.floor((toMinutes(form.end_time) - toMinutes(form.start_time)) / block);
+  const perDay = dayBlockTimes(form).filter((item) => !item.inBreak).length;
   const days = form.working_days.length;
-  return `${formatDays(form.working_days)} · ${form.start_time}–${form.end_time} · ${block} min blocks → `
+  const lunch = form.break_start ? ` · lunch ${form.break_start}–${form.break_end}` : "";
+  return `${formatDays(form.working_days)} · ${form.start_time}–${form.end_time}${lunch} · ${block} min blocks → `
     + `${perDay} slots/day × ${days} ${days === 1 ? "day" : "days"} = ${perDay * days} total slots`;
 }
 
@@ -63,5 +100,7 @@ export function slotPayload(form) {
     start_time: `${form.start_time}:00`,
     end_time: `${form.end_time}:00`,
     block_minutes: Number(form.block_minutes),
+    break_start: form.break_start ? `${form.break_start}:00` : null,
+    break_end: form.break_end ? `${form.break_end}:00` : null,
   };
 }

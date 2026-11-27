@@ -33,6 +33,9 @@ function mockApi(result, {
 } = {}) {
   let generationComplete = false;
   global.fetch = vi.fn((url, options) => {
+    if (url.includes("/timetable/preflight?")) {
+      return response({ warnings: [] });
+    }
     if (url.endsWith("/degrees/7")) return response({
       id: 7, name: "Computer Science", years: [],
     });
@@ -111,7 +114,13 @@ describe("Timetable generation", () => {
     fireEvent.click(generateButton);
 
     const confirmation = await screen.findByRole("dialog", { name: "Generate a new timetable?" });
-    fireEvent.click(within(confirmation).getByRole("button", { name: "Generate timetable" }));
+    const confirmButton = within(confirmation).getByRole("button", {
+      name: "Generate timetable",
+    });
+
+    await waitFor(() => expect(confirmButton).toBeEnabled());
+
+    fireEvent.click(confirmButton);
 
     await waitFor(() => expect(screen.getByTestId("calendar")).toHaveTextContent("Algorithms"));
     expect(global.fetch.mock.calls.filter(([url]) => url.includes("/timetable/sessions"))).toHaveLength(2);
@@ -198,11 +207,13 @@ await within(confirmation).findByRole("option", {
 
 fireEvent.change(select, { target: { value: "7" } });
 
-    fireEvent.click(
-      within(confirmation).getByRole("button", {
-        name: "Generate timetable",
-      })
-    );
+    const confirmButton = within(confirmation).getByRole("button", {
+      name: "Generate timetable",
+    });
+
+    await waitFor(() => expect(confirmButton).toBeEnabled());
+
+    fireEvent.click(confirmButton);
 
     expect(
       (await screen.findAllByText(new RegExp(message))).length

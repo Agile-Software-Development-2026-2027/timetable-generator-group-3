@@ -82,12 +82,12 @@
 .campus-app.calendar-page .timetable-generation-intro h2 { font-size: 14px; font-weight: 700; letter-spacing: -.015em; color: #383838; }
 .campus-app.calendar-page .timetable-generation-intro p { margin-top: 3px; font-size: 11px; color: #899499; }
 
-.campus-app.calendar-page .timetable-controls { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 12px; }
-.campus-app.calendar-page .timetable-degree-field { flex: 0 1 320px; }
+.campus-app.calendar-page .timetable-controls { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
+.campus-app.calendar-page .timetable-degree-field { flex: 0 0 180px; width: 180px; min-width: 0; max-width: 100%; }
 .campus-app.calendar-page .timetable-degree-field .form-label { margin-bottom: 4px; font-size: 9px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: #9da6aa; }
 .campus-app.calendar-page .timetable-degree-field .form-select { min-height: 34px; height: 34px; padding-top: 0; padding-bottom: 0; border: 1px solid #e5e9ea; border-radius: 6px; font-size: 11px; color: #424b4f; box-shadow: none; }
 .campus-app.calendar-page .timetable-degree-field .form-select:focus { border-color: #b71918; box-shadow: 0 0 0 3px #b7191818; }
-.campus-app.calendar-page .timetable-controls-footer { flex: 1 1 auto; }
+.campus-app.calendar-page .timetable-controls-footer { flex: 1 1 0; width: auto; min-width: 0; }
 .campus-app.calendar-page .timetable-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 
 /* Every button in the row: same height, padding and font. */

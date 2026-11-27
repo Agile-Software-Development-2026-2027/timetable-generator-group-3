@@ -254,7 +254,7 @@ def test_pagination_applies_after_filtering(director_session_filters_client, tim
 
 def test_default_page_size_is_100(director_client, session, course):
     director = session.query(AppUser).filter_by(role="director").one()
-    director.degrees.append(course.degree)
+    director.degrees.append(session.get(Degree, course.degree_id))
     session.commit()
     session.add_all(
         ScheduleSession(

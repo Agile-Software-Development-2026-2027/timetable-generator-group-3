@@ -1,4 +1,4 @@
-"""KAN-52: session length facts (duration, sessions, start_ok) built from the grid."""
+"""KAN-52/KAN-78: session length facts (part, fits) built from the grid."""
 from datetime import time
 from types import SimpleNamespace
 
@@ -56,21 +56,21 @@ def test_start_slots_never_cross_a_gap_in_the_grid():
     assert start_slots(slots, 2) == [(0, 0), (0, 2)]
 
 
-def test_build_problem_emits_duration_sessions_and_start_ok(session, course):
+def test_build_problem_emits_parts_and_fits(session, course):
     session.add(SlotConfig(id=1, working_days="[0]", start_time=time(9),
                            end_time=time(11), block_minutes=30))
     session.commit()
 
     problem = build_problem(session, course.degree_id, course.semester_id)
 
-    # weekly_hours=4 with the default 60-minute session on a 30-minute grid.
-    assert f"duration({course.id},2)." in problem.facts
-    assert f"sessions({course.id},4)." in problem.facts
+    # weekly_hours=4 with the default 60-minute session on a 30-minute grid:
+    # four sessions of 2 blocks (KAN-78 part/3).
+    assert f"part({course.id},2,4)." in problem.facts
     starts = sorted(
-        line for line in problem.facts.splitlines() if line.startswith("start_ok(")
+        line for line in problem.facts.splitlines() if line.startswith("fits(")
     )
     # Four 30-minute slots 09:00-11:00: a 2-block session can start in 0, 1 or 2.
-    assert starts == [f"start_ok({course.id},0,{index})." for index in (0, 1, 2)]
+    assert starts == [f"fits(2,0,{index})." for index in (0, 1, 2)]
     assert problem.blocks_of(course.id) == 2
     assert problem.sessions_of(course) == 4
     assert problem.required_blocks(course) == 8

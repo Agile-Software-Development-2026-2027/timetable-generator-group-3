@@ -19,6 +19,8 @@ class Assignment:
     room_id: int
     day: int
     slot: int
+    # KAN-78: blocks of this session; None means the course's longest session.
+    blocks: int | None = None
 
 
 @dataclass
@@ -42,8 +44,12 @@ def _run_model(problem: Problem, mode: str, remaining: float) -> Solution | None
     def remember(model) -> None:
         nonlocal current
         atoms = model.symbols(shown=True)
-        assignments = [Assignment(*(x.number for x in a.arguments))
-                       for a in atoms if a.name == "assign" and len(a.arguments) == 4]
+        # placed(C,B,R,D,S): a B-block session of course C in room R at (D,S).
+        assignments = [
+            Assignment(c.number, r.number, d.number, s.number, b.number)
+            for c, b, r, d, s in (a.arguments for a in atoms
+                                  if a.name == "placed" and len(a.arguments) == 5)
+        ]
         scheduled = {a.arguments[0].number for a in atoms if a.name == "scheduled"}
         current = Solution(assignments, scheduled)
 

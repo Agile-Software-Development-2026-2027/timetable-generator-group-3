@@ -1,20 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AlertTriangle, CalendarDays, Clock3, LayoutGrid } from "lucide-react";
+import { AlertTriangle, CalendarDays, Clock3, Coffee, LayoutGrid } from "lucide-react";
 import { AppNav, Notification, useNotification } from "../components/app-shell.jsx";
 import { request, toggleId } from "../teachers/teacher-form.mjs";
-import { emptySlotForm, slotFormErrors, slotFormFromConfig, slotPayload, slotPreview, toMinutes, weekdays } from "./slot-config.mjs";
+import { dayBlockTimes, emptySlotForm, slotFormErrors, slotFormFromConfig, slotPayload, slotPreview, weekdays } from "./slot-config.mjs";
 
 const clock = (minutes) => `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
-
-// Start time of every block in the day, for the visual preview.
-function dayBlocks(form) {
-  const start = toMinutes(form.start_time);
-  const block = Number(form.block_minutes);
-  const count = Math.floor((toMinutes(form.end_time) - start) / block);
-  return Array.from({ length: count }, (_, i) => clock(start + i * block));
-}
 
 export default function SettingsPage() {
   const [form, setForm] = useState(emptySlotForm);
@@ -60,7 +52,8 @@ export default function SettingsPage() {
   const describedBy = (field) => (errors[field] ? { "aria-describedby": `${field}-error` } : {});
   const feedback = (field) => errors[field] && <div id={`${field}-error`} className="invalid-feedback d-block">{errors[field]}</div>;
 
-  const blocks = preview ? dayBlocks(form) : [];
+  const blocks = preview ? dayBlockTimes(form).map((item) => ({ ...item, time: clock(item.start) })) : [];
+  const teachingBlocks = blocks.filter((item) => !item.inBreak).length;
   const labelEvery = blocks.length > 12 ? Math.ceil(blocks.length / 12) : 1;
 
   return <div className="campus-app">
@@ -116,6 +109,21 @@ export default function SettingsPage() {
               </div>
             </div>
           </div>
+          <div className="slot-section">
+            <div className="slot-section-head">
+              <span className="slot-section-icon" aria-hidden="true"><Coffee size={16} /></span>
+              <div><h2 className="slot-section-title">Lunch break</h2>
+                <p>Optional. No class is scheduled in it, and no class runs across it.</p></div>
+            </div>
+            <div className="slot-fields">
+              {[["break_start", "Lunch break start"], ["break_end", "Lunch break end"]].map(([field, label]) => <div key={field}>
+                <label className="form-label" htmlFor={field}>{label}</label>
+                <input id={field} type="time" className={fieldClass(field)} value={form[field]} aria-invalid={Boolean(errors[field])}
+                  {...describedBy(field)} onChange={(e) => updateField(field, e.target.value)} />
+                {feedback(field)}
+              </div>)}
+            </div>
+          </div>
           <div className="slot-actions">
             <button className="btn btn-campus" disabled={saving || Boolean(Object.keys(errors).length)}>{saving ? "Saving…" : "Save configuration"}</button>
           </div>
@@ -126,13 +134,14 @@ export default function SettingsPage() {
             <div><h2 className="slot-section-title">Grid preview</h2><p>What the timetable engine will use.</p></div>
           </div>
           {preview && <div className="slot-stats">
-            <div><span>Slots per day</span><strong>{blocks.length}</strong></div>
+            <div><span>Slots per day</span><strong>{teachingBlocks}</strong></div>
             <div><span>Working days</span><strong>{form.working_days.length}</strong></div>
-            <div><span>Total slots</span><strong>{blocks.length * form.working_days.length}</strong></div>
+            <div><span>Total slots</span><strong>{teachingBlocks * form.working_days.length}</strong></div>
           </div>}
           {preview && <div className="slot-day-bar" aria-hidden="true">
-            {blocks.map((time, i) => <div className="slot-block" key={time}>
-              <span>{i % labelEvery === 0 ? time : ""}</span>
+            {blocks.map((item, i) => <div className={`slot-block${item.inBreak ? " slot-block-break" : ""}`} key={item.time}
+              title={item.inBreak ? "Lunch break" : undefined}>
+              <span>{i % labelEvery === 0 ? item.time : ""}</span>
             </div>)}
             <div className="slot-block-end"><span>{form.end_time}</span></div>
           </div>}

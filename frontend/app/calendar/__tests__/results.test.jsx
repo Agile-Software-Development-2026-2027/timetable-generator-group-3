@@ -113,6 +113,7 @@ it("shows partial results and the unscheduled course reason", async () => {
   mockApi({
     status: "partial",
     sessions_created: 2,
+    total_sessions: 5,
     unscheduled: [
       {
         course_id: 1,
@@ -146,6 +147,7 @@ it("shows infeasible results without reporting success", async () => {
   mockApi({
     status: "infeasible",
     sessions_created: 0,
+    total_sessions: 5,
     unscheduled: [],
   });
 
@@ -169,6 +171,7 @@ it("restores the saved result after remounting", async () => {
   mockApi({
     status: "partial",
     sessions_created: 2,
+    total_sessions: 5,
     unscheduled: [
       {
         course_id: 1,
@@ -221,6 +224,7 @@ it("shows completed progress for a successful generation", async () => {
   mockApi({
     status: "ok",
     sessions_created: 5,
+    total_sessions: 5,
     unscheduled: [],
   });
 
@@ -236,4 +240,39 @@ it("shows completed progress for a successful generation", async () => {
   );
 
   expect(dialog).toHaveTextContent("100%");
+});
+
+it("uses the backend session total for the generated scope", async () => {
+  // KAN-77: the courses add up to 5 weekly hours, but the generated scope
+  // needs 3 sessions (e.g. one semester with 2-hour sessions).
+  mockApi({
+    status: "partial",
+    sessions_created: 2,
+    total_sessions: 3,
+    unscheduled: [{ course_id: 1, name: "Physics", reason: "Grid capacity" }],
+  });
+
+  render(<TimetablePage />);
+  await generate();
+
+  const dialog = await screen.findByRole("dialog", {
+    name: "Timetable partially generated",
+  });
+
+  expect(dialog).toHaveTextContent("2 of 3 required sessions placed");
+  expect(dialog).toHaveTextContent("67%");
+});
+
+it("shows the close button and status icons without broken characters", async () => {
+  mockApi({ status: "ok", sessions_created: 5, total_sessions: 5, unscheduled: [] });
+
+  render(<TimetablePage />);
+  await generate();
+
+  const dialog = await screen.findByRole("dialog", { name: "Timetable generated" });
+
+  expect(within(dialog).getByRole("button", { name: "Close generation summary" }))
+    .toHaveTextContent("×");
+  expect(dialog).toHaveTextContent("✓");
+  expect(dialog.textContent).not.toMatch(/Ã|â/);
 });

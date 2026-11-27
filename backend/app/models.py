@@ -164,10 +164,6 @@ class Course(Base):
             name="ck_course_session_duration_positive"
         ),
         CheckConstraint(
-            "(weekly_hours * 60) % session_duration_minutes = 0",
-            name="ck_course_session_duration_divides_week"
-        ),
-        CheckConstraint(
             "enrolled_students > 0", name="ck_course_enrolled_students_positive"
         ),
         CheckConstraint("length(trim(name)) > 0", name="ck_course_name_not_empty"),
@@ -279,6 +275,7 @@ class SlotConfig(Base):
     working_days: JSON-encoded sorted list of weekday integers (0=Mon … 6=Sun).
     block_minutes: length of each time slot in minutes (must be > 0).
     start_time / end_time: the daily range within which blocks are placed.
+    break_start / break_end: optional lunch break; no block overlaps it.
     """
 
     __tablename__ = "slot_config"
@@ -294,10 +291,17 @@ class SlotConfig(Base):
         Time, nullable=False, default=time(18, 0)
     )
     block_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=30)
+    # KAN-78: optional lunch break. No grid block overlaps it.
+    break_start: Mapped[time | None] = mapped_column(Time, nullable=True)
+    break_end: Mapped[time | None] = mapped_column(Time, nullable=True)
 
     __table_args__ = (
         CheckConstraint("block_minutes > 0", name="ck_slot_block_minutes_positive"),
         CheckConstraint("id = 1", name="ck_slot_config_singleton"),
+        CheckConstraint(
+            "(break_start IS NULL AND break_end IS NULL) OR break_start < break_end",
+            name="ck_slot_config_break",
+        ),
     )
 
 

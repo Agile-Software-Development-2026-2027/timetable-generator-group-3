@@ -386,9 +386,8 @@ export default function TimetablePage() {
         ...result,
         degree_id: Number(degreeId),
         degree_name: selectedDegreeName,
-        total_required_sessions: courses
-          .filter((course) => String(course.degree_id) === String(degreeId))
-          .reduce((total, course) => total + course.weekly_hours, 0),
+        // KAN-77: the backend counts the sessions of the generated scope only.
+        total_required_sessions: Number.isInteger(result.total_sessions) ? result.total_sessions : 0,
         generated_at: new Date().toISOString(),
       };
      setGenerationResult(completedResult);
@@ -556,7 +555,7 @@ export default function TimetablePage() {
       : "Teacher not assigned";
     const startTime = item.start_time.slice(0, 5);
     const endTime = item.end_time.slice(0, 5);
-    const timeRange = `${startTime}â€“${endTime}`;
+    const timeRange = `${startTime}–${endTime}`;
     return {
       id: String(item.id),
       title: `${courseName} Â· ${roomCode} Â· ${timeRange} Â· ${teacherNames}`,
@@ -649,7 +648,7 @@ export default function TimetablePage() {
       </form>
 
       {!scheduleError && !sessions.length && <div className="empty-calendar mb-3">
-        <span className="empty-calendar-icon" aria-hidden="true">â–¦</span>
+        <span className="empty-calendar-icon" aria-hidden="true">▦</span>
         <span><strong>No timetable has been generated for {calendarScope}</strong>
           <small>There are no scheduled classes yet.</small></span>
       </div>}
@@ -725,7 +724,7 @@ export default function TimetablePage() {
           </div>
         </div>
         {!scheduleError && sessions.length > 0 && visibleSessions.length === 0 && <div className="empty-calendar mb-3">
-          <span className="empty-calendar-icon" aria-hidden="true">â–¦</span>
+          <span className="empty-calendar-icon" aria-hidden="true">▦</span>
           <span><strong>{normalizedCalendarSearch ? "No classes match your search" : "No timetable for this selection"}</strong>
             <small>{normalizedCalendarSearch
               ? "Try a different course, teacher, or room."
@@ -797,10 +796,10 @@ export default function TimetablePage() {
         <section className="generation-result-dialog" role="dialog" aria-modal="true" aria-live="polite"
           aria-labelledby="generation-results-heading">
           <button type="button" className="session-details-close generation-result-close"
-            aria-label="Close generation summary" onClick={() => setGenerationResult(null)}>Ã—</button>
+            aria-label="Close generation summary" onClick={() => setGenerationResult(null)}>×</button>
           <div className={`generation-results-summary generation-summary-${generationResult.status}`}>
             <span className="generation-summary-icon" aria-hidden="true">
-              {generationResult.status === "ok" ? "âœ“" : generationResult.status === "partial" ? "!" : "Ã—"}
+              {generationResult.status === "ok" ? "✓" : generationResult.status === "partial" ? "!" : "×"}
             </span>
             <div className="generation-summary-copy">
               <h2 id="generation-results-heading">
@@ -961,7 +960,7 @@ export default function TimetablePage() {
     <option value="">All semesters</option>
     {semesters.map((semester) => (
       <option key={semester.id} value={semester.id}>
-        Year {semester.year_number} â€“ Semester {semester.number}
+        Year {semester.year_number} – Semester {semester.number}
       </option>
     ))}
   </select>
@@ -1040,7 +1039,7 @@ onClick={confirmGeneration}>Generate timetable</button>
             aria-label="Timetable generation in progress" aria-valuetext="Generation in progress">
             <span />
           </div>
-          <p className="generation-loading-note">Checking course, room, and teacher constraintsâ€¦</p>
+          <p className="generation-loading-note">Checking course, room, and teacher constraints…</p>
         </section>
       </div>}
     </main>

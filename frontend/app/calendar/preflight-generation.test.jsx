@@ -130,7 +130,14 @@ beforeEach(() => {
       const id = Number(path.split("/").pop());
       return {
         ...degrees.find((degree) => degree.id === id),
-        years: [],
+        years: [{
+          id: 1,
+          number: 1,
+          semesters: [
+            { id: 11, number: 1 },
+            { id: 12, number: 2 },
+          ],
+        }],
       };
     }
 
@@ -417,6 +424,164 @@ describe("KAN-67 calendar generation integration", () => {
         name: /Pre-generation warnings/,
       })
     ).toBeNull();
+  });
+
+  it("isolates semester warnings from the degree badge", async () => {
+    fetchPreflightWarnings.mockImplementation(
+      async (_degreeId, options) => (
+        options?.semesterId === "11" ? [] : [error]
+      )
+    );
+
+    render(<TimetablePage />);
+
+    const dialog = await openConfirmation();
+
+    await within(dialog).findByRole("checkbox");
+
+    fireEvent.change(
+      within(dialog).getByLabelText("Semester (optional)"),
+      { target: { value: "11" } }
+    );
+
+    await waitFor(() => {
+      expect(confirmButton(dialog)).toBeEnabled();
+    });
+
+    expect(within(dialog).queryByRole("checkbox")).toBeNull();
+
+    expect(fetchPreflightWarnings).toHaveBeenCalledWith(
+      "7",
+      expect.objectContaining({ semesterId: "11" })
+    );
+
+    expect(screen.getByRole("button", {
+      name: /Pre-generation warnings/,
+    })).toHaveTextContent("1");
+  });
+
+  it("requires new acknowledgment after changing semester", async () => {
+    fetchPreflightWarnings.mockResolvedValue([error]);
+
+    render(<TimetablePage />);
+
+    const dialog = await openConfirmation();
+
+    await within(dialog).findByRole("checkbox");
+
+    fireEvent.click(acknowledgment(dialog));
+
+    expect(confirmButton(dialog)).toBeEnabled();
+
+    fireEvent.change(
+      within(dialog).getByLabelText("Semester (optional)"),
+      { target: { value: "12" } }
+    );
+
+    await waitFor(() => {
+      expect(acknowledgment(dialog)).not.toBeChecked();
+      expect(confirmButton(dialog)).toBeDisabled();
+    });
+
+    expect(
+      within(dialog).getByText(/These checks cover the selected semester/)
+    ).toBeVisible();
+
+    expect(generationCalls()).toHaveLength(0);
+  });
+
+  it("ignores outdated validation after switching semesters", async () => {
+    let resolveOldRequest;
+
+    fetchPreflightWarnings.mockImplementation(
+      async (_degreeId, options) => {
+        if (options?.semesterId === "11") {
+          return new Promise((resolve) => {
+            resolveOldRequest = resolve;
+          });
+        }
+
+        return [];
+      }
+    );
+
+    render(<TimetablePage />);
+
+    const dialog = await openConfirmation();
+
+    await waitFor(() => {
+      expect(confirmButton(dialog)).toBeEnabled();
+    });
+
+    const semester = within(dialog).getByLabelText(
+      "Semester (optional)"
+    );
+
+    fireEvent.change(semester, {
+      target: { value: "11" },
+    });
+
+    await waitFor(() => {
+      expect(resolveOldRequest).toBeDefined();
+      expect(confirmButton(dialog)).toBeDisabled();
+    });
+
+    const oldRequest = fetchPreflightWarnings.mock.calls.find(
+      ([, options]) => options?.semesterId === "11"
+    );
+
+    fireEvent.change(semester, {
+      target: { value: "12" },
+    });
+
+    await waitFor(() => {
+      expect(oldRequest[1].signal.aborted).toBe(true);
+      expect(confirmButton(dialog)).toBeEnabled();
+    });
+
+    await act(async () => {
+      resolveOldRequest([error]);
+    });
+
+    expect(confirmButton(dialog)).toBeEnabled();
+    expect(within(dialog).queryByRole("checkbox")).toBeNull();
+  });
+
+  it("generates only the validated selected semester", async () => {
+    render(<TimetablePage />);
+
+    const dialog = await openConfirmation();
+
+    fireEvent.change(
+      within(dialog).getByLabelText("Semester (optional)"),
+      { target: { value: "11" } }
+    );
+
+    await waitFor(() => {
+      expect(fetchPreflightWarnings).toHaveBeenCalledWith(
+        "7",
+        expect.objectContaining({ semesterId: "11" })
+      );
+
+      expect(confirmButton(dialog)).toBeEnabled();
+    });
+
+    fireEvent.click(confirmButton(dialog));
+
+    await waitFor(() => {
+      expect(generationCalls()).toHaveLength(1);
+    });
+
+    expect(apiRequest).toHaveBeenCalledWith(
+      "/timetable/generate",
+      {
+        method: "POST",
+        body: JSON.stringify({
+          degree_id: 7,
+          semester_id: 11,
+        }),
+      }
+    );
   });
 
   it("does not generate when confirmation is cancelled", async () => {

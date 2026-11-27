@@ -80,6 +80,7 @@ export default function TimetablePage() {
   const [generationConfirmationOpen, setGenerationConfirmationOpen] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [preflight, setPreflight] = useState(null);
+  const [generationPreflight, setGenerationPreflight] = useState(null);
   const [preflightRevision, setPreflightRevision] = useState(0);
   const [acknowledgedPreflight, setAcknowledgedPreflight] = useState(null);
   const [publicationRevision, setPublicationRevision] = useState(0);
@@ -354,12 +355,74 @@ export default function TimetablePage() {
     ? preflight
     : null;
 
-  const preflightErrors = (currentPreflight?.warnings ?? []).filter(
+  useEffect(() => {
+    if (!generationConfirmationOpen || !selectedDegreeId) {
+      return undefined;
+    }
+
+    let active = true;
+    const controller = new window.AbortController();
+
+    setGenerationPreflight({
+      degreeId: selectedDegreeId,
+      semesterId: selectedSemesterId,
+      revision: preflightRevision,
+      loading: true,
+      warnings: [],
+      error: "",
+    });
+
+    fetchPreflightWarnings(selectedDegreeId, {
+      semesterId: selectedSemesterId,
+      signal: controller.signal,
+    }).then((warnings) => {
+      if (!active || controller.signal.aborted) return;
+
+      setGenerationPreflight({
+        degreeId: selectedDegreeId,
+        semesterId: selectedSemesterId,
+        revision: preflightRevision,
+        loading: false,
+        warnings,
+        error: "",
+      });
+    }).catch((error) => {
+      if (!active || controller.signal.aborted) return;
+
+      setGenerationPreflight({
+        degreeId: selectedDegreeId,
+        semesterId: selectedSemesterId,
+        revision: preflightRevision,
+        loading: false,
+        warnings: [],
+        error: error.message,
+      });
+    });
+
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [
+    generationConfirmationOpen,
+    selectedDegreeId,
+    selectedSemesterId,
+    preflightRevision,
+  ]);
+
+  const currentGenerationPreflight =
+    generationPreflight?.degreeId === selectedDegreeId
+    && generationPreflight.semesterId === selectedSemesterId
+    && generationPreflight.revision === preflightRevision
+      ? generationPreflight
+      : null;
+
+  const preflightErrors = (currentGenerationPreflight?.warnings ?? []).filter(
     (warning) => warning.severity === "error"
   );
 
   const preflightWarningCount =
-    (currentPreflight?.warnings.length ?? 0) - preflightErrors.length;
+    (currentGenerationPreflight?.warnings.length ?? 0) - preflightErrors.length;
 
   const preflightErrorKey = JSON.stringify([
     selectedDegreeId,
@@ -368,9 +431,9 @@ export default function TimetablePage() {
   ]);
 
   const preflightReady = Boolean(
-    currentPreflight
-    && !currentPreflight.loading
-    && !currentPreflight.error
+    currentGenerationPreflight
+    && !currentGenerationPreflight.loading
+    && !currentGenerationPreflight.error
   );
 
   const canConfirmGeneration = Boolean(
@@ -392,6 +455,7 @@ export default function TimetablePage() {
 
   function closeGenerationConfirmation() {
     setAcknowledgedPreflight(null);
+    setGenerationPreflight(null);
     setGenerationConfirmationOpen(false);
     generateButtonRef.current?.focus();
   }
@@ -1166,16 +1230,16 @@ export default function TimetablePage() {
     )}
   </div>
 )}
-          {selectedDegreeId && (!currentPreflight || currentPreflight.loading) && (
+          {selectedDegreeId && (!currentGenerationPreflight || currentGenerationPreflight.loading) && (
             <p className="small text-muted" role="status">
               Checking timetable data...
             </p>
           )}
 
-          {currentPreflight?.error && (
+          {currentGenerationPreflight?.error && (
             <div className="alert alert-warning" role="alert">
               <p className="mb-2">
-                Could not check timetable data: {currentPreflight.error}
+                Could not check timetable data: {currentGenerationPreflight.error}
               </p>
               <button
                 type="button"
@@ -1206,7 +1270,9 @@ export default function TimetablePage() {
 
               <p className="small mt-2 mb-2">
                 Some courses may remain unscheduled.
-                These checks cover the entire selected degree.
+                {selectedSemesterId
+                  ? "These checks cover the selected semester."
+                  : "These checks cover the entire selected degree."}
               </p>
 
               <ul

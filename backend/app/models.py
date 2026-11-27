@@ -219,6 +219,49 @@ class TeacherAvailability(Base):
     )
 
 
+class TeacherPreferences(Base):
+    """KAN-72: optional weekly workload limits for a teacher."""
+
+    __tablename__ = "teacher_preferences"
+
+    teacher_id: Mapped[int] = mapped_column(
+        ForeignKey("teacher.id", ondelete="CASCADE"),
+        primary_key=True,
+        autoincrement=False,
+    )
+    max_hours_per_day: Mapped[int | None] = mapped_column(
+        Integer, nullable=True
+    )
+    max_teaching_days: Mapped[int | None] = mapped_column(
+        Integer, nullable=True
+    )
+    max_consecutive_hours: Mapped[int | None] = mapped_column(
+        Integer, nullable=True
+    )
+    preferred_part_of_day: Mapped[str | None] = mapped_column(
+        String(16), nullable=True
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "max_hours_per_day > 0",
+            name="ck_teacher_preferences_daily_hours",
+        ),
+        CheckConstraint(
+            "max_teaching_days BETWEEN 1 AND 6",
+            name="ck_teacher_preferences_teaching_days",
+        ),
+        CheckConstraint(
+            "max_consecutive_hours > 0",
+            name="ck_teacher_preferences_consecutive_hours",
+        ),
+        CheckConstraint(
+            "preferred_part_of_day IN ('morning', 'afternoon', 'none')",
+            name="ck_teacher_preferences_part_of_day",
+        ),
+    )
+
+
 class Room(Base):
     __tablename__ = "room"
 

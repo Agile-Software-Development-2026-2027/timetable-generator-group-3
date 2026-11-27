@@ -3,8 +3,14 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import TimetablePage from "../page.jsx";
 
 vi.mock("@fullcalendar/react", () => ({
-  default: ({ events, eventContent }) => <div data-testid="calendar-events">
-    {events.map((event) => <div key={event.id}>
+  default: ({ events, eventContent, eventClick }) => <div data-testid="calendar-events">
+    {events.map((event) => <div
+      key={event.id}
+      onClick={(clickEvent) => eventClick?.({
+        event,
+        el: clickEvent.currentTarget,
+      })}
+    >
       {eventContent({ event: { extendedProps: event.extendedProps }, view: { type: "timeGridWeek" } })}
     </div>)}
   </div>,
@@ -201,4 +207,133 @@ it("explains when no timetable has been generated for the selected degree", asyn
       "No timetable has been generated for Computer Science"
     )
   ).toBeInTheDocument();
+});
+
+
+it("KAN-21 conflict indicators survive filters and disappear after a session refresh", async () => {
+  let currentSessions = [
+    {
+      ...sessions[0],
+      room_id: 1,
+      room_code: "R101",
+      teacher_ids: [10],
+    },
+    {
+      ...sessions[4],
+      room_id: 1,
+      room_code: "R101",
+      teacher_ids: [10],
+    },
+  ];
+
+  global.fetch = vi.fn((url) => {
+    if (url.endsWith("/degrees/7")) {
+      return response(degreeStructure);
+    }
+
+    if (url.endsWith("/degrees")) {
+      return response([
+        { id: 7, name: "Computer Science" },
+        { id: 8, name: "Physics" },
+      ]);
+    }
+
+    if (url.endsWith("/courses")) {
+      return response(courses);
+    }
+
+    if (url.includes("/timetable/sessions")) {
+      return response(currentSessions);
+    }
+
+    if (url.endsWith("/slot-config")) {
+      return response({
+        working_days: [0, 1, 2, 3, 4],
+        start_time: "09:00:00",
+        end_time: "18:00:00",
+        block_minutes: 30,
+      });
+    }
+
+    return response([]);
+  });
+
+  render(<TimetablePage />);
+
+  const degree = await screen.findByRole("combobox", {
+    name: "Filter by degree",
+  });
+
+  const events = screen.getByTestId("calendar-events");
+
+  await waitFor(() => {
+    expect(degree).toHaveValue("7");
+    expect(events).toHaveTextContent("Algorithms");
+    expect(events.querySelectorAll(".calendar-event-conflict"))
+      .toHaveLength(1);
+  });
+
+  expect(events).not.toHaveTextContent("Mechanics");
+
+  const warning = events.querySelector(".calendar-conflict-warning");
+
+  expect(warning).toHaveAttribute(
+    "title",
+    expect.stringContaining("Room double-booked")
+  );
+
+  expect(warning.getAttribute("title")).toContain("Mechanics");
+  expect(warning.getAttribute("title")).toContain(
+    "Teacher has simultaneous sessions"
+  );
+
+  fireEvent.change(degree, { target: { value: "" } });
+
+  expect(events.querySelectorAll(".calendar-event-conflict"))
+    .toHaveLength(2);
+
+  fireEvent.change(degree, { target: { value: "7" } });
+
+  expect(events.querySelectorAll(".calendar-event-conflict"))
+    .toHaveLength(1);
+
+  fireEvent.click(events.querySelector(".calendar-conflict-warning"));
+
+  const details = await screen.findByRole("dialog", {
+    name: "Algorithms",
+  });
+
+  expect(details).toHaveTextContent("Room double-booked");
+  expect(details).toHaveTextContent("Mechanics");
+  expect(details).toHaveTextContent("Teacher has simultaneous sessions");
+
+  fireEvent.click(screen.getByRole("button", {
+    name: "Close session details",
+  }));
+
+  currentSessions = [
+    currentSessions[0],
+    {
+      ...currentSessions[1],
+      start_time: "11:00:00",
+      end_time: "12:00:00",
+    },
+  ];
+
+  const visibility = vi.spyOn(document, "visibilityState", "get")
+    .mockReturnValue("visible");
+
+  fireEvent(document, new window.Event("visibilitychange"));
+
+  visibility.mockRestore();
+
+  await waitFor(() => {
+    expect(events.querySelectorAll(".calendar-event-conflict"))
+      .toHaveLength(0);
+
+    expect(events.querySelector(".calendar-conflict-warning"))
+      .not.toBeInTheDocument();
+  });
+
+  expect(events).toHaveTextContent("Algorithms");
 });

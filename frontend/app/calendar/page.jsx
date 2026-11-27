@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AppNav } from "../components/app-shell.jsx";
 import { PublicationPanel } from "./publication-panel.jsx";
 import SessionDetailsDialog from "./session-details-dialog.jsx";
@@ -13,6 +13,7 @@ import breezyThemePlugin from "@fullcalendar/react/themes/breezy";
 import {
   DEFAULT_SLOT_CONFIG,
   fetchAllSessions,
+  detectSessionConflicts,
   getCalendarVisibleRange,
   getCalendarWeekSettings,
   getResponsiveCalendarView,
@@ -499,6 +500,15 @@ export default function TimetablePage() {
   );
   const hasCalendarFilter = Boolean(calendarDegreeId || calendarYearId || calendarSemesterId);
   const normalizedCalendarSearch = calendarSearch.trim().toLowerCase();
+  const sessionConflicts = useMemo(
+    () => detectSessionConflicts(sessions, courses),
+    [sessions, courses]
+  );
+
+  const selectedSessionConflicts = selectedSession
+    ? sessionConflicts.get(selectedSession.id) ?? []
+    : [];
+
   const visibleSessions = sessions.filter((item) => {
     if (hasCalendarFilter && !calendarCourseIds.has(item.course_id)) return false;
     if (!normalizedCalendarSearch) return true;
@@ -555,6 +565,7 @@ export default function TimetablePage() {
         course_id: item.course_id,
         room_id: item.room_id,
         session: item,
+        conflicts: sessionConflicts.get(item.id) ?? [],
         courseName,
         roomCode,
         hasRoom: Boolean(assignedRoomCode),
@@ -657,6 +668,7 @@ export default function TimetablePage() {
             {calendarView !== "listWeek" && <div className="calendar-legend" aria-label="Calendar key">
               <span><i className="calendar-legend-swatch calendar-legend-empty" aria-hidden="true" />Empty slot</span>
               <span><i className="calendar-legend-swatch calendar-legend-occupied" aria-hidden="true" />Scheduled class</span>
+              <span><i className="calendar-legend-swatch calendar-legend-conflict" aria-hidden="true" />Scheduling conflict</span>
             </div>}
           </div>
         </div>
@@ -731,7 +743,26 @@ export default function TimetablePage() {
           eventContent={(info) => {
             const { courseName, roomCode, hasRoom, timeRange, teacherNames, hasTeachers } = info.event.extendedProps;
             const showTimeInCard = !["timeGridWeek", "timeGridDay"].includes(info.view?.type);
-            return <div className="calendar-event-content">
+            const conflicts = info.event.extendedProps.conflicts ?? [];
+            const hasConflicts = conflicts.length > 0;
+            const conflictMessage = conflicts
+              .map((conflict) => conflict.message)
+              .join("\n");
+
+            return <div
+              className={`calendar-event-content${hasConflicts ? " calendar-event-conflict" : ""}`}
+              title={hasConflicts ? conflictMessage : undefined}
+            >
+              {hasConflicts && (
+                <span
+                  className="calendar-conflict-warning calendar-event-title"
+                  title={conflictMessage}
+                  aria-label={conflictMessage}
+                >
+                  <span aria-hidden="true">!</span>
+                  {" Scheduling conflict"}
+                </span>
+              )}
               <strong className="calendar-event-title" title={courseName}>{courseName}</strong>
               {hasRoom && <span className="calendar-event-detail" title={roomCode}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"
@@ -838,6 +869,27 @@ export default function TimetablePage() {
           session={selectedSession}
           onClose={() => setSelectedSession(null)}
         >
+          {selectedSessionConflicts.length > 0 && (
+            <section
+              className="calendar-conflict-details generation-confirm-warning"
+              aria-label="Scheduling conflicts"
+            >
+              <h3 className="small fw-semibold mb-2">
+                <span aria-hidden="true">!</span>
+                {" Scheduling conflicts "}
+                ({selectedSessionConflicts.length})
+              </h3>
+              <ul className="small mb-0 ps-3">
+                {selectedSessionConflicts.map((conflict) => (
+                  <li
+                    key={`${conflict.type}-${conflict.relatedSessionId}`}
+                  >
+                    {conflict.message}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
           <div className="session-color-setting">
             <label htmlFor="session-color">Color for this class</label>
             <div className="session-color-controls">

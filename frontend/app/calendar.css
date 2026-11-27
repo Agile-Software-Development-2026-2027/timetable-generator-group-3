@@ -134,3 +134,23 @@
 .campus-app.calendar-page .student-course-event .calendar-event-teachers {
   color: inherit;
 }
+
+/* KAN-21: calendar conflict indicators. */
+
+.campus-app.calendar-page .timetable-card .calendar-event-conflict {
+  box-shadow: inset 0 0 0 2px var(--unical-bordeaux);
+  border-radius: 4px;
+}
+
+.campus-app.calendar-page .calendar-conflict-warning {
+  color: var(--unical-bordeaux);
+}
+
+.campus-app.calendar-page .calendar-legend-conflict {
+  background: transparent;
+  box-shadow: inset 0 0 0 2px var(--unical-bordeaux);
+}
+
+.campus-app.calendar-page .calendar-conflict-details {
+  margin-block: 12px;
+}

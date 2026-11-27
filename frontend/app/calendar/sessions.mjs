@@ -22,8 +22,8 @@ export function getResponsiveCalendarView(currentView, isCompact) {
 }
 
 function minutesFromTime(value) {
-  const [hours, minutes] = value.split(":").map(Number);
-  return hours * 60 + minutes;
+  const [hours, minutes, seconds = 0] = value.split(":").map(Number);
+  return hours * 60 + minutes + seconds / 60;
 }
 
 function formatHour(hour) {
@@ -80,4 +80,137 @@ const COURSE_COLORS = [
 export function getCourseColors(courseId) {
   return COURSE_COLORS[courseId % COURSE_COLORS.length]
     ?? COURSE_COLORS[0];
+}
+
+
+// KAN-21: minimum travel time for a student group changing rooms.
+export const ROOM_TRANSITION_MINUTES = 15;
+
+export function detectSessionConflicts(sessions, courses) {
+  const conflicts = new Map();
+  const coursesById = new Map(
+    courses.map((course) => [course.id, course])
+  );
+
+  function addConflict(session, other, type, message) {
+    if (!conflicts.has(session.id)) {
+      conflicts.set(session.id, []);
+    }
+
+    conflicts.get(session.id).push({
+      type,
+      message,
+      relatedSessionId: other.id,
+    });
+  }
+
+  function addPair(first, second, type, explanation) {
+    const firstName = first.course_name
+      || coursesById.get(first.course_id)?.name
+      || "another session";
+
+    const secondName = second.course_name
+      || coursesById.get(second.course_id)?.name
+      || "another session";
+
+    addConflict(
+      first, second, type,
+      `${explanation} Conflicting session: ${secondName}.`
+    );
+
+    addConflict(
+      second, first, type,
+      `${explanation} Conflicting session: ${firstName}.`
+    );
+  }
+
+  const sessionsByDay = new Map();
+
+  for (const session of sessions) {
+    if (!sessionsByDay.has(session.weekday)) {
+      sessionsByDay.set(session.weekday, []);
+    }
+
+    sessionsByDay.get(session.weekday).push({
+      session,
+      start: minutesFromTime(session.start_time),
+      end: minutesFromTime(session.end_time),
+      group: coursesById.get(session.course_id)?.semester_id,
+      teachers: new Set(session.teacher_ids ?? []),
+    });
+  }
+
+  for (const dailySessions of sessionsByDay.values()) {
+    dailySessions.sort((a, b) => a.start - b.start);
+
+    for (let i = 0; i < dailySessions.length; i += 1) {
+      const first = dailySessions[i];
+
+      for (let j = i + 1; j < dailySessions.length; j += 1) {
+        const second = dailySessions[j];
+
+        const gap = second.start - first.end;
+
+        if (gap >= ROOM_TRANSITION_MINUTES) {
+          break;
+        }
+
+        const a = first.session;
+        const b = second.session;
+
+        const overlaps =
+          first.start < second.end &&
+          second.start < first.end;
+
+        const sameGroup =
+          first.group != null &&
+          first.group === second.group;
+
+        const assignedRooms =
+          a.room_id != null && b.room_id != null;
+
+        const sameRoom =
+          assignedRooms && a.room_id === b.room_id;
+
+        if (overlaps) {
+          if (sameRoom) {
+            addPair(
+              a, b, "room_overlap",
+              `Room double-booked (${a.room_code || a.room_id}).`
+            );
+          }
+
+          const sharedTeacher = [...first.teachers].some(
+            (id) => second.teachers.has(id)
+          );
+
+          if (sharedTeacher) {
+            addPair(
+              a, b, "teacher_overlap",
+              "Teacher has simultaneous sessions."
+            );
+          }
+
+          if (sameGroup) {
+            addPair(
+              a, b, "student_group_overlap",
+              "Student group has overlapping sessions."
+            );
+          }
+        } else if (
+          sameGroup &&
+          assignedRooms &&
+          !sameRoom &&
+          gap < ROOM_TRANSITION_MINUTES
+        ) {
+          addPair(
+            a, b, "room_transition",
+            `Room-transition buffer is ${gap} min; at least 15 min required.`
+          );
+        }
+      }
+    }
+  }
+
+  return conflicts;
 }

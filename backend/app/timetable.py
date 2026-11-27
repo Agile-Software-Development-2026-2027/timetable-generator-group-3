@@ -39,6 +39,7 @@ class SessionView(SessionInput):
     degree_name: str
     room_code: str | None
     teacher_names: list[str]
+    teacher_ids: list[int]
 
 
 def sessions_query(model=ScheduleSession):
@@ -65,6 +66,7 @@ def session_view(record: ScheduleSession, degree_name: str) -> SessionView:
         degree_name=degree_name,
         room_code=record.room.code if record.room else None,
         teacher_names=sorted(teacher.name for teacher in record.course.teachers),
+        teacher_ids=sorted(teacher.id for teacher in record.course.teachers),
     )
 
 

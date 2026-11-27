@@ -70,3 +70,61 @@ def test_missing_session_returns_404(client, course):
     assert client.delete("/timetable/sessions/999").status_code == 404
 
 pytestmark = pytest.mark.usefixtures("legacy_director_client")
+
+
+def test_session_exposes_teacher_ids(client, course):
+    teachers = []
+
+    for identifier in ("KAN21-T1", "KAN21-T2"):
+        response = client.post(
+            "/teachers",
+            json={
+                "name": "Same Teacher Name",
+                "identifier": identifier,
+                "course_ids": [course.id],
+            },
+        )
+
+        assert response.status_code == 201
+        teachers.append(response.json()["id"])
+
+    created = client.post(
+        "/timetable/sessions",
+        json=session_payload(course.id),
+    )
+
+    assert created.status_code == 201
+    assert created.json()["teacher_ids"] == sorted(teachers)
+
+    response = client.get("/timetable/sessions")
+
+    assert response.status_code == 200
+
+    record = next(
+        item for item in response.json()
+        if item["id"] == created.json()["id"]
+    )
+
+    assert record["teacher_ids"] == sorted(teachers)
+    assert record["teacher_names"] == [
+        "Same Teacher Name",
+        "Same Teacher Name",
+    ]
+
+
+def test_session_without_teachers_returns_empty_teacher_ids(client, course):
+    response = client.put(
+        f"/courses/{course.id}/teachers",
+        json={"teacher_ids": []},
+    )
+
+    assert response.status_code == 200
+
+    created = client.post(
+        "/timetable/sessions",
+        json=session_payload(course.id),
+    )
+
+    assert created.status_code == 201
+    assert created.json()["teacher_ids"] == []
+    assert created.json()["teacher_names"] == []

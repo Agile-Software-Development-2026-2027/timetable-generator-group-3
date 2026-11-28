@@ -206,11 +206,11 @@ def clear_sessions(
     degree_id: Annotated[int, Query(gt=0)],
     user: Annotated[CurrentUser, Depends(require_role("director"))],
 ) -> None:
-    require_degree_access(degree_id, user)
-
+    
     if session.get(Degree, degree_id) is None:
         raise HTTPException(404, "Degree not found.")
 
+    require_degree_access(degree_id, user)
     session.execute(
         delete(ScheduleSession).where(
             ScheduleSession.course_id.in_(

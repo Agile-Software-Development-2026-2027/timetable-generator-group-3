@@ -1,7 +1,7 @@
 """KAN-71 draft visibility, snapshot isolation and role checks."""
 from datetime import time
 
-from app.models import PublishedSession, ScheduleSession
+from app.models import PublishedSession, ScheduleSession, Teacher
 
 
 def _add_draft(session, course, hour=9):
@@ -16,7 +16,15 @@ def _add_draft(session, course, hour=9):
 
 def test_teacher_only_sees_published_snapshot(session, course, auth_client):
     draft = _add_draft(session, course)
-    teacher = auth_client("teacher")
+    teacher_record = Teacher(
+    name="Test Teacher",
+    identifier="test-teacher-publication",
+    )
+    course.teachers.append(teacher_record)
+    session.add(teacher_record)
+    session.commit()
+    
+    teacher = auth_client("teacher", teacher=teacher_record)
     director = auth_client("director")
     degree = course.degree_id
     path = f"/timetable/sessions?degree_id={degree}"

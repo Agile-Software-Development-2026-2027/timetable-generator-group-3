@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
@@ -13,7 +13,6 @@ from app.database import get_session
 from app.auth import require_role
 from app.engine.engine import solve
 from app.engine.facts import build_problem
-from app.engine.preflight import PreflightWarning, check_preflight
 from app.engine.reasons import unscheduled_course_reason
 from app.engine.validation import validate_solution
 from app.models import Degree, Room, ScheduleSession, Semester

@@ -10,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.database import get_session
+from app.auth import require_role
 from app.models import Course, SlotConfig
 
 router = APIRouter(prefix="/slot-config", tags=["slot-config"])
@@ -174,12 +175,20 @@ def _build_grid(config: SlotConfig) -> dict[str, list[TimeSlot]]:
     return {WEEKDAY_NAMES[d]: slots for d in days}
 
 
-@router.get("", response_model=SlotConfigView)
+@router.get(
+    "",
+    response_model=SlotConfigView,
+    dependencies=[Depends(require_role("director", "teacher", "student"))],
+)
 def get_slot_config(session: Database) -> SlotConfigView:
     return _to_view(_load_or_create(session))
 
 
-@router.put("", response_model=SlotConfigView)
+@router.put(
+    "",
+    response_model=SlotConfigView,
+    dependencies=[Depends(require_role("director"))],
+)
 def update_slot_config(data: SlotConfigInput, session: Database) -> SlotConfigView:
     incompatible = session.execute(
         select(
@@ -218,7 +227,11 @@ def update_slot_config(data: SlotConfigInput, session: Database) -> SlotConfigVi
     return _to_view(config)
 
 
-@router.get("/grid", response_model=SlotGrid)
+@router.get(
+    "/grid",
+    response_model=SlotGrid,
+    dependencies=[Depends(require_role("director", "teacher", "student"))],
+)
 def get_slot_grid(session: Database) -> SlotGrid:
     config = _load_or_create(session)
     return SlotGrid(config=_to_view(config), grid=_build_grid(config))

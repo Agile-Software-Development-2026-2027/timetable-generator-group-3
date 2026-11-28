@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
-
+from app.auth import require_role
 from app.database import get_session
 from app.models import Room, ScheduleSession
 
@@ -75,7 +75,11 @@ def ensure_unique_code(code: str, session: Session, room_id: int | None = None) 
         raise HTTPException(409, "A room with this code already exists.")
 
 
-@router.get("", response_model=list[RoomView])
+@router.get(
+    "",
+    response_model=list[RoomView],
+    dependencies=[Depends(require_role("director", "teacher", "student"))],
+)
 def list_rooms(
     session: Database,
     has_projector: bool | None = None,
@@ -99,7 +103,12 @@ def list_rooms(
     return [room_view(room, scheduled) for room, scheduled in session.execute(query)]
 
 
-@router.post("", response_model=RoomView, status_code=201)
+@router.post(
+    "",
+    response_model=RoomView,
+    status_code=201,
+    dependencies=[Depends(require_role("director"))],
+)
 def create_room(data: RoomInput, session: Database) -> RoomView:
     ensure_unique_code(data.code, session)
     room = Room(**data.model_dump())
@@ -109,7 +118,11 @@ def create_room(data: RoomInput, session: Database) -> RoomView:
     return room_view(room, 0)
 
 
-@router.get("/{room_id}", response_model=RoomView)
+@router.get(
+    "/{room_id}",
+    response_model=RoomView,
+    dependencies=[Depends(require_role("director", "teacher", "student"))],
+)
 def get_room(room_id: int, session: Database) -> RoomView:
     room = session.get(Room, room_id)
     if room is None:
@@ -117,7 +130,11 @@ def get_room(room_id: int, session: Database) -> RoomView:
     return room_view(room, count_sessions(room_id, session))
 
 
-@router.put("/{room_id}", response_model=RoomView)
+@router.put(
+    "/{room_id}",
+    response_model=RoomView,
+    dependencies=[Depends(require_role("director"))],
+)
 def update_room(room_id: int, data: RoomInput, session: Database) -> RoomView:
     room = session.get(Room, room_id)
     if room is None:
@@ -129,7 +146,11 @@ def update_room(room_id: int, data: RoomInput, session: Database) -> RoomView:
     return get_room(room_id, session)
 
 
-@router.delete("/{room_id}", status_code=204)
+@router.delete(
+    "/{room_id}",
+    status_code=204,
+    dependencies=[Depends(require_role("director"))],
+)
 def delete_room(room_id: int, session: Database, force: bool = False) -> None:
     room = session.get(Room, room_id)
     if room is None:

@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from typing import Annotated, Literal
 
+from dataclasses import asdict
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import delete, select
@@ -10,9 +12,10 @@ from sqlalchemy.orm import Session
 
 from app.auth import CurrentUser, require_director
 from app.database import get_session
+from app.auth import require_role
 from app.engine.engine import solve
 from app.engine.facts import build_problem
-from app.engine.preflight import PreflightWarning, check_preflight
+from app.engine.preflight import check_preflight
 from app.engine.reasons import unscheduled_course_reason
 from app.engine.validation import validate_solution
 from app.models import Degree, Room, ScheduleSession, Semester
@@ -39,36 +42,46 @@ class GenerateResult(BaseModel):
     total_sessions: int = 0
     unscheduled: list[Unscheduled]
 
-
-class PreflightResult(BaseModel):
-    warnings: list[PreflightWarning]
-
-
 @router.get(
     "/timetable/preflight",
-    response_model=PreflightResult,
-    response_model_exclude_none=True,
+    dependencies=[Depends(require_role("director"))],
 )
-def preflight_timetable(
+def timetable_preflight(
     session: Database,
-    _director: Director,
-    degree_id: Annotated[int, Query(gt=0)],
-    semester_id: Annotated[int | None, Query(gt=0)] = None,
-) -> PreflightResult:
+    degree_id: int = Query(gt=0),
+    semester_id: int | None = Query(default=None, gt=0),
+):
     if session.get(Degree, degree_id) is None:
         raise HTTPException(404, "Degree not found.")
 
     if semester_id is not None:
-        sem = session.get(Semester, semester_id)
-        if sem is None or sem.year.degree_id != degree_id:
-            raise HTTPException(404, "Semester not found in selected degree.")
+        semester = session.get(Semester, semester_id)
+        if semester is None or semester.year.degree_id != degree_id:
+            raise HTTPException(
+                404, "Semester not found in selected degree."
+            )
 
     problem = build_problem(session, degree_id, semester_id)
-    return PreflightResult(warnings=check_preflight(problem))
+    warnings = check_preflight(problem)
 
+    return {
+        "warnings": [
+            {
+                key: value
+                for key, value in asdict(warning).items()
+                if value is not None
+            }
+            for warning in warnings
+        ]
+    }
 
-@router.post("/timetable/generate", response_model=GenerateResult)
-def generate_timetable(payload: GenerateInput, session: Database, _director: Director):
+@router.post(
+    "/timetable/generate",
+    response_model=GenerateResult,
+    dependencies=[Depends(require_role("director"))],
+)
+
+def generate_timetable(payload: GenerateInput, session: Database):
     if session.get(Degree, payload.degree_id) is None:
         raise HTTPException(404, "Degree not found.")
     if payload.semester_id is not None:

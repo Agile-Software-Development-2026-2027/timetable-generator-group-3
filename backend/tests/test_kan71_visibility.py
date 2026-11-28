@@ -1,6 +1,6 @@
 from datetime import time
 
-from app.models import ScheduleSession
+from app.models import ScheduleSession, Teacher
 
 
 def test_roles_see_correct_timetable_versions(session, course, auth_client):
@@ -8,9 +8,18 @@ def test_roles_see_correct_timetable_versions(session, course, auth_client):
     url = f"/timetable/sessions?degree_id={degree}"
 
     director = auth_client("director")
-    teacher = auth_client("teacher")
-    student = auth_client("student")
 
+    teacher_record = Teacher(
+        name="Test Teacher",
+        identifier="test-teacher",
+    )
+    course.teachers.append(teacher_record)
+    session.add(teacher_record)
+    session.commit()
+    
+    teacher = auth_client("teacher", teacher=teacher_record)
+    student = auth_client("student")
+    
     draft = ScheduleSession(
         course_id=course.id,
         weekday=0,

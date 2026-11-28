@@ -21,7 +21,7 @@ def timetable(session):
     lab = Room(code="LAB-A", capacity=30, has_computers=True, is_lab=True)
     session.add_all([cs, math, ada, turing, noether, mt1, lab])
     session.flush()
-
+    
     def course(name, degree, year, semester, teachers):
         record = Course(
             name=name,
@@ -71,6 +71,9 @@ def timetable(session):
         "course_id": {"compilers": compilers.id},
     }
 
+@pytest.fixture
+def director_client(auth_client):
+    return auth_client("director")
 
 def labels(timetable, items):
     by_id = {session_id: label for label, session_id in timetable["sessions"].items()}
@@ -84,16 +87,16 @@ ALL_IN_ORDER = ["db_mon", "alg_mon", "net_mon", "comp_tue", "db_wed"]
 # --- No filters: existing behaviour preserved ---------------------------------
 
 
-def test_without_filters_returns_every_session_in_a_stable_order(client, timetable):
-    response = client.get("/timetable/sessions")
+def test_without_filters_returns_every_session_in_a_stable_order(director_client, timetable):
+    response = director_client.get("/timetable/sessions")
 
     assert response.status_code == 200
     assert labels(timetable, response.json()) == ALL_IN_ORDER
     assert response.headers["X-Total-Count"] == "5"
 
 
-def test_response_is_still_a_plain_list_of_sessions(client, timetable):
-    items = client.get("/timetable/sessions").json()
+def test_response_is_still_a_plain_list_of_sessions(director_client, timetable):
+    items = director_client.get("/timetable/sessions").json()
 
     assert isinstance(items, list)
     for field in ("id", "course_id", "room_id", "weekday", "start_time", "end_time"):
@@ -103,8 +106,8 @@ def test_response_is_still_a_plain_list_of_sessions(client, timetable):
 # --- Denormalised fields ------------------------------------------------------
 
 
-def test_sessions_are_enriched_with_names(client, timetable):
-    item = client.get("/timetable/sessions").json()[0]
+def test_sessions_are_enriched_with_names(director_client, timetable):
+    item = director_client.get("/timetable/sessions").json()[0]
 
     assert item == {
         "id": timetable["sessions"]["db_mon"],
@@ -124,29 +127,29 @@ def test_sessions_are_enriched_with_names(client, timetable):
     }
 
 
-def test_session_without_a_room_has_no_room_code(client, timetable):
-    items = client.get("/timetable/sessions?weekday=2").json()
+def test_session_without_a_room_has_no_room_code(director_client, timetable):
+    items = director_client.get("/timetable/sessions?weekday=2").json()
 
     assert [(item["room_id"], item["room_code"]) for item in items] == [(None, None)]
 
 
-def test_course_without_teachers_has_an_empty_teacher_list(client, timetable):
-    items = client.get("/timetable/sessions?weekday=1").json()
+def test_course_without_teachers_has_an_empty_teacher_list(director_client, timetable):
+    items = director_client.get("/timetable/sessions?weekday=1").json()
 
     assert [item["teacher_names"] for item in items] == [[]]
 
 
-def test_teacher_names_follow_course_teacher_assignments(client, timetable):
+def test_teacher_names_follow_course_teacher_assignments(director_client, timetable):
     compilers = timetable["course_id"]["compilers"]
     teachers = timetable["teacher_id"]
 
-    assigned = client.put(
+    assigned = director_client.put(
         f"/courses/{compilers}/teachers",
         json={"teacher_ids": [teachers["noether"], teachers["ada"]]},
     )
 
     assert assigned.status_code == 200
-    items = client.get("/timetable/sessions?weekday=1").json()
+    items = director_client.get("/timetable/sessions?weekday=1").json()
     assert items[0]["teacher_names"] == ["Ada Lovelace", "Emmy Noether"]
 
 
@@ -172,32 +175,32 @@ def test_teacher_names_follow_course_teacher_assignments(client, timetable):
         ("weekday", 6, []),
     ],
 )
-def test_each_filter_narrows_the_sessions(client, timetable, parameter, value, expected):
+def test_each_filter_narrows_the_sessions(director_client, timetable, parameter, value, expected):
     if parameter != "weekday":
         value = timetable[parameter][value]
 
-    response = client.get(f"/timetable/sessions?{parameter}={value}")
+    response = director_client.get(f"/timetable/sessions?{parameter}={value}")
 
     assert response.status_code == 200
     assert labels(timetable, response.json()) == expected
     assert response.headers["X-Total-Count"] == str(len(expected))
 
 
-def test_teacher_filter_lists_a_shared_course_once(client, timetable):
+def test_teacher_filter_lists_a_shared_course_once(director_client, timetable):
     turing = timetable["teacher_id"]["turing"]
 
-    items = client.get(f"/timetable/sessions?teacher_id={turing}").json()
+    items = director_client.get(f"/timetable/sessions?teacher_id={turing}").json()
 
     assert len(items) == len({item["id"] for item in items})
 
 
-def test_filters_combine(client, timetable):
+def test_filters_combine(director_client, timetable):
     cs = timetable["degree_id"]["cs"]
     turing = timetable["teacher_id"]["turing"]
     mt1 = timetable["room_id"]["mt1"]
 
-    monday_cs = client.get(f"/timetable/sessions?degree_id={cs}&weekday=0").json()
-    turing_in_mt1 = client.get(f"/timetable/sessions?teacher_id={turing}&room_id={mt1}").json()
+    monday_cs = director_client.get(f"/timetable/sessions?degree_id={cs}&weekday=0").json()
+    turing_in_mt1 = director_client.get(f"/timetable/sessions?teacher_id={turing}&room_id={mt1}").json()
 
     assert labels(timetable, monday_cs) == ["db_mon", "net_mon"]
     assert labels(timetable, turing_in_mt1) == ["db_mon"]
@@ -206,8 +209,8 @@ def test_filters_combine(client, timetable):
 @pytest.mark.parametrize(
     "parameter", ["degree_id", "year_id", "semester_id", "teacher_id", "room_id"]
 )
-def test_unknown_ids_match_nothing(client, timetable, parameter):
-    response = client.get(f"/timetable/sessions?{parameter}=9999")
+def test_unknown_ids_match_nothing(director_client, timetable, parameter):
+    response = director_client.get(f"/timetable/sessions?{parameter}=9999")
 
     assert response.status_code == 200
     assert response.json() == []
@@ -217,16 +220,16 @@ def test_unknown_ids_match_nothing(client, timetable, parameter):
 @pytest.mark.parametrize(
     "query", ["weekday=7", "weekday=-1", "degree_id=abc", "teacher_id=1.5"]
 )
-def test_invalid_filter_values_are_rejected(client, timetable, query):
-    assert client.get(f"/timetable/sessions?{query}").status_code == 422
+def test_invalid_filter_values_are_rejected(director_client, timetable, query):
+    assert director_client.get(f"/timetable/sessions?{query}").status_code == 422
 
 
 # --- Pagination ---------------------------------------------------------------
 
 
-def test_pages_split_the_ordered_sessions(client, timetable):
+def test_pages_split_the_ordered_sessions(director_client, timetable):
     pages = [
-        client.get(f"/timetable/sessions?page={page}&page_size=2") for page in (1, 2, 3, 4)
+        director_client.get(f"/timetable/sessions?page={page}&page_size=2") for page in (1, 2, 3, 4)
     ]
 
     assert [labels(timetable, page.json()) for page in pages] == [
@@ -238,16 +241,16 @@ def test_pages_split_the_ordered_sessions(client, timetable):
     assert {page.headers["X-Total-Count"] for page in pages} == {"5"}
 
 
-def test_pagination_applies_after_filtering(client, timetable):
+def test_pagination_applies_after_filtering(director_client, timetable):
     cs = timetable["degree_id"]["cs"]
 
-    response = client.get(f"/timetable/sessions?degree_id={cs}&page=2&page_size=3")
+    response = director_client.get(f"/timetable/sessions?degree_id={cs}&page=2&page_size=3")
 
     assert labels(timetable, response.json()) == ["db_wed"]
     assert response.headers["X-Total-Count"] == "4"
 
 
-def test_default_page_size_is_100(client, session, course):
+def test_default_page_size_is_100(director_client, session, course):
     session.add_all(
         ScheduleSession(
             course_id=course.id,
@@ -259,8 +262,8 @@ def test_default_page_size_is_100(client, session, course):
     )
     session.commit()
 
-    first = client.get("/timetable/sessions")
-    second = client.get("/timetable/sessions?page=2")
+    first = director_client.get("/timetable/sessions")
+    second = director_client.get("/timetable/sessions?page=2")
 
     assert len(first.json()) == 100
     assert len(second.json()) == 5
@@ -269,19 +272,19 @@ def test_default_page_size_is_100(client, session, course):
 
 
 @pytest.mark.parametrize("query", ["page=0", "page=-1", "page_size=0", "page_size=501"])
-def test_invalid_pages_are_rejected(client, timetable, query):
-    assert client.get(f"/timetable/sessions?{query}").status_code == 422
+def test_invalid_pages_are_rejected(director_client, timetable, query):
+    assert director_client.get(f"/timetable/sessions?{query}").status_code == 422
 
 
-def test_largest_page_size_is_allowed(client, timetable):
-    response = client.get("/timetable/sessions?page_size=500")
+def test_largest_page_size_is_allowed(director_client, timetable):
+    response = director_client.get("/timetable/sessions?page_size=500")
 
     assert response.status_code == 200
     assert len(response.json()) == 5
 
 
-def test_browsers_can_read_the_total_count(client, timetable):
-    response = client.get(
+def test_browsers_can_read_the_total_count(director_client, timetable):
+    response = director_client.get(
         "/timetable/sessions", headers={"Origin": "http://localhost:3000"}
     )
 
@@ -291,7 +294,7 @@ def test_browsers_can_read_the_total_count(client, timetable):
 # --- Create and update return the same enriched view -------------------------
 
 
-def test_create_and_update_return_enriched_sessions(client, timetable):
+def test_create_and_update_return_enriched_sessions(director_client, timetable):
     compilers = timetable["course_id"]["compilers"]
     lab = timetable["room_id"]["lab"]
     payload = {
@@ -302,8 +305,8 @@ def test_create_and_update_return_enriched_sessions(client, timetable):
         "end_time": "12:00",
     }
 
-    created = client.post("/timetable/sessions", json=payload)
-    updated = client.put(
+    created = director_client.post("/timetable/sessions", json=payload)
+    updated = director_client.put(
         f"/timetable/sessions/{created.json()['id']}", json={**payload, "room_id": lab}
     )
 
@@ -314,7 +317,7 @@ def test_create_and_update_return_enriched_sessions(client, timetable):
     assert created.json()["teacher_names"] == []
     assert updated.status_code == 200
     assert updated.json()["room_code"] == "LAB-A"
-    friday = client.get("/timetable/sessions?weekday=4").json()
+    friday = director_client.get("/timetable/sessions?weekday=4").json()
     assert friday == [updated.json()]
 
 pytestmark = pytest.mark.usefixtures("legacy_director_client")

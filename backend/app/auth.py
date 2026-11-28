@@ -10,6 +10,7 @@ from functools import lru_cache
 from typing import Annotated, Any, Literal
 
 import jwt
+from sqlalchemy import inspect
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
@@ -34,6 +35,7 @@ bearer_scheme = HTTPBearer(auto_error=False)
 class CurrentUser(BaseModel):
     id: uuid.UUID
     role: Role
+    degree_ids: list[int] = []
 
 
 def _not_authenticated() -> HTTPException:
@@ -103,8 +105,30 @@ def get_current_user(
     if user is None:
         raise HTTPException(403, "User has no role assigned")
 
-    return CurrentUser(id=user.id, role=user.role)
+    degree_ids = []
 
+    if user.role == "director" and inspect(session.get_bind()).has_table(
+        "director_degree"
+    ):
+        degree_ids = [degree.id for degree in user.degrees]
+
+    return CurrentUser(
+        id=user.id,
+        role=user.role,
+        degree_ids=degree_ids,
+    )
+    
+def require_role(*roles: Role):
+    """Require the current user to have one of the specified roles."""
+
+    def role_checker(
+        user: Annotated[CurrentUser, Depends(get_current_user)],
+    ) -> CurrentUser:
+        if user.role not in roles:
+            raise HTTPException(403, "Insufficient permissions")
+        return user
+
+    return role_checker
 
 def require_director(
     user: Annotated[CurrentUser, Depends(get_current_user)],
@@ -128,7 +152,12 @@ def _account(user: CurrentUser, session: Session) -> AppUser:
 
 
 # teacher_id and student_id are left out when empty, as in the KAN-44 contract.
-@router.get("/me", response_model=AccountView, response_model_exclude_none=True)
+@router.get(
+    "/me",
+    response_model=AccountView,
+    response_model_exclude_none=True,
+    response_model_exclude={"degree_ids"},
+)
 def read_current_user(
     user: Annotated[CurrentUser, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_session)],

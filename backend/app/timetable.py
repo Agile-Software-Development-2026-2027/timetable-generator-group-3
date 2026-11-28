@@ -6,14 +6,21 @@ from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session, contains_eager, joinedload
 
-from app.auth import CurrentUser, get_current_user, require_director
+from app.auth import CurrentUser, get_current_user, require_role
 from app.database import get_session
-from app.models import Course, Degree, PublishedSession, Room, ScheduleSession, course_teacher
-
+from app.models import (
+    AppUser,
+    Course,
+    Degree,
+    PublishedSession,
+    Room,
+    ScheduleSession,
+    course_teacher,
+)
 
 router = APIRouter(tags=["timetable"])
 Database = Annotated[Session, Depends(get_session)]
-Director = Annotated[CurrentUser, Depends(require_director)]
+Director = Annotated[CurrentUser, Depends(require_role("director"))]
 
 DEFAULT_PAGE_SIZE = 100
 MAX_PAGE_SIZE = 500
@@ -77,7 +84,11 @@ def get_session_view(session_id: int, session: Session) -> SessionView:
     return session_view(*row)
 
 
-@router.get("/timetable/sessions", response_model=list[SessionView])
+@router.get(
+    "/timetable/sessions",
+    response_model=list[SessionView],
+    dependencies=[Depends(require_role("director", "teacher", "student"))],
+)
 def list_sessions(
     session: Database,
     response: Response,
@@ -103,6 +114,17 @@ def list_sessions(
         else PublishedSession
     )
     filters = []
+    if user.role == "teacher":
+        account = session.get(AppUser, user.id)
+        if account is None or account.teacher_id is None:
+            raise HTTPException(403, "Teacher account is not linked to a teacher.")
+        filters.append(
+            Course.id.in_(
+                select(course_teacher.c.course_id).where(
+                    course_teacher.c.teacher_id == account.teacher_id
+                )
+            )
+        )
     if degree_id is not None:
         filters.append(Course.degree_id == degree_id)
         if model is PublishedSession:
@@ -154,15 +176,24 @@ def save_session(
     return record
 
 
-@router.post("/timetable/sessions", response_model=SessionView, status_code=201)
-def create_session(data: SessionInput, session: Database, _director: Director) -> SessionView:
+@router.post(
+    "/timetable/sessions",
+    response_model=SessionView,
+    status_code=201,
+    dependencies=[Depends(require_role("director"))],
+)
+def create_session(data: SessionInput, session: Database) -> SessionView:
     record = save_session(ScheduleSession(), data, session)
     session.add(record)
     session.commit()
     return get_session_view(record.id, session)
 
 
-@router.put("/timetable/sessions/{session_id}", response_model=SessionView)
+@router.put(
+    "/timetable/sessions/{session_id}",
+    response_model=SessionView,
+    dependencies=[Depends(require_role("director"))],
+)
 def update_session(
     session_id: int,
     data: SessionInput,
@@ -180,7 +211,11 @@ def update_session(
     return get_session_view(session_id, session)
 
 
-@router.delete("/timetable/sessions", status_code=204)
+@router.delete(
+    "/timetable/sessions",
+    status_code=204,
+    dependencies=[Depends(require_role("director"))],
+)
 def clear_sessions(
     session: Database,
     degree_id: Annotated[int, Query(gt=0)],
@@ -200,8 +235,12 @@ def clear_sessions(
     session.commit()
 
 
-@router.delete("/timetable/sessions/{session_id}", status_code=204)
-def delete_session(session_id: int, session: Database, _director: Director) -> None:
+@router.delete(
+    "/timetable/sessions/{session_id}",
+    status_code=204,
+    dependencies=[Depends(require_role("director"))],
+)
+def delete_session(session_id: int, session: Database) -> None:
     record = session.get(ScheduleSession, session_id)
 
     if record is None:

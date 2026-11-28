@@ -1,5 +1,7 @@
 "use client";
 
+import { Pencil, Trash2 } from "lucide-react";
+
 import { useEffect, useState } from "react";
 import { AppNav } from "../components/app-shell.jsx";
 import { emptyRoomForm, featureFlags, roomFeatures, roomFormErrors, roomFormFromRoom, roomPayload, roomsPath } from "./room-form.mjs";
@@ -224,8 +226,8 @@ export default function RoomsPage() {
                       <td className="text-end room-number">{room.scheduled_sessions}</td>
                       <td>
                         <div className="room-actions">
-                          <button type="button" className="btn btn-edit" aria-label={`Edit ${room.code}`} onClick={() => openEditForm(room)}><ActionIcon name="edit" /><span>Edit</span></button>
-                          <button type="button" className="btn btn-delete" aria-label={`Delete ${room.code}`} onClick={() => setDeleteTarget(room)}><ActionIcon name="delete" /><span>Delete</span></button>
+                          <button type="button" className="btn btn-edit" title="Edit" aria-label={`Edit ${room.code}`} onClick={() => openEditForm(room)}><Pencil size={14} aria-hidden="true" /></button>
+                          <button type="button" className="btn btn-delete" title="Delete" aria-label={`Delete ${room.code}`} onClick={() => setDeleteTarget(room)}><Trash2 size={14} aria-hidden="true" /></button>
                         </div>
                       </td>
                     </tr>

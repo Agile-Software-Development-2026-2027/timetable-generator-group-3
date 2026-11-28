@@ -7,8 +7,30 @@ from datetime import time
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from app.models import Course, Room, ScheduleSession, SlotConfig
+from app.models import (
+    Course,
+    Room,
+    ScheduleSession,
+    SlotConfig,
+    TeacherAvailability,
+    TeacherPreferences,
+)
 from app.slot_config import _build_grid, WEEKDAY_NAMES
+
+
+DEFAULT_SESSION_MINUTES = 60
+
+
+@dataclass(frozen=True)
+class TeacherWorkload:
+    """Optional teacher workload limits expressed in grid slots."""
+
+    max_daily_slots: int | None = None
+    max_teaching_days: int | None = None
+    max_consecutive_slots: int | None = None
+    preferred_part_of_day: str | None = None
+    max_hours_per_day: int | None = None
+    max_consecutive_hours: int | None = None
 
 
 @dataclass
@@ -22,10 +44,206 @@ class Problem:
     busy_rooms: set[tuple[int, int, int]] = field(default_factory=set)
     busy_teachers: set[tuple[int, int, int]] = field(default_factory=set)
     busy_groups: set[tuple[int, int, int]] = field(default_factory=set)
+    # KAN-57: (teacher_id, day, slot) from teacher availability ranges.
+    unavailable_teachers: set[tuple[int, int, int]] = field(default_factory=set)
+    preferred_slots: set[tuple[int, int, int]] = field(default_factory=set)
+    # KAN-52: grid blocks per session and sessions per week, by course id.
+    # A course missing from these maps uses one block per session and
+    # weekly_hours sessions (the behaviour before multi-block sessions).
+    session_blocks: dict[int, int] = field(default_factory=dict)
+    sessions_per_week: dict[int, int] = field(default_factory=dict)
+    # KAN-78: blocks of each session, by course id, when a course mixes session
+    # lengths (e.g. [3, 2]). Takes precedence over the two maps above.
+    session_parts: dict[int, list[int]] = field(default_factory=dict)
+    # KAN-72: workload limits and existing teaching commitments.
+    block_minutes: int = DEFAULT_SESSION_MINUTES
+    teacher_workloads: dict[int, TeacherWorkload] = field(default_factory=dict)
+    external_teaching: set[tuple[int, int, int]] = field(default_factory=set)
+
+    def session_lengths(self, course) -> list[int]:
+        """Blocks of every weekly session of a course, longest first."""
+        parts = self.session_parts.get(course.id)
+        if parts:
+            return parts
+        sessions = self.sessions_per_week.get(course.id, course.weekly_hours)
+        return [self.session_blocks.get(course.id, 1)] * sessions
+
+    def blocks_of(self, course_id: int) -> int:
+        """Blocks of the longest session of a course."""
+        parts = self.session_parts.get(course_id)
+        return max(parts) if parts else self.session_blocks.get(course_id, 1)
+
+    def sessions_of(self, course) -> int:
+        return len(self.session_lengths(course))
+
+    def required_blocks(self, course) -> int:
+        """Grid blocks a course occupies in one week."""
+        return sum(self.session_lengths(course))
+
+    def covered_slots(
+        self, course_id: int, day: int, start: int, blocks: int | None = None
+    ) -> list[tuple[int, int]]:
+        """Every (day, slot) of a session that starts at (day, start).
+
+        `blocks` is the length of that session; it defaults to the longest
+        session of the course.
+        """
+        length = blocks or self.blocks_of(course_id)
+        return [(day, start + offset) for offset in range(length)]
 
 
 def _minute(t: time) -> int:
     return t.hour * 60 + t.minute
+
+
+def _ceil_div(a: int, b: int) -> int:
+    return -(-a // b)
+
+
+def session_lengths(course, block_minutes: int) -> list[int]:
+    """KAN-78: blocks of each weekly session of a course, longest first.
+
+    `session_duration_minutes` is the longest a session may last (falls back
+    to 60 minutes). The weekly hours are split evenly into the fewest sessions
+    that don't exceed it: with a 3-hour maximum, 5 h is 3 + 2, 4 h is 2 + 2 and
+    11 h is 3 + 3 + 3 + 2. When the length divides the weekly hours, every
+    session has that length (the KAN-52 behaviour). Lengths round up to whole
+    blocks, so a course never gets less time than requested.
+    """
+    longest = getattr(course, "session_duration_minutes", None) or DEFAULT_SESSION_MINUTES
+    # Split in whole hours when the grid allows it (classes are 2 h + 3 h, not
+    # 2.5 h + 2.5 h), else in whole blocks, else in whole sessions; each part
+    # is then rounded up to whole blocks.
+    if longest % 60 == 0 and 60 % block_minutes == 0:
+        unit = 60
+    elif longest % block_minutes == 0:
+        unit = block_minutes
+    else:
+        unit = longest
+    total_units = max(1, _ceil_div(course.weekly_hours * 60, unit))
+    max_units = max(1, longest // unit)
+    count = _ceil_div(total_units, max_units)
+    base, extra = divmod(total_units, count)
+    units = [base + 1] * extra + [base] * (count - extra)
+    return [max(1, _ceil_div(size * unit, block_minutes)) for size in units]
+
+
+def session_shape(course, block_minutes: int) -> tuple[int, int]:
+    """Return (blocks of the longest session, sessions per week) for a course."""
+    lengths = session_lengths(course, block_minutes)
+    return max(lengths), len(lengths)
+
+
+def start_slots(
+    slots: dict[tuple[int, int], tuple[time, time]], blocks: int
+) -> list[tuple[int, int]]:
+    """Slots where a session of `blocks` consecutive blocks can start.
+
+    Every block S..S+blocks-1 must exist on the same day and each one must
+    begin exactly when the previous one ends, so a session never runs past
+    the end of the day or across a gap in the grid.
+    """
+    starts: list[tuple[int, int]] = []
+    for day, index in sorted(slots):
+        fits = True
+        for offset in range(1, blocks):
+            current = slots.get((day, index + offset))
+            previous = slots[(day, index + offset - 1)]
+            if current is None or current[0] != previous[1]:
+                fits = False
+                break
+        if fits:
+            starts.append((day, index))
+    return starts
+
+
+def availability_slots(
+    entries: list[TeacherAvailability],
+    slots: dict[tuple[int, int], tuple[time, time]],
+) -> tuple[set[tuple[int, int, int]], set[tuple[int, int, int]]]:
+    """KAN-57: map availability ranges to the grid slots they overlap.
+
+    Returns (unavailable, preferred) sets of (teacher_id, day, slot). Shared with
+    workload limits (KAN-72), which build on the same table and facts.
+    """
+    unavailable: set[tuple[int, int, int]] = set()
+    preferred: set[tuple[int, int, int]] = set()
+    for entry in entries:
+        target = unavailable if entry.availability_type == "unavailable" else preferred
+        for (day, index), (start, end) in slots.items():
+            if day == entry.weekday and _minute(entry.start_time) < _minute(end) \
+                    and _minute(entry.end_time) > _minute(start):
+                target.add((entry.teacher_id, day, index))
+    return unavailable, preferred
+
+
+def workload_limits(
+    preferences: list[TeacherPreferences],
+    block_minutes: int,
+) -> dict[int, TeacherWorkload]:
+    """Convert optional hour limits into whole-slot upper bounds."""
+
+    def to_slots(hours: int | None) -> int | None:
+        if hours is None:
+            return None
+        return hours * 60 // block_minutes
+
+    return {
+        entry.teacher_id: TeacherWorkload(
+            max_daily_slots=to_slots(entry.max_hours_per_day),
+            max_hours_per_day=entry.max_hours_per_day,
+            max_consecutive_hours=entry.max_consecutive_hours,
+            max_teaching_days=entry.max_teaching_days,
+            max_consecutive_slots=to_slots(entry.max_consecutive_hours),
+            preferred_part_of_day=(
+                entry.preferred_part_of_day
+                if entry.preferred_part_of_day in ("morning", "afternoon")
+                else None
+            ),
+        )
+        for entry in preferences
+    }
+
+
+def workload_facts(
+    workloads: dict[int, TeacherWorkload],
+    slots: dict[tuple[int, int], tuple[time, time]],
+    external_teaching: set[tuple[int, int, int]],
+) -> list[str]:
+    """Build KAN-72 workload facts for the scheduling model."""
+    lines: list[str] = []
+
+    for teacher_id, workload in sorted(workloads.items()):
+        limits = (
+            ("max_daily_slots", workload.max_daily_slots),
+            ("max_teaching_days", workload.max_teaching_days),
+            ("max_consecutive_slots", workload.max_consecutive_slots),
+        )
+        for predicate, value in limits:
+            if value is not None:
+                lines.append(f"{predicate}({teacher_id},{value}).")
+
+        if workload.preferred_part_of_day is not None:
+            for (day, index), (start, _) in sorted(slots.items()):
+                part = "morning" if start < time(13, 0) else "afternoon"
+                if part == workload.preferred_part_of_day:
+                    lines.append(
+                        f"prefers_part_slot({teacher_id},{day},{index})."
+                    )
+
+    # External teaching is distinct from unavailable time.
+    for teacher_id, day, index in sorted(external_teaching):
+        if teacher_id in workloads:
+            lines.append(f"external_teaching({teacher_id},{day},{index}).")
+
+    # Consecutive slots must also be contiguous in actual clock time.
+    if any(w.max_consecutive_slots is not None for w in workloads.values()):
+        for (day, index), (_, end) in sorted(slots.items()):
+            following = slots.get((day, index + 1))
+            if following is not None and end == following[0]:
+                lines.append(f"next_slot({day},{index},{index + 1}).")
+
+    return lines
 
 
 def build_problem(session: Session, degree_id: int, semester_id: int | None) -> Problem:
@@ -42,7 +260,7 @@ def build_problem(session: Session, degree_id: int, semester_id: int | None) -> 
         # Same defaults as KAN-14, 
         config = SlotConfig(id=1, working_days="[0,1,2,3,4]",
                             start_time=time(9, 0), end_time=time(18, 0),
-                            block_minutes=60)
+                            block_minutes=30)
         # Use in-memory defaults without inserting configuration during generation.
     grid = _build_grid(config)
     slots: dict[tuple[int, int], tuple[time, time]] = {}
@@ -56,12 +274,21 @@ def build_problem(session: Session, degree_id: int, semester_id: int | None) -> 
     # KAN-53: minimum 15-minute travel buffer, rounded up to whole slots.
     buffer_slots = (15 + config.block_minutes - 1) // config.block_minutes
     lines: list[str] = [f"buffer_slots({buffer_slots})."]
+    session_parts: dict[int, list[int]] = {}
+    lengths_in_use: set[int] = set()
     for c in courses:
+        # KAN-52/KAN-78: part(C,B,N) — N weekly sessions of B consecutive blocks.
+        parts = session_lengths(c, config.block_minutes)
+        session_parts[c.id] = parts
+        lengths_in_use.update(parts)
         lines.extend((
             f"course({c.id},{c.weekly_hours}).",
             f"students({c.id},{c.enrolled_students}).",
             f"group({c.id},{c.semester_id}).",
         ))
+        lines.extend(
+            f"part({c.id},{blocks},{parts.count(blocks)})." for blocks in sorted(set(parts))
+        )
         if c.requires_lab:
             lines.append(f"requires_lab({c.id}).")
         if c.requires_projector:
@@ -76,6 +303,10 @@ def build_problem(session: Session, degree_id: int, semester_id: int | None) -> 
             lines.append(f"has_projector({r.id}).")
     for day, index in slots:
         lines.append(f"slot({day},{index}).")
+    # fits(B,D,S): a session of B blocks can start at (D,S) without running past
+    # the end of the day or across a gap in the grid (e.g. the lunch break).
+    for blocks in sorted(lengths_in_use):
+        lines.extend(f"fits({blocks},{day},{index})." for day, index in start_slots(slots, blocks))
 
     # Exclude ALL sessions for courses in this scope: they will be replaced.
     selected_ids = {c.id for c in courses}
@@ -87,6 +318,7 @@ def build_problem(session: Session, degree_id: int, semester_id: int | None) -> 
     busy_rooms: set[tuple[int, int, int]] = set()
     busy_teachers: set[tuple[int, int, int]] = set()
     busy_groups: set[tuple[int, int, int]] = set()
+    external_teaching: set[tuple[int, int, int]] = set()
     for existing in external:
         if existing.course_id in selected_ids:
             continue
@@ -101,12 +333,38 @@ def build_problem(session: Session, degree_id: int, semester_id: int | None) -> 
             for teacher in existing.course.teachers:
                 busy.add(f"busy_teacher({teacher.id},{day},{index}).")
                 busy_teachers.add((teacher.id, day, index))
+                external_teaching.add((teacher.id, day, index))
             busy.add(f"busy_group({existing.course.semester_id},{day},{index}).")
             busy_groups.add((existing.course.semester_id, day, index))
+    # KAN-57: unavailable ranges reuse the busy_teacher hard constraint;
+    # preferred ranges feed the prefers_slot soft constraint in model.lp.
+    teacher_ids = {teacher.id for c in courses for teacher in c.teachers}
+    entries = list(session.scalars(
+        select(TeacherAvailability).where(TeacherAvailability.teacher_id.in_(teacher_ids))
+    )) if teacher_ids else []
+    preferences = list(session.scalars(
+        select(TeacherPreferences).where(
+            TeacherPreferences.teacher_id.in_(teacher_ids)
+        )
+    )) if teacher_ids else []
+
+    workloads = workload_limits(preferences, config.block_minutes)
+
+    unavailable, preferred = availability_slots(entries, slots)
+    for teacher_id, day, index in unavailable:
+        busy.add(f"busy_teacher({teacher_id},{day},{index}).")
+    busy_teachers |= unavailable
     lines.extend(sorted(busy))
+    lines.extend(sorted(f"prefers_slot({t},{d},{s})." for t, d, s in preferred))
+    lines.extend(workload_facts(workloads, slots, external_teaching))
     group_capacity = {c.semester_id: len(slots) for c in courses}
     return Problem(
         courses, rooms, slots, "\n".join(lines), group_capacity,
         busy_rooms=busy_rooms, busy_teachers=busy_teachers, busy_groups=busy_groups,
         buffer_slots=buffer_slots,
+        session_parts=session_parts,
+        unavailable_teachers=unavailable, preferred_slots=preferred,
+        block_minutes=config.block_minutes,
+        teacher_workloads=workloads,
+        external_teaching=external_teaching,
     )

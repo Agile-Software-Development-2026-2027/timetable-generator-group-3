@@ -2,6 +2,8 @@
 and smallest-room soft preference in the ASP engine."""
 from __future__ import annotations
 
+import pytest
+
 from datetime import time
 from types import SimpleNamespace
 
@@ -128,7 +130,7 @@ class TestLabConstraint:
         degree, year, sem = _degree_and_semester(session, director_client)
         _make_course(session, degree=degree, year=year, semester=sem,
                      enrolled_students=20, requires_lab=False)
-        # Only a non-lab room available — should still be OK
+        # Only a non-lab room available â€” should still be OK
         session.add(Room(code="LEC", capacity=40, is_lab=False))
         session.commit()
 
@@ -338,3 +340,5 @@ class TestNoSuitableRoomReason:
         ]
         reason = _room_constraint_reason(course, rooms)
         assert "No suitable room available" in reason
+
+pytestmark = pytest.mark.usefixtures("legacy_director_client")

@@ -3,6 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from app.auth import CurrentUser, get_current_user, require_degree_access, require_role
@@ -200,6 +201,13 @@ def update_degree(
         )
         if course_exists:
             raise HTTPException(409, "Years containing courses cannot be removed.")
+        student_exists = session.scalar(
+            select(Student.id)
+            .where(Student.year_id.in_([year.id for year in removed_years]))
+            .limit(1)
+        )
+        if student_exists is not None:
+            raise HTTPException(409, "Years containing students cannot be removed.")
     for year in degree.years:
         removed_semesters = [
             semester
@@ -260,5 +268,15 @@ def delete_degree(
     require_degree_access(degree_id, user)
     if session.scalar(select(Course.id).where(Course.degree_id == degree_id).limit(1)):
         raise HTTPException(409, "A degree with courses cannot be deleted.")
-    session.delete(degree)
-    session.commit()
+    if session.scalar(
+        select(Student.id).where(Student.degree_id == degree_id).limit(1)
+    ) is not None:
+        raise HTTPException(409, "A degree with students cannot be deleted.")
+    try:
+        session.delete(degree)
+        session.commit()
+    except IntegrityError as error:
+        session.rollback()
+        raise HTTPException(
+            409, "The degree is referenced by existing records."
+        ) from error

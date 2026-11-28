@@ -1,7 +1,46 @@
-backend/uv.lock
-node_modules/
-timetable.db
+
+# Environment variables and secrets
 .env
-.env.local
+.env.*
+!.env.example
+!.env.sample
+
+# Node.js dependencies
+node_modules/
+frontend/.next/
+frontend/out/
+frontend/coverage/
+
+# Python cache and virtual environments
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+*.egg-info/
+.coverage
+htmlcov/
+
+# Local SQLite databases
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# Local logs
+*.log
+npm-debug.log*
+
+# Editor and operating system files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
 # Local review notes
 semantic-review/
+
+# Keep dependency lockfiles tracked
+# backend/uv.lock
+# frontend/package-lock.json

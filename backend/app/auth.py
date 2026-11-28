@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 
 from app.config import Settings, get_settings
 from app.database import get_session
-from app.models import AppUser
+from app.models import AppUser, Student, Teacher
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -118,10 +118,12 @@ def require_degree_access(
         raise HTTPException(403, "You do not have access to this degree.")
     return user
 
-@router.get("/me")
-def read_current_user(
+def require_director(
     user: Annotated[CurrentUser, Depends(get_current_user)],
 ) -> CurrentUser:
+    """Require a signed-in director for draft-mutating operations."""
+    if user.role != "director":
+        raise HTTPException(403, "Only directors can modify draft timetables.")
     return user
 
 def require_role(*allowed_roles: Role):

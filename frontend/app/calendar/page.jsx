@@ -1,8 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AppNav } from "../components/app-shell.jsx";
-import { apiRequest as request } from "../../lib/api.js";
+import { PublicationPanel } from "./publication-panel.jsx";
+import { PreflightPanel } from "./preflight-panel.jsx";
+import SessionDetailsDialog from "./session-details-dialog.jsx";
+import { apiRequest as request, fetchPreflightWarnings } from "../../lib/api.js";
 import FullCalendar from "@fullcalendar/react";
 import dayGridPlugin from "@fullcalendar/react/daygrid";
 import timeGridPlugin from "@fullcalendar/react/timegrid";
@@ -11,6 +14,7 @@ import breezyThemePlugin from "@fullcalendar/react/themes/breezy";
 import {
   DEFAULT_SLOT_CONFIG,
   fetchAllSessions,
+  detectSessionConflicts,
   getCalendarVisibleRange,
   getCalendarWeekSettings,
   getResponsiveCalendarView,
@@ -75,6 +79,11 @@ export default function TimetablePage() {
   const [lastGenerationResult, setLastGenerationResult] = useState(null);
   const [generationConfirmationOpen, setGenerationConfirmationOpen] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [preflight, setPreflight] = useState(null);
+  const [generationPreflight, setGenerationPreflight] = useState(null);
+  const [preflightRevision, setPreflightRevision] = useState(0);
+  const [acknowledgedPreflight, setAcknowledgedPreflight] = useState(null);
+  const [publicationRevision, setPublicationRevision] = useState(0);
   const [selectedSession, setSelectedSession] = useState(null);
   const calendarRef = useRef(null);
   const calendarScopeInitializedRef = useRef(false);
@@ -270,12 +279,183 @@ export default function TimetablePage() {
     };
   }, [selectedDegreeId, request]);
 
+  useEffect(() => {
+    if (!selectedDegreeId) return undefined;
+
+    let active = true;
+    let controller;
+
+    async function loadPreflight() {
+      controller?.abort();
+      const requestController = new window.AbortController();
+      controller = requestController;
+
+      setPreflight((previous) => ({
+        degreeId: selectedDegreeId,
+        loading: true,
+        warnings: previous?.degreeId === selectedDegreeId
+          ? previous.warnings
+          : [],
+        error: "",
+      }));
+
+      try {
+        const warnings = await fetchPreflightWarnings(
+          selectedDegreeId,
+          { signal: requestController.signal }
+        );
+
+        if (active && !requestController.signal.aborted) {
+          setPreflight({
+            degreeId: selectedDegreeId,
+            loading: false,
+            warnings,
+            error: "",
+          });
+        }
+      } catch (error) {
+        if (active && !requestController.signal.aborted) {
+          setPreflight({
+            degreeId: selectedDegreeId,
+            loading: false,
+            warnings: [],
+            error: error.message,
+          });
+        }
+      }
+    }
+
+    loadPreflight();
+
+    const timer = window.setInterval(loadPreflight, 30000);
+
+    function refreshOnVisibility() {
+      if (document.visibilityState === "visible") {
+        loadPreflight();
+      }
+    }
+
+    document.addEventListener(
+      "visibilitychange",
+      refreshOnVisibility
+    );
+
+    return () => {
+      active = false;
+      controller?.abort();
+      window.clearInterval(timer);
+      document.removeEventListener(
+        "visibilitychange",
+        refreshOnVisibility
+      );
+    };
+  }, [selectedDegreeId, preflightRevision]);
+
+  const currentPreflight = preflight?.degreeId === selectedDegreeId
+    ? preflight
+    : null;
+
+  useEffect(() => {
+    if (!generationConfirmationOpen || !selectedDegreeId) {
+      return undefined;
+    }
+
+    let active = true;
+    const controller = new window.AbortController();
+
+    setGenerationPreflight({
+      degreeId: selectedDegreeId,
+      semesterId: selectedSemesterId,
+      revision: preflightRevision,
+      loading: true,
+      warnings: [],
+      error: "",
+    });
+
+    fetchPreflightWarnings(selectedDegreeId, {
+      semesterId: selectedSemesterId,
+      signal: controller.signal,
+    }).then((warnings) => {
+      if (!active || controller.signal.aborted) return;
+
+      setGenerationPreflight({
+        degreeId: selectedDegreeId,
+        semesterId: selectedSemesterId,
+        revision: preflightRevision,
+        loading: false,
+        warnings,
+        error: "",
+      });
+    }).catch((error) => {
+      if (!active || controller.signal.aborted) return;
+
+      setGenerationPreflight({
+        degreeId: selectedDegreeId,
+        semesterId: selectedSemesterId,
+        revision: preflightRevision,
+        loading: false,
+        warnings: [],
+        error: error.message,
+      });
+    });
+
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, [
+    generationConfirmationOpen,
+    selectedDegreeId,
+    selectedSemesterId,
+    preflightRevision,
+  ]);
+
+  const currentGenerationPreflight =
+    generationPreflight?.degreeId === selectedDegreeId
+    && generationPreflight.semesterId === selectedSemesterId
+    && generationPreflight.revision === preflightRevision
+      ? generationPreflight
+      : null;
+
+  const preflightErrors = (currentGenerationPreflight?.warnings ?? []).filter(
+    (warning) => warning.severity === "error"
+  );
+
+  const preflightWarningCount =
+    (currentGenerationPreflight?.warnings.length ?? 0) - preflightErrors.length;
+
+  const preflightErrorKey = JSON.stringify([
+    selectedDegreeId,
+    selectedSemesterId,
+    preflightErrors,
+  ]);
+
+  const preflightReady = Boolean(
+    currentGenerationPreflight
+    && !currentGenerationPreflight.loading
+    && !currentGenerationPreflight.error
+  );
+
+  const canConfirmGeneration = Boolean(
+    selectedDegreeId
+    && !generating
+    && preflightReady
+    && (
+      preflightErrors.length === 0
+      || acknowledgedPreflight === preflightErrorKey
+    )
+  );
+
   function requestGeneration(event) {
     event.preventDefault();
+    setAcknowledgedPreflight(null);
+    setPreflightRevision((value) => value + 1);
     setGenerationConfirmationOpen(true);
   }
 
   function closeGenerationConfirmation() {
+    setAcknowledgedPreflight(null);
+    setGenerationPreflight(null);
     setGenerationConfirmationOpen(false);
     generateButtonRef.current?.focus();
   }
@@ -382,9 +562,8 @@ export default function TimetablePage() {
         ...result,
         degree_id: Number(degreeId),
         degree_name: selectedDegreeName,
-        total_required_sessions: courses
-          .filter((course) => String(course.degree_id) === String(degreeId))
-          .reduce((total, course) => total + course.weekly_hours, 0),
+        // KAN-77: the backend counts the sessions of the generated scope only.
+        total_required_sessions: Number.isInteger(result.total_sessions) ? result.total_sessions : 0,
         generated_at: new Date().toISOString(),
       };
      setGenerationResult(completedResult);
@@ -399,6 +578,7 @@ export default function TimetablePage() {
         setGenerationError("Generation completed, but its summary could not be saved in this browser.");
       }
       setSessions(await fetchAllSessions(request));
+      setPublicationRevision((value) => value + 1);
       setScheduleError("");
     } catch (error) {
       setGenerationResult(null);
@@ -429,6 +609,7 @@ export default function TimetablePage() {
       );
 
       setSessions(await fetchAllSessions(request));
+      setPublicationRevision((value) => value + 1);
       setGenerationResult(null);
       setLastGenerationResult(null);
 
@@ -442,7 +623,11 @@ export default function TimetablePage() {
     }
   }
   async function confirmGeneration() {
+    if (!canConfirmGeneration) return;
+
+    setAcknowledgedPreflight(null);
     await generateTimetable(selectedDegreeId);
+    setPreflightRevision((value) => value + 1);
   }
 
   const degreeName = degrees.find((item) => String(item.id) === selectedDegreeId)?.name
@@ -494,6 +679,15 @@ export default function TimetablePage() {
   );
   const hasCalendarFilter = Boolean(calendarDegreeId || calendarYearId || calendarSemesterId);
   const normalizedCalendarSearch = calendarSearch.trim().toLowerCase();
+  const sessionConflicts = useMemo(
+    () => detectSessionConflicts(sessions, courses),
+    [sessions, courses]
+  );
+
+  const selectedSessionConflicts = selectedSession
+    ? sessionConflicts.get(selectedSession.id) ?? []
+    : [];
+
   const visibleSessions = sessions.filter((item) => {
     if (hasCalendarFilter && !calendarCourseIds.has(item.course_id)) return false;
     if (!normalizedCalendarSearch) return true;
@@ -544,12 +738,13 @@ export default function TimetablePage() {
     const timeRange = `${startTime}–${endTime}`;
     return {
       id: String(item.id),
-      title: `${courseName} · ${roomCode} · ${timeRange} · ${teacherNames}`,
+      title: `${courseName} Â· ${roomCode} Â· ${timeRange} Â· ${teacherNames}`,
       daysOfWeek: [(item.weekday + 1) % 7], startTime: item.start_time, endTime: item.end_time,
       extendedProps: {
         course_id: item.course_id,
         room_id: item.room_id,
         session: item,
+        conflicts: sessionConflicts.get(item.id) ?? [],
         courseName,
         roomCode,
         hasRoom: Boolean(assignedRoomCode),
@@ -587,10 +782,10 @@ export default function TimetablePage() {
           </span>
           <div>
             <h2>Create a timetable</h2>
-            <p>Choose a degree programme and we’ll find suitable times and rooms for its courses.</p>
+            <p>Choose a degree programme and we'll find suitable times and rooms for its courses.</p>
           </div>
         </div>
-        <div className="timetable-controls">
+        <div className="timetable-controls d-flex flex-row flex-wrap align-items-end gap-3">
           <div className="timetable-degree-field">
             <label className="form-label" htmlFor="generation-degree">Degree programme</label>
             <select id="generation-degree" className="form-select" value={selectedDegreeId}
@@ -604,12 +799,45 @@ export default function TimetablePage() {
               {degrees.map((degree) => <option key={degree.id} value={degree.id}>{degree.name}</option>)}
             </select>
           </div>
-          <div className="timetable-controls-footer">
-            <div className="timetable-actions">
-              <button ref={generateButtonRef} type="submit" className="btn btn-campus"
-                disabled={generating}>
-                {generating ? "Generating…" : "Generate timetable"}
-              </button>
+          <div className="timetable-controls-footer w-auto flex-grow-1">
+            {selectedDegreeId && (!currentPreflight || currentPreflight.loading) && (
+              <small className="text-muted" role="status">
+                Checking timetable data...
+              </small>
+            )}
+            {currentPreflight?.error && (
+              <div className="alert alert-warning" role="alert">
+                Could not check timetable data: {currentPreflight.error}
+                <button
+                  type="button"
+                  className="btn btn-sm btn-outline-secondary ms-2"
+                  onClick={() => setPreflightRevision((value) => value + 1)}
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+            {currentPreflight && !currentPreflight.loading
+              && !currentPreflight.error
+              && currentPreflight.warnings.length === 0 && (
+                <small className="visually-hidden" role="status">
+                  No pre-generation warnings.
+                </small>
+              )}
+            <div className="timetable-actions d-flex flex-row flex-wrap align-items-center gap-2">
+              <div className="btn-group" role="group" aria-label="Timetable generation">
+                <button ref={generateButtonRef} type="submit" className="btn btn-campus"
+                  disabled={generating}>
+                  {generating ? "Generating..." : "Generate timetable"}
+                </button>
+
+                <PreflightPanel
+                  key={selectedDegreeId}
+                  warnings={!currentPreflight?.error
+                    ? currentPreflight?.warnings ?? []
+                    : []}
+                />
+              </div>
               <button
               type="button"
               className="btn btn-outline-danger"
@@ -622,10 +850,17 @@ export default function TimetablePage() {
                 className="btn btn-outline-secondary" onClick={() => setGenerationResult(lastGenerationResult)}>
                 View last result
               </button>}
+              <PublicationPanel
+                degreeId={selectedDegreeId}
+                degreeName={degreeName}
+                revision={publicationRevision}
+              />
+
             </div>
           </div>
         </div>
       </form>
+
       {!scheduleError && !sessions.length && <div className="empty-calendar mb-3">
         <span className="empty-calendar-icon" aria-hidden="true">▦</span>
         <span><strong>No timetable has been generated for {calendarScope}</strong>
@@ -646,6 +881,7 @@ export default function TimetablePage() {
             {calendarView !== "listWeek" && <div className="calendar-legend" aria-label="Calendar key">
               <span><i className="calendar-legend-swatch calendar-legend-empty" aria-hidden="true" />Empty slot</span>
               <span><i className="calendar-legend-swatch calendar-legend-occupied" aria-hidden="true" />Scheduled class</span>
+              <span><i className="calendar-legend-swatch calendar-legend-conflict" aria-hidden="true" />Scheduling conflict</span>
             </div>}
           </div>
         </div>
@@ -720,7 +956,26 @@ export default function TimetablePage() {
           eventContent={(info) => {
             const { courseName, roomCode, hasRoom, timeRange, teacherNames, hasTeachers } = info.event.extendedProps;
             const showTimeInCard = !["timeGridWeek", "timeGridDay"].includes(info.view?.type);
-            return <div className="calendar-event-content">
+            const conflicts = info.event.extendedProps.conflicts ?? [];
+            const hasConflicts = conflicts.length > 0;
+            const conflictMessage = conflicts
+              .map((conflict) => conflict.message)
+              .join("\n");
+
+            return <div
+              className={`calendar-event-content${hasConflicts ? " calendar-event-conflict" : ""}`}
+              title={hasConflicts ? conflictMessage : undefined}
+            >
+              {hasConflicts && (
+                <span
+                  className="calendar-conflict-warning calendar-event-title"
+                  title={conflictMessage}
+                  aria-label={conflictMessage}
+                >
+                  <span aria-hidden="true">!</span>
+                  {" Scheduling conflict"}
+                </span>
+              )}
               <strong className="calendar-event-title" title={courseName}>{courseName}</strong>
               {hasRoom && <span className="calendar-event-detail" title={roomCode}>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"
@@ -822,28 +1077,32 @@ export default function TimetablePage() {
           </div>
         </section>
       </div>)}
-      {selectedSession && <div className="session-details-backdrop" role="presentation"
-        onMouseDown={(event) => {
-          if (event.target === event.currentTarget) setSelectedSession(null);
-        }}>
-        <section className="session-details-dialog" role="dialog" aria-modal="true"
-          aria-labelledby="session-details-title">
-          <div className="session-details-heading">
-            <div>
-              <p className="eyebrow mb-1">TIMETABLE SESSION</p>
-              <h2 id="session-details-title">{selectedSession.course_name}</h2>
-            </div>
-            <button type="button" className="session-details-close" aria-label="Close session details"
-              onClick={() => setSelectedSession(null)}>×</button>
-          </div>
-          <dl className="session-details-list">
-            <div><dt>Day</dt><dd>{["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"][selectedSession.weekday]}</dd></div>
-            <div><dt>Time</dt><dd>{selectedSession.start_time.slice(0, 5)}–{selectedSession.end_time.slice(0, 5)}</dd></div>
-            <div><dt>Room</dt><dd>{selectedSession.room_code || "Not assigned"}</dd></div>
-            <div><dt>Degree programme</dt><dd>{selectedSession.degree_name}</dd></div>
-            <div><dt>Teacher{selectedSession.teacher_names?.length === 1 ? "" : "s"}</dt>
-              <dd>{selectedSession.teacher_names?.length ? selectedSession.teacher_names.join(", ") : "Not assigned"}</dd></div>
-          </dl>
+      {selectedSession && (
+        <SessionDetailsDialog
+          session={selectedSession}
+          onClose={() => setSelectedSession(null)}
+        >
+          {selectedSessionConflicts.length > 0 && (
+            <section
+              className="calendar-conflict-details generation-confirm-warning"
+              aria-label="Scheduling conflicts"
+            >
+              <h3 className="small fw-semibold mb-2">
+                <span aria-hidden="true">!</span>
+                {" Scheduling conflicts "}
+                ({selectedSessionConflicts.length})
+              </h3>
+              <ul className="small mb-0 ps-3">
+                {selectedSessionConflicts.map((conflict) => (
+                  <li
+                    key={`${conflict.type}-${conflict.relatedSessionId}`}
+                  >
+                    {conflict.message}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
           <div className="session-color-setting">
             <label htmlFor="session-color">Color for this class</label>
             <div className="session-color-controls">
@@ -857,19 +1116,21 @@ export default function TimetablePage() {
             <p>Changes only this scheduled class and are saved in this browser.</p>
             {sessionColorError && <p className="session-color-error" role="alert">{sessionColorError}</p>}
           </div>
-          <div className="session-details-actions">
-            <button type="button" className="btn btn-campus"
-              onClick={() => setSelectedSession(null)}>Close details</button>
-          </div>
-        </section>
-      </div>}
+        </SessionDetailsDialog>
+      )}
       {generationConfirmationOpen && <div className="generation-confirm-backdrop" role="presentation"
         onMouseDown={(event) => {
           if (event.target === event.currentTarget) closeGenerationConfirmation();
         }}>
-        <section className="generation-confirm-dialog" role="dialog" aria-modal="true"
+        <section className="generation-confirm-dialog position-relative" role="dialog" aria-modal="true"
           aria-labelledby="generation-confirmation-title">
           <div className="generation-confirm-topline" />
+          <button type="button"
+            className="session-details-close position-absolute top-0 end-0 mt-3 me-3"
+            aria-label="Close generation confirmation"
+            onClick={closeGenerationConfirmation}>
+            ×
+          </button>
           <div className="generation-confirm-heading">
             <span className="generation-confirm-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"
@@ -884,16 +1145,19 @@ export default function TimetablePage() {
               <p className="generation-confirm-intro">Take a moment to review what will change.</p>
             </div>
           </div>
-          <div className="generation-confirm-degree mb-3">
-  <label className="form-label" htmlFor="modal-degree">
+          <div className="row g-2 mb-3">
+            <div className="col-12 col-sm-7">
+              <label className="form-label" htmlFor="modal-degree">
     Degree programme *
   </label>
   <select
     id="modal-degree"
-    className="form-select"
+    className="form-select form-select-sm"
     value={selectedDegreeId}
     onChange={(event) => {
       setSelectedDegreeId(event.target.value);
+      setSelectedSemesterId("");
+      setAcknowledgedPreflight(null);
       setGenerationError("");
     }}
     required
@@ -905,15 +1169,19 @@ export default function TimetablePage() {
       </option>
     ))}
   </select>
-
-  <label className="form-label mt-3" htmlFor="modal-semester">
+            </div>
+            <div className="col-12 col-sm-5">
+              <label className="form-label" htmlFor="modal-semester">
     Semester (optional)
   </label>
   <select
     id="modal-semester"
-    className="form-select"
+    className="form-select form-select-sm"
     value={selectedSemesterId}
-    onChange={(event) => setSelectedSemesterId(event.target.value)}
+    onChange={(event) => {
+      setSelectedSemesterId(event.target.value);
+      setAcknowledgedPreflight(null);
+    }}
     disabled={!semesters.length}
   >
     <option value="">All semesters</option>
@@ -923,7 +1191,8 @@ export default function TimetablePage() {
       </option>
     ))}
   </select>
-</div>
+            </div>
+          </div>
           <div className="generation-confirm-summary">
             <div className="generation-confirm-degree">
               <span className="generation-confirm-summary-label">Selected programme</span>
@@ -961,6 +1230,78 @@ export default function TimetablePage() {
     )}
   </div>
 )}
+          {selectedDegreeId && (!currentGenerationPreflight || currentGenerationPreflight.loading) && (
+            <p className="small text-muted" role="status">
+              Checking timetable data...
+            </p>
+          )}
+
+          {currentGenerationPreflight?.error && (
+            <div className="alert alert-warning" role="alert">
+              <p className="mb-2">
+                Could not check timetable data: {currentGenerationPreflight.error}
+              </p>
+              <button
+                type="button"
+                className="btn btn-sm btn-outline-secondary"
+                onClick={() => setPreflightRevision((value) => value + 1)}
+              >
+                Retry preflight
+              </button>
+            </div>
+          )}
+
+          {preflightReady && preflightWarningCount > 0 && (
+            <div className="alert alert-warning" role="note">
+              <strong>
+                {preflightWarningCount} pre-generation {preflightWarningCount === 1 ? "warning" : "warnings"}
+              </strong>
+              <p className="small mb-0">
+                You can continue generation or review these issues first.
+              </p>
+            </div>
+          )}
+
+          {preflightReady && preflightErrors.length > 0 && (
+            <div className="alert alert-danger">
+              <strong>
+                {preflightErrors.length} pre-generation {preflightErrors.length === 1 ? "error" : "errors"} detected
+              </strong>
+
+              <p className="small mt-2 mb-2">
+                Some courses may remain unscheduled.
+                {selectedSemesterId
+                  ? "These checks cover the selected semester."
+                  : "These checks cover the entire selected degree."}
+              </p>
+
+              <ul
+                className="small mb-3"
+                style={{ maxHeight: "140px", overflowY: "auto" }}
+              >
+                {preflightErrors.map((warning, index) => (
+                  <li key={`${warning.type}-${index}`}>
+                    {warning.message}
+                  </li>
+                ))}
+              </ul>
+
+              <label className="form-check">
+                <input
+                  className="form-check-input"
+                  type="checkbox"
+                  checked={acknowledgedPreflight === preflightErrorKey}
+                  onChange={(event) => setAcknowledgedPreflight(
+                    event.target.checked ? preflightErrorKey : null
+                  )}
+                />
+                <span className="form-check-label small">
+                  I understand that generation may produce an incomplete timetable.
+                </span>
+              </label>
+            </div>
+          )}
+
           <div className="generation-confirm-warning" role="note">
             <span className="generation-confirm-warning-icon" aria-hidden="true">!</span>
             <div>
@@ -971,12 +1312,12 @@ export default function TimetablePage() {
           <p className="generation-confirm-assurance">
             The new timetable will be checked against room, teacher, and student-group constraints before it is saved.
           </p>
-          <div className="generation-confirm-actions">
-            <button type="button" className="btn btn-light" autoFocus
+          <div className="generation-confirm-actions d-flex flex-row flex-wrap justify-content-end align-items-center gap-2">
+            <button type="button" className="btn btn-light btn-sm w-auto" autoFocus
               onClick={closeGenerationConfirmation}>Keep current timetable</button>
-            <button type="button" className="btn btn-campus generation-confirm-submit"
-              disabled={generating || !selectedDegreeId}
-onClick={confirmGeneration}>Generate timetable</button>
+            <button type="button" className="btn btn-campus btn-sm w-auto generation-confirm-submit"
+              disabled={!canConfirmGeneration}
+              onClick={confirmGeneration}>Generate timetable</button>
           </div>
         </section>
       </div>}

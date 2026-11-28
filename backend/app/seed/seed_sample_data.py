@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.database import SessionLocal, engine
 from app.models import Course, Degree, Room, Semester, Teacher, Year
+from app.slot_config import get_block_minutes
 
 DATA_DIR = Path(__file__).resolve().parent / "data"
 REQUIRED_TABLES = {"degree", "year", "semester", "course", "teacher", "course_teacher", "room"}
@@ -84,6 +85,13 @@ def validate(data):
             raise ValueError(f"Unknown year/semester for {course['name']}")
         for field in ("weekly_hours", "enrolled_students"):
             positive(course[field], f"{course['name']}: {field}")
+        duration = course.get("session_duration_minutes", 60)
+        positive(duration, f"{course['name']}: session_duration_minutes")
+        if (course["weekly_hours"] * 60) % duration != 0:
+            raise ValueError(
+                f"{course['name']}: session duration must divide "
+                "weekly teaching minutes exactly"
+            )
         if type(course["requires_lab"]) is not bool:
             raise ValueError(f"{course['name']}: requires_lab must be boolean")
         assigned = course["teacher_ids"]
@@ -132,8 +140,22 @@ def room_differences(session: Session, data: dict) -> list[dict]:
     return differences
 
 
+
+def validate_course_grid(session: Session, data: dict):
+    block_minutes = get_block_minutes(session)
+
+    for course in data["courses"]:
+        duration = course.get("session_duration_minutes", 60)
+        if duration % block_minutes != 0:
+            raise ValueError(
+                f"{course['name']}: session duration must be a "
+                f"multiple of the {block_minutes}-minute grid block"
+            )
+
+
 def load_dataset(session: Session, data: dict, *, reuse_existing_rooms: bool = False):
     """Insert or reuse one validated degree and its related records."""
+    validate_course_grid(session, data)
     degree = get_or_create(session, Degree, {"name": data["degree"]["name"]})
     slots = {}
     for year_data in data["years"]:
@@ -180,6 +202,7 @@ def load_dataset(session: Session, data: dict, *, reuse_existing_rooms: bool = F
         year, semester = slots[(item["year"], item["semester"])]
         values = {"degree_id": degree.id, "year_id": year.id,
                   "weekly_hours": item["weekly_hours"],
+                  "session_duration_minutes": item.get("session_duration_minutes", 60),
                   "enrolled_students": item["enrolled_students"],
                   "requires_lab": item["requires_lab"]}
         course = get_or_create(session, Course, {"semester_id": semester.id, "name": item["name"]}, values)

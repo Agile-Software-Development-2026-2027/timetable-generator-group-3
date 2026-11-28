@@ -3,7 +3,7 @@ import {
   WRONG_CREDENTIALS, canVisit, homeFor, inviteLinkError, loginErrorMessage, navLinksFor, newPasswordError, redirectFor,
 } from "../auth-rules.js";
 
-const BACKOFFICE = ["/", "/rooms", "/courses", "/calendar", "/settings", "/data-loader", "/teachers", "/users"];
+const BACKOFFICE = ["/", "/rooms", "/courses", "/calendar", "/settings", "/data-loader", "/teachers", "/students", "/users"];
 const signedIn = (role) => ({ status: "signed-in", role });
 
 describe("homeFor", () => {
@@ -47,7 +47,7 @@ describe("redirectFor", () => {
     expect(redirectFor("/login", { status: "loading" })).toBeNull();
   });
 
-  it.each(["/", "/rooms", "/my-schedule", "/my-timetable"])("sends a visitor without a session from %s to /login", (path) => {
+  it.each(["/", "/rooms", "/students", "/my-schedule", "/my-timetable"])("sends a visitor without a session from %s to /login", (path) => {
     expect(redirectFor(path, { status: "signed-out" })).toBe("/login");
   });
 
@@ -88,9 +88,12 @@ describe("redirectFor", () => {
 
 describe("navLinksFor", () => {
   it("gives each role only its own links", () => {
-    expect(navLinksFor("director").map(([href]) => href)).toEqual(["/", "/rooms", "/teachers", "/courses", "/data-loader", "/calendar", "/settings"]);
+    expect(navLinksFor("director").map(([href]) => href)).toEqual(["/", "/rooms", "/teachers", "/students", "/courses", "/data-loader", "/calendar", "/settings", "/users"]);
     expect(navLinksFor("teacher")).toEqual([["/my-schedule", "My schedule"]]);
-    expect(navLinksFor("student")).toEqual([["/my-timetable", "My timetable"]]);
+    expect(navLinksFor("student")).toEqual([
+      ["/my-timetable", "My timetable"],
+      ["/my-courses", "My courses"],
+    ]);
     expect(navLinksFor(undefined)).toEqual([]);
   });
 });
@@ -125,5 +128,60 @@ describe("inviteLinkError", () => {
       .toBe("Email link is invalid or has expired");
     expect(inviteLinkError("#access_token=abc&type=invite")).toBe("");
     expect(inviteLinkError("")).toBe("");
+  });
+});
+
+
+describe("KAN-59 student management permissions", () => {
+  it("allows directors to open the Students page", () => {
+    expect(redirectFor("/students", signedIn("director"))).toBeNull();
+  });
+
+  it("protects nested student management routes", () => {
+    expect(canVisit("director", "/students/12")).toBe(true);
+    expect(canVisit("teacher", "/students/12")).toBe(false);
+    expect(canVisit("student", "/students/12")).toBe(false);
+  });
+
+  it("does not allow unrelated paths with the same prefix", () => {
+    expect(canVisit("director", "/studentsfoo")).toBe(false);
+  });
+
+  it("shows the Students navigation link only to directors", () => {
+    expect(navLinksFor("director")).toContainEqual([
+      "/students", "Students",
+    ]);
+
+    expect(navLinksFor("teacher").map(([href]) => href))
+      .not.toContain("/students");
+
+    expect(navLinksFor("student").map(([href]) => href))
+      .not.toContain("/students");
+  });
+});
+
+
+describe("Student personal courses permissions", () => {
+  it("allows a student to open My courses", () => {
+    expect(canVisit("student", "/my-courses")).toBe(true);
+    expect(redirectFor("/my-courses", signedIn("student"))).toBeNull();
+  });
+
+  it.each(["director", "teacher"])(
+    "keeps a %s out of My courses",
+    (role) => {
+      expect(canVisit(role, "/my-courses")).toBe(false);
+      expect(redirectFor("/my-courses", signedIn(role)))
+        .toBe(homeFor(role));
+    }
+  );
+
+  it("requires authentication for My courses", () => {
+    expect(redirectFor("/my-courses", { status: "signed-out" }))
+      .toBe("/login");
+  });
+
+  it("does not allow an unrelated route prefix", () => {
+    expect(canVisit("student", "/my-coursesfoo")).toBe(false);
   });
 });

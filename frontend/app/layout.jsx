@@ -1,8 +1,11 @@
 import "bootstrap/dist/css/bootstrap.min.css";
 import "@fullcalendar/react/skeleton.css";
 import "@fullcalendar/react/themes/breezy/theme.css";
-import "@fullcalendar/react/themes/breezy/palettes/emerald.css";
+import "@fullcalendar/react/themes/breezy/palettes/rose.css";
 import "./style.css";
+import "./theme.css";
+import "./tables.css";
+import "./calendar.css";
 import { AuthProvider } from "./components/auth-provider.jsx";
 
 export const metadata = {

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { AppNav } from "../components/app-shell.jsx";
+import { ArrowRight, CalendarDays } from "lucide-react";
+import { AuthLayout } from "../components/auth-layout.jsx";
 import { useAuth } from "../components/auth-provider.jsx";
 import { supabase } from "../../lib/supabase.js";
 import { loginErrorMessage } from "../../lib/auth-rules.js";
@@ -39,29 +40,22 @@ export default function LoginPage() {
   }
 
   const notice = noticeFor(auth);
-  return <div className="campus-app">
-    <AppNav />
-    <main className="container login-main">
-      <section className="room-table-panel login-panel" aria-labelledby="login-title">
-        <p className="eyebrow mb-2">UNIVERSITY OF CALABRIA / TIMETABLE</p>
-        <h1 id="login-title" className="h3 fw-semibold mb-1">Log in</h1>
-        <p className="text-secondary mb-4">Use the email and password of your account.</p>
-        {notice && <p className="login-notice" role="status">{notice}</p>}
-        {error && <p className="login-error" role="alert">{error}</p>}
-        <form onSubmit={submit} className="d-grid gap-3">
-          <div>
-            <label className="form-label" htmlFor="login-email">Email</label>
-            <input id="login-email" type="email" className="form-control" autoComplete="email" required
-              value={email} onChange={(event) => setEmail(event.target.value)} />
-          </div>
-          <div>
-            <label className="form-label" htmlFor="login-password">Password</label>
-            <input id="login-password" type="password" className="form-control" autoComplete="current-password" required
-              value={password} onChange={(event) => setPassword(event.target.value)} />
-          </div>
-          <button type="submit" className="btn btn-campus" disabled={busy || !supabase}>{busy ? "Logging in…" : "Log in"}</button>
-        </form>
-      </section>
-    </main>
-  </div>;
+  return <AuthLayout eyebrow="UNIVERSITY OF CALABRIA" headline={<>Make room<br />for what&apos;s next.</>}
+    tagline="A smarter way to plan the moments that make a semester." icon={<CalendarDays size={22} />}>
+    <div className="eyebrow">WELCOME BACK</div>
+    <h2 id="login-title">Log in to your account</h2>
+    <p>Use the email and password of your account.</p>
+    {notice && <p className="login-notice" role="status">{notice}</p>}
+    {error && <p className="login-error" role="alert">{error}</p>}
+    <form onSubmit={submit} aria-labelledby="login-title">
+      <label htmlFor="login-email">Email</label>
+      <input id="login-email" type="email" autoComplete="email" required
+        value={email} onChange={(event) => setEmail(event.target.value)} />
+      <label htmlFor="login-password">Password</label>
+      <input id="login-password" type="password" autoComplete="current-password" required
+        value={password} onChange={(event) => setPassword(event.target.value)} />
+      <button type="submit" className="button button-primary login-submit" disabled={busy || !supabase}>{busy ? "Logging in…" : <>Log in <ArrowRight size={16} aria-hidden="true" /></>}</button>
+    </form>
+    <div className="account-note"><span className="note-rule" />Accounts are created by your programme director.<span className="note-rule" /></div>
+  </AuthLayout>;
 }

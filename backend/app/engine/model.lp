@@ -9,41 +9,169 @@ invalid_room(C,R) :- requires_lab(C), room(R,_), not is_lab(R).
 invalid_room(C,R) :- requires_projector(C), room(R,_), not has_projector(R).
 eligible(C,R) :- course(C,_), room(R,_), not invalid_room(C,R).
 
-% Every selected course receives exactly H distinct blocks.
-H { assign(C,R,D,S) : eligible(C,R), slot(D,S) } H :-
-    course(C,H), scheduled(C).
+% KAN-52/KAN-78: part(C,B,N) says course C has N weekly sessions of B
+% consecutive blocks; a course may mix lengths (e.g. one 3-block and one
+% 2-block session). fits(B,D,S) says a B-block session can start at (D,S)
+% without running past the end of the day or across a gap such as the lunch
+% break. Older facts with one length per course, sessions(C,N), duration(C,B)
+% and start_ok(C,D,S), are still accepted.
+part(C,B,N) :- sessions(C,N), duration(C,B).
+start_at(C,B,D,S) :- part(C,B,_), fits(B,D,S).
+start_at(C,B,D,S) :- duration(C,B), start_ok(C,D,S).
+
+% placed(C,B,R,D,S): a B-block session of course C in room R, starting at (D,S).
+% Every selected course receives exactly N sessions of each length B.
+N { placed(C,B,R,D,S) : eligible(C,R), start_at(C,B,D,S) } N :-
+    part(C,B,N), scheduled(C).
+
+% assign(C,R,D,S) is the START slot of a session, whatever its length.
+assign(C,R,D,S) :- placed(C,_,R,D,S).
+
+% A session occupies its room for every block from S to S+B-1.
+occupies(C,R,D,S..S+B-1) :- placed(C,B,R,D,S).
+
+% Two sessions of the same course never overlap, in the same or another room.
+:- placed(C,B1,R1,D,S1), placed(C,B2,R2,D,S2), (B1,R1,S1) != (B2,R2,S2),
+   S1 <= S2, S2 < S1 + B1.
+
+% All hard constraints below are written on occupies/4, so they hold for
+% every block of a session, not only for its start.
 
 % A room and a student group each have at most one session per block.
-:- assign(C1,R,D,S), assign(C2,R,D,S), C1 < C2.
-:- assign(C,R1,D,S), assign(C,R2,D,S), R1 < R2.
-:- assign(C1,_,D,S), assign(C2,_,D,S), C1 < C2,
+:- occupies(C1,R,D,S), occupies(C2,R,D,S), C1 < C2.
+:- occupies(C1,_,D,S), occupies(C2,_,D,S), C1 < C2,
    group(C1,G), group(C2,G).
 
 % KAN-53: leave enough travel time when a student group changes rooms.
 % Slots are consecutive integers within each day. Same-room transitions
-% do not require a buffer. This also covers two blocks of the same course.
-:- assign(C1,R1,D,S1), assign(C2,R2,D,S2),
+% do not require a buffer. This also covers two sessions of the same course.
+:- occupies(C1,R1,D,S1), occupies(C2,R2,D,S2),
    group(C1,G), group(C2,G), R1 != R2,
    buffer_slots(B), S1 < S2, S2 - S1 <= B.
 
 % Teachers may teach multiple courses but never simultaneously.
-:- assign(C1,_,D,S), assign(C2,_,D,S), C1 < C2,
+:- occupies(C1,_,D,S), occupies(C2,_,D,S), C1 < C2,
    teaches(T,C1), teaches(T,C2).
 
 % Existing sessions outside the replacement scope are fixed reservations.
-:- assign(C,R,D,S), busy_room(R,D,S).
-:- assign(C,_,D,S), teaches(T,C), busy_teacher(T,D,S).
-:- assign(C,_,D,S), group(C,G), busy_group(G,D,S).
+:- occupies(C,R,D,S), busy_room(R,D,S).
+:- occupies(C,_,D,S), teaches(T,C), busy_teacher(T,D,S).
+:- occupies(C,_,D,S), group(C,G), busy_group(G,D,S).
+
+% KAN-72: teacher workload constraints.
+% Count actual teaching blocks, including fixed external commitments.
+% Unavailable slots are not teaching blocks.
+
+workload_teacher(T) :- max_daily_slots(T,_).
+workload_teacher(T) :- max_teaching_days(T,_).
+workload_teacher(T) :- max_consecutive_slots(T,_).
+
+new_teaching(T,D,S) :-
+    workload_teacher(T), teaches(T,C), occupies(C,_,D,S).
+
+teaching_block(T,D,S) :- new_teaching(T,D,S).
+teaching_block(T,D,S) :- external_teaching(T,D,S), workload_teacher(T).
+
+% Maximum daily teaching hours.
+% Existing violations are tolerated only when not made worse.
+
+external_daily(T,D,E) :-
+    max_daily_slots(T,_), slot(D,_),
+    E = #count { S : external_teaching(T,D,S) }.
+
+daily_limit(T,D,L) :-
+    max_daily_slots(T,M), external_daily(T,D,E), E <= M, L = M.
+
+daily_limit(T,D,L) :-
+    max_daily_slots(T,M), external_daily(T,D,E), E > M, L = E.
+
+:- daily_limit(T,D,L),
+   #count { S : teaching_block(T,D,S) } > L.
+
+% Maximum distinct teaching days per week.
+
+teaching_day(T,D) :- teaching_block(T,D,_).
+external_day(T,D) :- external_teaching(T,D,_).
+
+external_days(T,E) :-
+    max_teaching_days(T,_),
+    E = #count { D : external_day(T,D) }.
+
+weekly_day_limit(T,L) :-
+    max_teaching_days(T,M), external_days(T,E), E <= M, L = M.
+
+weekly_day_limit(T,L) :-
+    max_teaching_days(T,M), external_days(T,E), E > M, L = E.
+
+:- weekly_day_limit(T,L),
+   #count { D : teaching_day(T,D) } > L.
+
+% Maximum consecutive teaching hours.
+% Follow actual grid adjacency, so lunch breaks interrupt a teaching run.
+% Track whether a consecutive run contains any newly scheduled teaching.
+
+teaching_run(T,D,S,1) :-
+    max_consecutive_slots(T,_), teaching_block(T,D,S).
+
+teaching_run(T,D,S2,N+1) :-
+    teaching_run(T,D,S1,N), next_slot(D,S1,S2),
+    teaching_block(T,D,S2).
+
+new_teaching_run(T,D,S,1) :-
+    max_consecutive_slots(T,_), new_teaching(T,D,S).
+
+new_teaching_run(T,D,S2,N+1) :-
+    new_teaching_run(T,D,S1,N), next_slot(D,S1,S2),
+    teaching_block(T,D,S2).
+
+new_teaching_run(T,D,S2,N+1) :-
+    teaching_run(T,D,S1,N), next_slot(D,S1,S2),
+    new_teaching(T,D,S2).
+
+% A pre-existing external-only violation does not invalidate the solution,
+% but a new assignment must not create or extend an excessive teaching run.
+
+:- max_consecutive_slots(T,M), new_teaching_run(T,_,_,N), N > M.
+
+% Soft priorities, highest first:
+%   @4 scheduling completeness (partial mode)
+%   @3 spread a course's sessions over different days (KAN-55)
+%   @2 teacher preferred slots (KAN-57) and part of day (KAN-72)
+%   @1 room fit (KAN-16)
+
+% KAN-55 soft preference: spread a course's sessions over different days.
+% same_day(C,D,S) is a session of C starting at S that is not the first one of
+% C on day D, so a day with k sessions of C costs k-1. This makes 2+1+1 better
+% than 3+1 when the sessions cannot all go on different days. It never blocks
+% a solution: it only ranks the valid ones. starts/3 drops the room first, so
+% the rule pairs start slots (slots^2 per course and day) instead of every
+% room and slot combination (rooms^2 x slots^2).
+starts(C,D,S) :- assign(C,_,D,S).
+same_day(C,D,S2) :- starts(C,D,S1), starts(C,D,S2), S1 < S2.
+#minimize { 1@3,C,D,S : same_day(C,D,S) }.
 
 % KAN-16 soft preference: prefer the smallest eligible room that still fits the group.
 % For each assignment, penalise by the room's capacity minus the number of enrolled
-% students.  Priority @1 is lower than the scheduling maximisation (@2), so the solver
-% always prefers to schedule more courses before trying to tighten room fit.
+% students.  Priority @1 is the lowest, so the solver always prefers to schedule
+% more courses, spread them and honour teacher preferences before tightening room fit.
 wasted_seats(C,R,W) :- assign(C,R,_,_), students(C,N), room(R,Cap), W = Cap - N.
 #minimize { W@1,C,R : wasted_seats(C,R,W) }.
 
+% KAN-57 soft preference: use the blocks teachers marked as preferred.
+% Written on occupies/4 (KAN-52) so every block of a session counts.
+% Priority @2 sits below spreading sessions (@3) and above room fit (@1).
+#maximize { 1@2,C,D,S : occupies(C,_,D,S), teaches(T,C), prefers_slot(T,D,S) }.
+
+% KAN-72 soft preference: reward teaching in the preferred part of day.
+% A distinct tuple tag keeps this reward separate from KAN-57.
+#maximize {
+    1@2,workload_part,T,C,D,S :
+        occupies(C,_,D,S), teaches(T,C), prefers_part_slot(T,D,S)
+}.
+
 % Maximize fully scheduled hours when the strict model is infeasible.
-% Priority @2 ensures scheduling completeness dominates room preference.
-#maximize { H@2,C : scheduled(C), course(C,H), mode(partial) }.
-#show assign/4.
+% Priority @4 ensures scheduling completeness dominates every preference:
+% spreading sessions or a teacher preference never makes the solver drop a course.
+#maximize { H@4,C : scheduled(C), course(C,H), mode(partial) }.
+#show placed/5.
 #show scheduled/1.

@@ -1,0 +1,294 @@
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+import StudentTimetableContent from "../student-timetable-content.jsx";
+
+const assigned = { id: 1, name: "Databases", is_extra: false };
+const elective = { id: 2, name: "Statistics", is_extra: true };
+const lesson = { id: 1, course_name: "Databases" };
+const extraLesson = { id: 2, course_name: "Statistics" };
+
+function makeData(overrides = {}) {
+  return {
+    courses: [assigned],
+    availableCourses: [elective],
+    sessions: [lesson],
+    publication: { published: true },
+    ...overrides,
+  };
+}
+
+function Calendar({ sessions }) {
+  return <section aria-label="Calendar">
+    {sessions.map((row) => <p key={row.id}>{row.course_name} class</p>)}
+  </section>;
+}
+
+function CoursesPanel({ courses, loading, onAdd, onRemove }) {
+  return <section aria-label="Courses">
+    {courses.map((course) => <p key={course.id}>{course.name}</p>)}
+    <button disabled={loading} onClick={() => onAdd(2).catch(() => {})}>
+      Add elective
+    </button>
+    <button disabled={loading} onClick={() => onRemove(2).catch(() => {})}>
+      Remove elective
+    </button>
+  </section>;
+}
+
+function setup(overrides = {}) {
+  const props = {
+    Calendar,
+    CoursesPanel,
+    loadData: vi.fn().mockResolvedValue(makeData()),
+    addCourse: vi.fn().mockResolvedValue(null),
+    removeCourse: vi.fn().mockResolvedValue(null),
+    ...overrides,
+  };
+  return { ...render(<StudentTimetableContent {...props} />), props };
+}
+
+describe("Student timetable content", () => {
+  it("uses the KAN-75 loading card design", () => {
+    setup({ loadData: vi.fn(() => new Promise(() => {})) });
+
+    expect(screen.getByRole("status")).toHaveClass("slot-card");
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Loading your timetable..."
+    );
+  });
+
+  it("uses the KAN-75 error card and retry button", async () => {
+    setup({
+      loadData: vi.fn().mockRejectedValue(new Error("Network error")),
+    });
+
+    const error = await screen.findByRole("alert");
+
+    expect(error).toHaveClass("slot-card");
+    expect(error).not.toHaveClass("alert");
+    expect(screen.getByRole("button", {
+      name: "Retry",
+    })).toHaveClass("btn-campus");
+  });
+
+  it("uses the KAN-75 unpublished timetable card", async () => {
+    setup({
+      loadData: vi.fn().mockResolvedValue(makeData({
+        sessions: [],
+        publication: { published: false },
+      })),
+    });
+
+    const message = await screen.findByText("No timetable published yet.");
+
+    expect(message).toHaveClass("slot-card");
+    expect(message).not.toHaveClass("alert");
+    expect(message).toHaveAttribute("role", "status");
+  });
+
+  it("uses the KAN-75 empty published timetable card", async () => {
+    setup({
+      loadData: vi.fn().mockResolvedValue(makeData({ sessions: [] })),
+    });
+
+    const message = await screen.findByText(
+      "No classes are currently scheduled for your courses."
+    );
+
+    expect(message).toHaveClass("slot-card");
+    expect(message).not.toHaveClass("alert");
+    expect(screen.getByLabelText("Calendar")).toBeInTheDocument();
+  });
+
+
+  it("shows initial loading", () => {
+    setup({ loadData: vi.fn(() => new Promise(() => {})) });
+    expect(screen.getByText("Loading your timetable...")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Calendar")).not.toBeInTheDocument();
+  });
+
+  it("renders personal courses and sessions", async () => {
+    const { props } = setup();
+    expect(await screen.findByText("Databases class")).toBeInTheDocument();
+    expect(screen.getByText("Databases")).toBeInTheDocument();
+    expect(props.loadData).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows unpublished timetable message", async () => {
+    setup({ loadData: vi.fn().mockResolvedValue(makeData({
+      sessions: [], publication: { published: false },
+    })) });
+    expect(await screen.findByText("No timetable published yet."))
+      .toBeInTheDocument();
+    expect(screen.queryByLabelText("Calendar")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Courses")).toBeInTheDocument();
+  });
+
+  it("distinguishes an empty published timetable", async () => {
+    setup({ loadData: vi.fn().mockResolvedValue(makeData({ sessions: [] })) });
+    expect(await screen.findByText(
+      "No classes are currently scheduled for your courses."
+    )).toBeInTheDocument();
+    expect(screen.getByLabelText("Calendar")).toBeInTheDocument();
+  });
+
+  it("shows published electives before home degree publication", async () => {
+    setup({ loadData: vi.fn().mockResolvedValue(makeData({
+      courses: [assigned, elective], sessions: [extraLesson],
+      publication: { published: false },
+    })) });
+    expect(await screen.findByText("Statistics class")).toBeInTheDocument();
+    expect(screen.getByText("Your degree timetable is not published yet."))
+      .toBeInTheDocument();
+  });
+
+  it("displays loading errors", async () => {
+    setup({ loadData: vi.fn().mockRejectedValue(new Error("Network error")) });
+    expect(await screen.findByRole("alert")).toHaveTextContent("Network error");
+    expect(screen.getByRole("button", { name: "Retry" })).toBeEnabled();
+    expect(screen.queryByLabelText("Calendar")).not.toBeInTheDocument();
+  });
+
+  it("retries failed loading", async () => {
+    const loadData = vi.fn().mockRejectedValueOnce(new Error("Network error"))
+      .mockResolvedValueOnce(makeData());
+    setup({ loadData });
+    fireEvent.click(await screen.findByRole("button", { name: "Retry" }));
+    expect(await screen.findByText("Databases class")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(loadData).toHaveBeenCalledTimes(2);
+  });
+
+  it("refreshes after adding an elective", async () => {
+    const loadData = vi.fn().mockResolvedValueOnce(makeData())
+      .mockResolvedValueOnce(makeData({
+        courses: [assigned, elective], sessions: [lesson, extraLesson],
+      }));
+    const { props } = setup({ loadData });
+    fireEvent.click(await screen.findByRole("button", { name: "Add elective" }));
+    expect(await screen.findByText("Statistics class")).toBeInTheDocument();
+    expect(screen.getByText("Statistics")).toBeInTheDocument();
+    expect(props.addCourse).toHaveBeenCalledTimes(1);
+    expect(props.addCourse).toHaveBeenCalledWith(2);
+    expect(loadData).toHaveBeenCalledTimes(2);
+  });
+
+  it("refreshes after removing an elective", async () => {
+    const loadData = vi.fn().mockResolvedValueOnce(makeData({
+      courses: [assigned, elective], sessions: [lesson, extraLesson],
+    })).mockResolvedValueOnce(makeData());
+    const { props } = setup({ loadData });
+    await screen.findByText("Statistics class");
+    fireEvent.click(screen.getByRole("button", { name: "Remove elective" }));
+    await waitFor(() => {
+      expect(screen.queryByText("Statistics class")).not.toBeInTheDocument();
+      expect(screen.getByText("Databases class")).toBeInTheDocument();
+    });
+    expect(screen.queryByText("Statistics")).not.toBeInTheDocument();
+    expect(props.removeCourse).toHaveBeenCalledTimes(1);
+    expect(props.removeCourse).toHaveBeenCalledWith(2);
+    expect(loadData).toHaveBeenCalledTimes(2);
+  });
+
+  it("preserves data when enrollment fails", async () => {
+    const { props } = setup({
+      addCourse: vi.fn().mockRejectedValue(new Error("Already enrolled")),
+    });
+    const button = await screen.findByRole("button", { name: "Add elective" });
+    await act(async () => { fireEvent.click(button); });
+    expect(props.addCourse).toHaveBeenCalledTimes(1);
+    expect(screen.getByText("Databases class")).toBeInTheDocument();
+    expect(props.loadData).toHaveBeenCalledTimes(1);
+  });
+
+  it("prevents concurrent enrollment operations", async () => {
+    let complete;
+    const addCourse = vi.fn(() => new Promise((resolve) => {
+      complete = resolve;
+    }));
+    const { props } = setup({ addCourse });
+    const button = await screen.findByRole("button", { name: "Add elective" });
+    fireEvent.click(button);
+    fireEvent.click(button);
+    fireEvent.click(screen.getByRole("button", { name: "Remove elective" }));
+    expect(addCourse).toHaveBeenCalledTimes(1);
+    expect(props.removeCourse).not.toHaveBeenCalled();
+    await act(async () => { complete(); });
+    expect(props.loadData).toHaveBeenCalledTimes(2);
+    expect(screen.getByText("Databases class")).toBeInTheDocument();
+  });
+
+  it("reports a refresh failure after enrollment", async () => {
+    const loadData = vi.fn().mockResolvedValueOnce(makeData())
+      .mockRejectedValueOnce(new Error("Refresh failed"));
+    const { props } = setup({ loadData });
+    fireEvent.click(await screen.findByRole("button", { name: "Add elective" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Courses updated, but the timetable could not be refreshed."
+    );
+    expect(props.addCourse).toHaveBeenCalledTimes(1);
+    expect(screen.queryByLabelText("Calendar")).not.toBeInTheDocument();
+  });
+
+  it("ignores stale initial loading results", async () => {
+    let complete;
+    const loadData = vi.fn(() => new Promise((resolve) => {
+      complete = resolve;
+    }));
+    const { props, rerender } = setup({ loadData });
+    rerender(<StudentTimetableContent {...props}
+      loadData={vi.fn().mockResolvedValue(makeData({ sessions: [extraLesson] }))}
+    />);
+    await screen.findByText("Statistics class");
+    await act(async () => { complete(makeData()); });
+    expect(screen.getByText("Statistics class")).toBeInTheDocument();
+    expect(screen.queryByText("Databases class")).not.toBeInTheDocument();
+  });
+});
+
+
+describe("Separated Student pages", () => {
+  it("renders the calendar without course management controls", async () => {
+    setup({ view: "timetable" });
+
+    expect(await screen.findByText("Databases class"))
+      .toBeInTheDocument();
+
+    expect(screen.getByText("Published")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Courses"))
+      .not.toBeInTheDocument();
+  });
+
+  it("renders courses without loading a calendar component", async () => {
+    setup({
+      view: "courses",
+      Calendar: undefined,
+      loadData: vi.fn().mockResolvedValue({
+        courses: [assigned],
+        availableCourses: [elective],
+      }),
+    });
+
+    expect(await screen.findByText("Databases"))
+      .toBeInTheDocument();
+
+    expect(screen.queryByLabelText("Calendar"))
+      .not.toBeInTheDocument();
+
+    expect(screen.queryByText("No timetable published yet."))
+      .not.toBeInTheDocument();
+  });
+
+  it("displays the unpublished status on the timetable page", async () => {
+    setup({
+      view: "timetable",
+      loadData: vi.fn().mockResolvedValue(makeData({
+        sessions: [],
+        publication: { published: false },
+      })),
+    });
+
+    expect(await screen.findByText("Unpublished"))
+      .toBeInTheDocument();
+  });
+});

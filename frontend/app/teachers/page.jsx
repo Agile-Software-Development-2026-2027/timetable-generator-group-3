@@ -1,7 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { BookOpen, Pencil, Trash2 } from "lucide-react";
+
+import { useEffect, useRef, useState } from "react";
 import { AppNav, Notification, useNotification } from "../components/app-shell.jsx";
+import WorkloadPreferencesForm from "../components/workload-preferences-form.jsx";
+import TeacherAvailabilityForm from "../components/teacher-availability-form.jsx";
 import { emptyTeacherForm, matches, request, teacherFormErrors, teacherFormFromTeacher, teacherPayload, toggleId } from "./teacher-form.mjs";
 import { pageNumbers, pageSizes, paginate } from "../rooms/room-table.mjs";
 
@@ -20,6 +24,9 @@ export default function TeachersPage() {
   const [viewTarget, setViewTarget] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [notification, notify] = useNotification();
+  const preflightLinkHandled = useRef(false);
+  const [workloadTarget, setWorkloadTarget] = useState(null);
+  const [availabilityTarget, setAvailabilityTarget] = useState(null);
 
   async function refresh() {
     try {
@@ -43,6 +50,34 @@ export default function TeachersPage() {
     setDeleteTarget(null);
     setFormOpen(true);
   }
+
+  // KAN-67: open the existing form for a linked teacher.
+  useEffect(() => {
+    if (preflightLinkHandled.current || loadState !== "ready") return;
+
+    const params = new window.URLSearchParams(window.location.search);
+    const workloadId = params.get("workload");
+    const availabilityId = params.get("availability");
+    const targetId = availabilityId || workloadId || params.get("edit");
+
+    if (!targetId) return;
+
+    const teacher = teachers.find(
+      (item) => String(item.id) === targetId
+    );
+
+    if (!teacher) return;
+
+    preflightLinkHandled.current = true;
+
+    if (availabilityId) {
+      setAvailabilityTarget(teacher);
+    } else if (workloadId) {
+      setWorkloadTarget(teacher);
+    } else {
+      openForm(teacher);
+    }
+  }, [teachers, loadState]);
 
   function closeForm() {
     setFormOpen(false);
@@ -92,6 +127,41 @@ export default function TeachersPage() {
         <p className="text-secondary mb-0">Register teachers and assign them to the courses they teach.</p>
       </header>
       <Notification notification={notification} onClose={() => notify(null)} />
+
+      {availabilityTarget && (
+        <section className="mb-3" aria-label="Teacher availability correction">
+          <div className="d-flex justify-content-between align-items-center mb-3">
+            <h2 className="h5 mb-0">{availabilityTarget.name}</h2>
+            <button
+              type="button"
+              className="btn btn-light"
+              onClick={() => setAvailabilityTarget(null)}
+            >
+              Close availability editor
+            </button>
+          </div>
+          <TeacherAvailabilityForm
+            key={availabilityTarget.id}
+            teacherId={availabilityTarget.id}
+          />
+        </section>
+      )}
+
+      {workloadTarget && (
+        <section className="mb-3" aria-label="Teacher workload correction">
+          <div className="d-flex justify-content-between align-items-center mb-3">
+            <h2 className="h5 mb-0">{workloadTarget.name}</h2>
+            <button
+              type="button"
+              className="btn btn-light"
+              onClick={() => setWorkloadTarget(null)}
+            >
+              Close workload editor
+            </button>
+          </div>
+          <WorkloadPreferencesForm teacherId={workloadTarget.id} />
+        </section>
+      )}
       <div className="d-flex align-items-center justify-content-between mb-3">
         <h2 className="h4 mb-0">Registered teachers</h2>
         <div className="catalogue-header-actions">
@@ -115,9 +185,9 @@ export default function TeachersPage() {
                 <td>{teacher.identifier}</td>
                 <td className="text-end room-number">{teacher.course_count}</td>
                 <td><div className="room-actions">
-                  <button type="button" className="btn btn-light" aria-label={`View courses of ${teacher.name}`} onClick={() => setViewTarget(teacher)}>Courses</button>
-                  <button type="button" className="btn btn-edit" aria-label={`Edit ${teacher.name}`} onClick={() => openForm(teacher)}>Edit</button>
-                  <button type="button" className="btn btn-delete" aria-label={`Delete ${teacher.name}`} onClick={() => setDeleteTarget(teacher)}>Delete</button>
+                  <button type="button" className="btn btn-assign" title="Courses" aria-label={`View courses of ${teacher.name}`} onClick={() => setViewTarget(teacher)}><BookOpen size={14} aria-hidden="true" /></button>
+                  <button type="button" className="btn btn-edit" title="Edit" aria-label={`Edit ${teacher.name}`} onClick={() => openForm(teacher)}><Pencil size={14} aria-hidden="true" /></button>
+                  <button type="button" className="btn btn-delete" title="Delete" aria-label={`Delete ${teacher.name}`} onClick={() => setDeleteTarget(teacher)}><Trash2 size={14} aria-hidden="true" /></button>
                 </div></td>
               </tr>)}
               {!rows.length && <tr><td colSpan="4" className="room-table-message">

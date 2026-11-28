@@ -19,6 +19,8 @@ class Assignment:
     room_id: int
     day: int
     slot: int
+    # KAN-78: blocks of this session; None means the course's longest session.
+    blocks: int | None = None
 
 
 @dataclass
@@ -42,8 +44,12 @@ def _run_model(problem: Problem, mode: str, remaining: float) -> Solution | None
     def remember(model) -> None:
         nonlocal current
         atoms = model.symbols(shown=True)
-        assignments = [Assignment(*(x.number for x in a.arguments))
-                       for a in atoms if a.name == "assign" and len(a.arguments) == 4]
+        # placed(C,B,R,D,S): a B-block session of course C in room R at (D,S).
+        assignments = [
+            Assignment(c.number, r.number, d.number, s.number, b.number)
+            for c, b, r, d, s in (a.arguments for a in atoms
+                                  if a.name == "placed" and len(a.arguments) == 5)
+        ]
         scheduled = {a.arguments[0].number for a in atoms if a.name == "scheduled"}
         current = Solution(assignments, scheduled)
 
@@ -63,12 +69,14 @@ def solve(problem: Problem) -> Solution | None:
         return Solution([], set())
     deadline = monotonic() + SOLVER_BUDGET_SECONDS
     slots_per_group = len(problem.slots)
-    group_hours: dict[int, int] = {}
+    group_blocks: dict[int, int] = {}
     for c in problem.courses:
-        group_hours[c.semester_id] = group_hours.get(c.semester_id, 0) + c.weekly_hours
+        group_blocks[c.semester_id] = (
+            group_blocks.get(c.semester_id, 0) + problem.required_blocks(c)
+        )
 
     # Prove impossibility early when a group requires more than its available slots.
-    impossible_capacity = any(hours > slots_per_group for hours in group_hours.values())
+    impossible_capacity = any(blocks > slots_per_group for blocks in group_blocks.values())
     if not impossible_capacity:
         strict = _run_model(problem, "strict", deadline - monotonic())
         if strict is not None and len(strict.scheduled_ids) == len(problem.courses):

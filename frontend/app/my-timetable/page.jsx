@@ -1,8 +1,20 @@
 "use client";
 
-import { RolePlaceholder } from "../components/role-placeholder.jsx";
+import StudentCalendar from "./student-calendar.jsx";
+import { StudentPage } from "./student-timetable-content.jsx";
+import {
+  fetchStudentTimetableData,
+} from "../../lib/student-api.js";
 
-// Placeholder until KAN-59 builds the student's timetable.
 export default function MyTimetablePage() {
-  return <RolePlaceholder path="/my-timetable" title="My timetable" text="Your weekly classes will appear here." />;
+  return (
+    <StudentPage
+      current="/my-timetable"
+      title="My timetable"
+      description="Your courses and published weekly sessions."
+      view="timetable"
+      Calendar={StudentCalendar}
+      loadData={fetchStudentTimetableData}
+    />
+  );
 }

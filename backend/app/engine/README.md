@@ -91,6 +91,32 @@ gap(C1, C2, D) :-
 #minimize { 1, C1, C2, D : gap(C1, C2, D) }.
 ```
 
+Priority levels in `model.lp` (a higher level always wins over a lower one):
+
+| Level | Rule | Story |
+|-------|------|-------|
+| @4 | Maximise scheduled hours (partial mode only) | KAN-15 |
+| @3 | Spread a course's sessions over different days | KAN-55 |
+| @2 | Use the slots teachers marked as preferred | KAN-57 |
+| @1 | Use the smallest room that fits the group | KAN-16 |
+
+Scheduled hours stay at the top, so no preference ever makes the partial
+solver drop a course. New soft constraints (compact days KAN-41, edge slots
+KAN-56, same room KAN-64) should fit into this ladder without going above @4.
+
+KAN-55 counts every extra session of a course on the same day, so a day with
+k sessions costs k-1:
+
+```lp
+starts(C,D,S) :- assign(C,_,D,S).
+same_day(C,D,S2) :- starts(C,D,S1), starts(C,D,S2), S1 < S2.
+#minimize { 1@3,C,D,S : same_day(C,D,S) }.
+```
+
+`starts/3` drops the room before pairing the sessions. Pairing `assign/4`
+directly grounds every room and slot combination and made the solver noticeably
+slower on the real data.
+
 ---
 
 ## How to run the spike
@@ -161,3 +187,32 @@ the data changes.
 - Teacher–session linking is implicit: the `teaches(Teacher, Course)` fact is
   derived from `course_teacher` rows. There is no `teacher_id` on
   `schedule_session` — the teacher is inferred via the course.
+
+---
+
+## Multi-block sessions (KAN-52)
+
+A session can last several consecutive grid blocks (for example a 2-hour
+lesson on a 30-minute grid covers 4 blocks). `facts.py` emits, per course:
+
+| Fact | Meaning |
+|------|---------|
+| `duration(C, B)` | One session of C lasts B consecutive blocks (`session_duration_minutes / block_minutes`, 60 minutes until KAN-51 adds the column) |
+| `sessions(C, N)` | C has N sessions per week (`weekly_hours * 60 / session_duration_minutes`) |
+| `start_ok(C, D, S)` | A session of C may start at slot S of day D: blocks S..S+B-1 exist on D with no gap between them |
+
+In `model.lp`, `assign(C, R, D, S)` is the **start slot** of a session and
+each course gets exactly N of them. The derived atom
+
+```prolog
+occupies(C, R, D, S..S+B-1) :- assign(C, R, D, S), duration(C, B).
+```
+
+covers every block of a session. All hard constraints (room, group and
+teacher clashes, `busy_*` reservations, the KAN-53 travel buffer) are written
+on `occupies/4`, so new constraints (availability, workload, soft
+preferences) should use `occupies/4` too, not `assign/4`.
+
+`validation.py` and `reasons.py` expand each assignment into its blocks with
+`Problem.covered_slots()`, and generation saves one `schedule_session` row per
+session with its real start and end time (e.g. 09:00–11:00).

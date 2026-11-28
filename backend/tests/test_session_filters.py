@@ -126,6 +126,10 @@ def test_sessions_are_enriched_with_names(director_session_filters_client, timet
         "degree_name": "Computer Science",
         "room_code": "MT1",
         "teacher_names": ["Ada Lovelace", "Alan Turing"],
+        "teacher_ids": sorted([
+            timetable["teacher_id"]["ada"],
+            timetable["teacher_id"]["turing"],
+        ]),
     }
 
 
@@ -324,3 +328,5 @@ def test_create_and_update_return_enriched_sessions(director_session_filters_cli
     assert updated.json()["room_code"] == "LAB-A"
     friday = director_session_filters_client.get("/timetable/sessions?weekday=4").json()
     assert friday == [updated.json()]
+
+pytestmark = pytest.mark.usefixtures("legacy_director_client")

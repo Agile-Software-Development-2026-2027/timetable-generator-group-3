@@ -58,8 +58,9 @@ All API calls go through `apiRequest` in `lib/api.js`, which adds
 `Authorization: Bearer <access token>`. The rules for redirects and links are in
 `lib/auth-rules.js`; `app/components/auth-provider.jsx` applies them on every page.
 
-Invite emails should link to `/set-password`: Supabase signs the invited user in
-from the link, and they choose the password they log in with.
+Directors invite people from the Users page (`/users`, KAN-69). The invite email
+links to `/set-password`: Supabase signs the invited user in from the link, and
+they choose the password they log in with.
 
 ## Pages
 
@@ -69,13 +70,16 @@ from the link, and they choose the password they log in with.
   room and teacher details, and generate a timetable for a degree programme.
 - `/login` — Log in with email and password.
 - `/set-password` — Choose a password after accepting an invite.
+- `/users` — Directors invite accounts, link each one to its teacher or student
+  record, change roles and deactivate accounts. Uses `GET/POST /users`,
+  `PATCH /users/{id}`, `DELETE /users/{id}`, `GET /teachers` and `GET /students`.
 - `/my-schedule`, `/my-timetable` — Teacher and student home pages (placeholders).
 
 ### Calendar and timetable generation
 
 The Calendar displays saved sessions on a time grid that follows the configured
 working days, daily time range, and block length from `SlotConfig`. The default
-UniCal grid is Monday–Friday, 09:00–18:00, with 60-minute blocks. You can switch
+UniCal grid is Monday–Friday, 09:00–18:00, with 30-minute blocks. You can switch
 between monthly, weekly, and daily views, and filter sessions by degree, year,
 and semester. By default, the first available degree is selected; choose
 “All degree programmes” to combine schedules. Each scheduled block shows the

@@ -21,7 +21,7 @@ def test_generation_creates_exact_hours_and_can_regenerate(director_generation_c
 
     first = director_generation_client.post("/timetable/generate", json=payload)
     assert first.status_code == 200, first.text
-    assert first.json() == {"status": "ok", "sessions_created": 4, "unscheduled": []}
+    assert first.json() == {"status": "ok", "sessions_created": 4, "total_sessions": 4, "unscheduled": []}
 
     second = director_generation_client.post("/timetable/generate", json=payload)
     assert second.status_code == 200, second.text
@@ -110,7 +110,7 @@ def test_unscheduled_reason_identifies_teacher_and_grid_constraints():
     course.weekly_hours = 2
     problem.busy_teachers.clear()
     assert unscheduled_course_reason(problem, course, None) == (
-        "Grid capacity: Grid has 1 slot; this semester needs 2 weekly hours."
+        "Grid capacity: Grid has 1 slot of 60 min; this semester needs 2 slots."
     )
 
 

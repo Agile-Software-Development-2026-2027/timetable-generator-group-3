@@ -144,7 +144,12 @@ def _account(user: CurrentUser, session: Session) -> AppUser:
 
 
 # teacher_id and student_id are left out when empty, as in the KAN-44 contract.
-@router.get("/me", response_model=AccountView, response_model_exclude_none=True)
+@router.get(
+    "/me",
+    response_model=AccountView,
+    response_model_exclude_none=True,
+    response_model_exclude={"degree_ids"},
+)
 def read_current_user(
     user: Annotated[CurrentUser, Depends(get_current_user)],
     session: Annotated[Session, Depends(get_session)],

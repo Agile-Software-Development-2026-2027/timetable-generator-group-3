@@ -248,7 +248,7 @@ def test_preferences_are_isolated_by_teacher(director, session, teacher):
 def test_deleting_teacher_cascades_preferences(director, client, teacher, session):
     assert director.put(url(teacher.id), json=VALID).status_code == 200
 
-    assert client.delete(f"/teachers/{teacher.id}").status_code == 204
+    assert director.delete(f"/teachers/{teacher.id}").status_code == 204
 
     session.expire_all()
     assert session.query(TeacherPreferences).count() == 0
@@ -261,6 +261,7 @@ def test_deleting_teacher_cascades_preferences(director, client, teacher, sessio
     {"max_consecutive_hours": -1},
     {"preferred_part_of_day": "evening"},
 ])
+
 def test_database_rejects_invalid_preferences(session, teacher, invalid):
     session.add(
         TeacherPreferences(teacher_id=teacher.id, **invalid)

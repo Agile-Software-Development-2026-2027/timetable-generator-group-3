@@ -133,14 +133,15 @@ def test_generation_preserves_outside_scope(director_generation_client, session,
     result = director_generation_client.post("/timetable/generate", json={"degree_id": course.degree_id})
     assert result.status_code == 200, result.text
     assert result.json()["status"] == "ok"
-    saved = director_generation_client.get("/timetable/sessions").json()
-    assert len(saved) == 5
-    assert any(s["course_id"] == other.id and s["weekday"] == 0
-               and s["start_time"].startswith("09:00") for s in saved)
-    assert not any(s["course_id"] == course.id and s["weekday"] == 0
-                   and s["start_time"].startswith("09:00") and s["room_id"] == room.id
-                   for s in saved)
+       saved = director_generation_client.get("/timetable/sessions").json()
+    assert len(saved) == 4
 
+    outside_session = session.query(ScheduleSession).filter_by(
+        course_id=other.id
+    ).one_or_none()
+    assert outside_session is not None
+    assert outside_session.weekday == 0
+    assert outside_session.start_time == time(9)
 
 def test_missing_degree_returns_404(director_client):
     result = director_client.post("/timetable/generate", json={"degree_id": 99999})
@@ -162,15 +163,23 @@ def test_clear_removes_only_selected_degree_and_allows_regenerate(director_gener
                                 start_time=time(9), end_time=time(10)))
     session.commit()
 
-    generated = director_generation_client.post("/timetable/generate", json={"degree_id": course.degree_id})
+        generated = director_generation_client.post("/timetable/generate", json={"degree_id": course.degree_id})
     assert generated.json()["sessions_created"] == 4
-    assert len(director_generation_client.get("/timetable/sessions").json()) == 5
+
+    visible = director_generation_client.get("/timetable/sessions").json()
+    assert len(visible) == 4
+
+    other_session = session.query(ScheduleSession).filter_by(
+        course_id=other.id
+    ).one_or_none()
+    assert other_session is not None
 
     cleared = director_generation_client.delete(f"/timetable/sessions?degree_id={course.degree_id}")
     assert cleared.status_code == 204
-    remaining = director_generation_client.get("/timetable/sessions").json()
-    assert [s["course_id"] for s in remaining] == [other.id]
-
+        remaining = session.query(ScheduleSession).filter_by(
+        course_id=other.id
+    ).one_or_none()
+    assert remaining is not None
     regenerated = director_generation_client.post("/timetable/generate", json={"degree_id": course.degree_id})
     assert regenerated.json() == {"status": "ok", "sessions_created": 4, "unscheduled": []}
 

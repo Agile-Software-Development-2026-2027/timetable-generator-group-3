@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session, contains_eager, joinedload
+from app.auth import CurrentUser, get_current_user, require_degree_access, require_role
 
 from app.auth import CurrentUser, get_current_user, require_director
 from app.database import get_session
@@ -80,6 +81,7 @@ def get_session_view(session_id: int, session: Session) -> SessionView:
 @router.get("/timetable/sessions", response_model=list[SessionView])
 def list_sessions(
     session: Database,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
     response: Response,
     user: Annotated[CurrentUser, Depends(get_current_user)],
     degree_id: int | None = None,
@@ -103,6 +105,14 @@ def list_sessions(
         else PublishedSession
     )
     filters = []
+    
+    if user.role == "director":
+        filters.append(Course.degree_id.in_(user.degree_ids))
+    
+    if user.role == "director" and degree_id is not None:
+        if session.get(Degree, degree_id) is not None:
+           require_degree_access(degree_id, user)
+    
     if degree_id is not None:
         filters.append(Course.degree_id == degree_id)
         if model is PublishedSession:
@@ -155,41 +165,61 @@ def save_session(
 
 
 @router.post("/timetable/sessions", response_model=SessionView, status_code=201)
-def create_session(data: SessionInput, session: Database, _director: Director) -> SessionView:
+def create_session(
+    data: SessionInput,
+    session: Database,
+    user: Annotated[CurrentUser, Depends(require_role("director"))],
+) -> SessionView:
+    course = session.get(Course, data.course_id)
+
+    if course is None:
+        raise HTTPException(404, "Course not found.")
+
+    require_degree_access(course.degree_id, user)
+
     record = save_session(ScheduleSession(), data, session)
     session.add(record)
     session.commit()
-    return get_session_view(record.id, session)
 
+    return get_session_view(record.id, session)
 
 @router.put("/timetable/sessions/{session_id}", response_model=SessionView)
 def update_session(
     session_id: int,
     data: SessionInput,
     session: Database,
-    _director: Director,
+    user: Annotated[CurrentUser, Depends(require_role("director"))],
 ) -> SessionView:
     record = session.get(ScheduleSession, session_id)
 
     if record is None:
         raise HTTPException(404, "Timetable session not found.")
 
+    current_course = session.get(Course, record.course_id)
+    require_degree_access(current_course.degree_id, user)
+
+    new_course = session.get(Course, data.course_id)
+    if new_course is None:
+        raise HTTPException(404, "Course not found.")
+
+    require_degree_access(new_course.degree_id, user)
+
     save_session(record, data, session)
     session.commit()
 
     return get_session_view(session_id, session)
 
-
 @router.delete("/timetable/sessions", status_code=204)
 def clear_sessions(
     session: Database,
     degree_id: Annotated[int, Query(gt=0)],
-    _director: Director,
+    user: Annotated[CurrentUser, Depends(require_role("director"))],
 ) -> None:
-    # degree_id is required so a bare DELETE can never wipe every timetable.
+    
     if session.get(Degree, degree_id) is None:
         raise HTTPException(404, "Degree not found.")
 
+    require_degree_access(degree_id, user)
     session.execute(
         delete(ScheduleSession).where(
             ScheduleSession.course_id.in_(
@@ -201,11 +231,18 @@ def clear_sessions(
 
 
 @router.delete("/timetable/sessions/{session_id}", status_code=204)
-def delete_session(session_id: int, session: Database, _director: Director) -> None:
+def delete_session(
+    session_id: int,
+    session: Database,
+    user: Annotated[CurrentUser, Depends(require_role("director"))],
+) -> None:
     record = session.get(ScheduleSession, session_id)
 
     if record is None:
         raise HTTPException(404, "Timetable session not found.")
+
+    course = session.get(Course, record.course_id)
+    require_degree_access(course.degree_id, user)
 
     session.delete(record)
     session.commit()

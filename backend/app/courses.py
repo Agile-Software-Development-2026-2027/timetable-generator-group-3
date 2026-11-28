@@ -6,6 +6,12 @@ from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session, joinedload
 
+from app.auth import (
+    CurrentUser,
+    get_current_user,
+    require_degree_access,
+    require_role,
+)
 from app.database import get_session
 from app.models import Course, Degree, Year, Semester, ScheduleSession
 from app.slot_config import get_block_minutes
@@ -165,11 +171,11 @@ def ensure_unique_name(
 @router.get("", response_model=list[CourseView])
 def list_courses(
     session: Database,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
     degree_id: int | None = None,
     year_id: int | None = None,
     semester_id: int | None = None,
 ) -> list[CourseView]:
-
     query = (
         select(Course)
         .join(Course.semester)
@@ -183,6 +189,10 @@ def list_courses(
         .order_by(Course.name)
     )
 
+    if user.role == "director":
+        query = query.where(Course.degree_id.in_(user.degree_ids))
+        if degree_id is not None:
+            require_degree_access(degree_id, user)
     if degree_id is not None:
         query = query.where(Course.degree_id == degree_id)
 
@@ -196,8 +206,12 @@ def list_courses(
 
 
 @router.post("", response_model=CourseView, status_code=201)
-def create_course(data: CourseInput, session: Database) -> CourseView:
-
+def create_course(
+    data: CourseInput,
+    session: Database,
+    user: Annotated[CurrentUser, Depends(require_role("director"))],
+) -> CourseView:
+    require_degree_access(data.degree_id, user)
     validate_academic_structure(data, session)
     validate_duration_against_grid(data, session)
 
@@ -212,19 +226,25 @@ def create_course(data: CourseInput, session: Database) -> CourseView:
 
 
 @router.get("/{course_id}", response_model=CourseView)
-def get_course(course_id: int, session: Database) -> CourseView:
-
-    return course_view(load_course(course_id, session))
-
+def get_course(
+    course_id: int,
+    session: Database,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> CourseView:
+    course = load_course(course_id, session)
+    require_degree_access(course.degree_id, user)
+    return course_view(course)
 
 @router.put("/{course_id}", response_model=CourseView)
 def update_course(
     course_id: int,
     data: CourseInput,
     session: Database,
+    user: Annotated[CurrentUser, Depends(require_role("director"))],
 ) -> CourseView:
-
     course = load_course(course_id, session)
+    require_degree_access(course.degree_id, user)
+    require_degree_access(data.degree_id, user)
 
     validate_academic_structure(data, session)
     validate_duration_against_grid(data, session)
@@ -248,10 +268,11 @@ def update_course(
 def delete_course(
     course_id: int,
     session: Database,
+    user: Annotated[CurrentUser, Depends(require_role("director"))],
     force: bool = False,
 ) -> None:
-
     course = load_course(course_id, session)
+    require_degree_access(course.degree_id, user)
 
     scheduled = session.scalar(
         select(func.count(ScheduleSession.id)).where(

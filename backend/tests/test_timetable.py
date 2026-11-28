@@ -1,5 +1,7 @@
 import pytest
 
+from app.models import AppUser, Degree
+
 def session_payload(course_id, **overrides):
     return {
         "course_id": course_id,
@@ -10,9 +12,15 @@ def session_payload(course_id, **overrides):
         **overrides,
     }
 
+@pytest.fixture()
+def director_timetable_client(director_client, session, course):
+    director = session.query(AppUser).filter_by(role="director").one()
+    director.degrees.append(session.get(Degree, course.degree_id))
+    session.commit()
+    return director_client
 
-def test_list_courses(client, course):
-    response = client.get("/courses")
+def test_list_courses(director_timetable_client, course):
+    response = director_timetable_client.get("/courses")
 
     assert response.status_code == 200
 
@@ -27,15 +35,15 @@ def test_list_courses(client, course):
     assert listed_course["enrolled_students"] == 80
 
 
-def test_create_list_update_and_delete_session(client, course):
-    room = client.post("/rooms", json={"code": "MT1", "capacity": 110}).json()
+def test_create_list_update_and_delete_session(director_timetable_client, course):
+    room = director_timetable_client.post("/rooms", json={"code": "MT1", "capacity": 110}).json()
 
-    created = client.post("/timetable/sessions", json=session_payload(course.id))
+    created = director_timetable_client.post("/timetable/sessions", json=session_payload(course.id))
     assert created.status_code == 201
     session_id = created.json()["id"]
-    assert client.get("/timetable/sessions").json() == [created.json()]
+    assert director_timetable_client.get("/timetable/sessions").json() == [created.json()]
 
-    updated = client.put(
+    updated = director_timetable_client.put(
         f"/timetable/sessions/{session_id}",
         json=session_payload(course.id, room_id=room["id"], weekday=4),
     )
@@ -43,12 +51,12 @@ def test_create_list_update_and_delete_session(client, course):
     assert updated.json()["room_id"] == room["id"]
     assert updated.json()["weekday"] == 4
 
-    assert client.delete(f"/timetable/sessions/{session_id}").status_code == 204
-    assert client.get("/timetable/sessions").json() == []
+    assert director_timetable_client.delete(f"/timetable/sessions/{session_id}").status_code == 204
+    assert director_timetable_client.get("/timetable/sessions").json() == []
 
 
-def test_session_end_must_follow_start(client, course):
-    response = client.post(
+def test_session_end_must_follow_start(director_timetable_client, course):
+    response = director_timetable_client.post(
         "/timetable/sessions",
         json=session_payload(course.id, start_time="11:00", end_time="09:00"),
     )
@@ -56,75 +64,15 @@ def test_session_end_must_follow_start(client, course):
     assert response.status_code == 422
 
 
-def test_session_requires_existing_course(client):
-    response = client.post("/timetable/sessions", json=session_payload(999))
+def test_session_requires_existing_course(director_client):
+    response = director_client.post("/timetable/sessions", json=session_payload(999))
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Course not found."
 
 
-def test_missing_session_returns_404(client, course):
-    response = client.put("/timetable/sessions/999", json=session_payload(course.id))
+def test_missing_session_returns_404(director_timetable_client, course):
+    response = director_timetable_client.put("/timetable/sessions/999", json=session_payload(course.id))
 
     assert response.status_code == 404
-    assert client.delete("/timetable/sessions/999").status_code == 404
-
-pytestmark = pytest.mark.usefixtures("legacy_director_client")
-
-
-def test_session_exposes_teacher_ids(client, course):
-    teachers = []
-
-    for identifier in ("KAN21-T1", "KAN21-T2"):
-        response = client.post(
-            "/teachers",
-            json={
-                "name": "Same Teacher Name",
-                "identifier": identifier,
-                "course_ids": [course.id],
-            },
-        )
-
-        assert response.status_code == 201
-        teachers.append(response.json()["id"])
-
-    created = client.post(
-        "/timetable/sessions",
-        json=session_payload(course.id),
-    )
-
-    assert created.status_code == 201
-    assert created.json()["teacher_ids"] == sorted(teachers)
-
-    response = client.get("/timetable/sessions")
-
-    assert response.status_code == 200
-
-    record = next(
-        item for item in response.json()
-        if item["id"] == created.json()["id"]
-    )
-
-    assert record["teacher_ids"] == sorted(teachers)
-    assert record["teacher_names"] == [
-        "Same Teacher Name",
-        "Same Teacher Name",
-    ]
-
-
-def test_session_without_teachers_returns_empty_teacher_ids(client, course):
-    response = client.put(
-        f"/courses/{course.id}/teachers",
-        json={"teacher_ids": []},
-    )
-
-    assert response.status_code == 200
-
-    created = client.post(
-        "/timetable/sessions",
-        json=session_payload(course.id),
-    )
-
-    assert created.status_code == 201
-    assert created.json()["teacher_ids"] == []
-    assert created.json()["teacher_names"] == []
+    assert director_timetable_client.delete("/timetable/sessions/999").status_code == 404

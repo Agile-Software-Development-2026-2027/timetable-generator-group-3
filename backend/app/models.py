@@ -369,17 +369,6 @@ class AppUser(Base):
     back_populates="directors",
 )
 
-    # KAN-69: the teacher or student record this account belongs to. Deleting
-    # that record also deletes this row, so the login loses its role.
-    teacher_id: Mapped[int | None] = mapped_column(
-        ForeignKey("teacher.id", ondelete="CASCADE"), unique=True
-    )
-    student_id: Mapped[int | None] = mapped_column(
-        ForeignKey("student.id", ondelete="CASCADE"), unique=True
-    )
-    teacher: Mapped["Teacher | None"] = relationship()
-    student: Mapped["Student | None"] = relationship()
-
     __table_args__ = (
         CheckConstraint(
             "role IN ('director', 'teacher', 'student')", name="ck_app_user_role"

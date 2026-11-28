@@ -10,6 +10,7 @@ from functools import lru_cache
 from typing import Annotated, Any, Literal
 
 import jwt
+from sqlalchemy import inspect
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
@@ -104,12 +105,19 @@ def get_current_user(
     if user is None:
         raise HTTPException(403, "User has no role assigned")
 
+        degree_ids = []
+
+    if user.role == "director" and inspect(session.get_bind()).has_table(
+        "director_degree"
+    ):
+        degree_ids = [degree.id for degree in user.degrees]
+
     return CurrentUser(
         id=user.id,
         role=user.role,
-        degree_ids=[degree.id for degree in user.degrees] if user.role == "director" else [],
+        degree_ids=degree_ids,
     )
-
+    
 def require_role(*roles: Role):
     """Require the current user to have one of the specified roles."""
 

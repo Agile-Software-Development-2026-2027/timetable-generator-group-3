@@ -114,7 +114,7 @@ def list_sessions(
         else PublishedSession
     )
     filters = []
-        if user.role == "teacher":
+    if user.role == "teacher":
         account = session.get(AppUser, user.id)
         if account is None or account.teacher_id is None:
             raise HTTPException(403, "Teacher account is not linked to a teacher.")

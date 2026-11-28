@@ -67,7 +67,16 @@ def test_student_cannot_request_draft(session, course, auth_client, client):
 def test_publish_empty_draft_clears_published(session, course, auth_client):
     draft = _add_draft(session, course)
     director = auth_client("director")
-    teacher = auth_client("teacher")
+
+    teacher_record = Teacher(
+        name="Test Teacher",
+        identifier="test-teacher-empty-publication",
+    )
+    course.teachers.append(teacher_record)
+    session.add(teacher_record)
+    session.commit()
+
+    teacher = auth_client("teacher", teacher=teacher_record)
     path = f"/timetable/publish?degree_id={course.degree_id}"
     assert director.post(path).status_code == 200
     session.delete(draft)

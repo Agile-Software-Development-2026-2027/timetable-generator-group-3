@@ -163,7 +163,7 @@ def test_clear_removes_only_selected_degree_and_allows_regenerate(director_gener
                                 start_time=time(9), end_time=time(10)))
     session.commit()
 
-        generated = director_generation_client.post("/timetable/generate", json={"degree_id": course.degree_id})
+    generated = director_generation_client.post("/timetable/generate", json={"degree_id": course.degree_id})
     assert generated.json()["sessions_created"] == 4
 
     visible = director_generation_client.get("/timetable/sessions").json()

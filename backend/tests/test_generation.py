@@ -170,8 +170,12 @@ def test_clear_removes_only_selected_degree_and_allows_regenerate(director_clien
     assert [s["course_id"] for s in remaining] == [other.id]
 
     regenerated = director_client.post("/timetable/generate", json={"degree_id": course.degree_id})
-    assert regenerated.json() == {"status": "ok", "sessions_created": 4, "unscheduled": []}
-
+    assert regenerated.json() == {
+        "status": "ok",
+        "sessions_created": 4,
+        "unscheduled": [],
+        "total_sessions": 4,
+    }
 
 def test_clear_requires_existing_degree(director_client):
     assert director_client.delete("/timetable/sessions").status_code == 422

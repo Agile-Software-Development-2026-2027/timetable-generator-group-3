@@ -114,17 +114,17 @@ def list_sessions(
         else PublishedSession
     )
     filters = []
-    if user.role == "teacher":
-    account = session.get(AppUser, user.id)
-    if account is None or account.teacher_id is None:
-        raise HTTPException(403, "Teacher account is not linked to a teacher.")
-    filters.append(
-        Course.id.in_(
-            select(course_teacher.c.course_id).where(
-                course_teacher.c.teacher_id == account.teacher_id
+        if user.role == "teacher":
+        account = session.get(AppUser, user.id)
+        if account is None or account.teacher_id is None:
+            raise HTTPException(403, "Teacher account is not linked to a teacher.")
+        filters.append(
+            Course.id.in_(
+                select(course_teacher.c.course_id).where(
+                    course_teacher.c.teacher_id == account.teacher_id
+                )
             )
         )
-    )
     if degree_id is not None:
         filters.append(Course.degree_id == degree_id)
         if model is PublishedSession:

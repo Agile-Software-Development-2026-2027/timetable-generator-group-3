@@ -93,9 +93,9 @@ def list_sessions(
     if user.role == "director":
         filters.append(Course.degree_id.in_(user.degree_ids))
     
-        if user.role == "director" and degree_id is not None:
-        if session.get(Degree, degree_id) is not None:
-            require_degree_access(degree_id, user)
+    if user.role == "director" and degree_id is not None:
+    if session.get(Degree, degree_id) is not None:
+        require_degree_access(degree_id, user)
     
     if degree_id is not None:
         filters.append(Course.degree_id == degree_id)

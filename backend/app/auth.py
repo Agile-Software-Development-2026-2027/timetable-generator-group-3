@@ -104,11 +104,11 @@ def get_current_user(
     if user is None:
         raise HTTPException(403, "User has no role assigned")
 
-return CurrentUser(
-    id=user.id,
-    role=user.role,
-    degree_ids=[degree.id for degree in user.degrees] if user.role == "director" else [],
-)
+    return CurrentUser(
+        id=user.id,
+        role=user.role,
+        degree_ids=[degree.id for degree in user.degrees] if user.role == "director" else [],
+    )
 
 def require_role(*roles: Role):
     """Require the current user to have one of the specified roles."""

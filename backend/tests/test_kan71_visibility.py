@@ -1,6 +1,6 @@
 from datetime import time
 
-from app.models import ScheduleSession
+from app.models import ScheduleSession, Teacher
 
 
 def test_roles_see_correct_timetable_versions(session, course, auth_client):

@@ -33,6 +33,9 @@ class SlotConfigInput(BaseModel):
     start_time: time
     end_time: time
     block_minutes: int
+    # KAN-78: optional lunch break; both or neither.
+    break_start: time | None = None
+    break_end: time | None = None
 
     @field_validator("working_days")
     @classmethod
@@ -64,6 +67,13 @@ class SlotConfigInput(BaseModel):
                 "The time range is shorter than one block. "
                 "Increase the range or reduce the block length."
             )
+        if (self.break_start is None) != (self.break_end is None):
+            raise ValueError("Give both the start and the end of the lunch break, or neither.")
+        if self.break_start is not None:
+            if self.break_end <= self.break_start:
+                raise ValueError("The lunch break must end after it starts.")
+            if self.break_start < self.start_time or self.break_end > self.end_time:
+                raise ValueError("The lunch break must be within the daily schedule.")
         return self
 
 
@@ -80,6 +90,8 @@ class SlotConfigView(BaseModel):
     end_time: str
     block_minutes: int
     blocks_per_day: int
+    break_start: str | None = None
+    break_end: str | None = None
 
 
 class SlotGrid(BaseModel):
@@ -103,38 +115,63 @@ def _load_or_create(session: Session) -> SlotConfig:
     return config
 
 
+def _minutes(value: time) -> int:
+    return value.hour * 60 + value.minute
+
+
+def _day_slots(config: SlotConfig) -> list[TimeSlot]:
+    """The blocks of one working day.
+
+    KAN-78: blocks that overlap the lunch break are left out. The other blocks
+    keep their position in the day as index, so the block after lunch is not
+    consecutive to the one before it: a session never runs across the break,
+    and changing rooms over lunch needs no travel buffer.
+    """
+    start_min = _minutes(config.start_time)
+    end_min = _minutes(config.end_time)
+    block = config.block_minutes
+    break_start = getattr(config, "break_start", None)
+    break_end = getattr(config, "break_end", None)
+
+    slots: list[TimeSlot] = []
+    cursor = start_min
+    idx = 0
+    while cursor + block <= end_min:
+        slot_end = cursor + block
+        in_break = (
+            break_start is not None and break_end is not None
+            and cursor < _minutes(break_end) and slot_end > _minutes(break_start)
+        )
+        if not in_break:
+            slots.append(TimeSlot(
+                index=idx,
+                start=f"{cursor // 60:02d}:{cursor % 60:02d}",
+                end=f"{slot_end // 60:02d}:{slot_end % 60:02d}",
+            ))
+        cursor = slot_end
+        idx += 1
+    return slots
+
+
 def _to_view(config: SlotConfig) -> SlotConfigView:
     days = json.loads(config.working_days)
-    start = config.start_time
-    end = config.end_time
-    total = (end.hour * 60 + end.minute) - (start.hour * 60 + start.minute)
-    blocks = total // config.block_minutes
+    break_start = getattr(config, "break_start", None)
+    break_end = getattr(config, "break_end", None)
     return SlotConfigView(
         working_days=days,
         working_day_names=[WEEKDAY_NAMES[d] for d in days],
         start_time=config.start_time.strftime("%H:%M"),
         end_time=config.end_time.strftime("%H:%M"),
         block_minutes=config.block_minutes,
-        blocks_per_day=blocks,
+        blocks_per_day=len(_day_slots(config)),
+        break_start=break_start.strftime("%H:%M") if break_start else None,
+        break_end=break_end.strftime("%H:%M") if break_end else None,
     )
 
 
 def _build_grid(config: SlotConfig) -> dict[str, list[TimeSlot]]:
     days = json.loads(config.working_days)
-    start_min = config.start_time.hour * 60 + config.start_time.minute
-    end_min = config.end_time.hour * 60 + config.end_time.minute
-    block = config.block_minutes
-
-    slots: list[TimeSlot] = []
-    cursor = start_min
-    idx = 0
-    while cursor + block <= end_min:
-        slot_start = f"{cursor // 60:02d}:{cursor % 60:02d}"
-        cursor += block
-        slot_end = f"{cursor // 60:02d}:{cursor % 60:02d}"
-        slots.append(TimeSlot(index=idx, start=slot_start, end=slot_end))
-        idx += 1
-
+    slots = _day_slots(config)
     return {WEEKDAY_NAMES[d]: slots for d in days}
 
 
@@ -183,6 +220,8 @@ def update_slot_config(data: SlotConfigInput, session: Database) -> SlotConfigVi
     config.start_time = data.start_time
     config.end_time = data.end_time
     config.block_minutes = data.block_minutes
+    config.break_start = data.break_start
+    config.break_end = data.break_end
     session.commit()
     session.refresh(config)
     return _to_view(config)

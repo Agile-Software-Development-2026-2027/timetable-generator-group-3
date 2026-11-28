@@ -117,6 +117,8 @@
 .campus-app .slot-block:nth-child(odd) { background: #f6dcdb; }
 .campus-app .slot-block span, .campus-app .slot-block-end span { position: absolute; top: 34px; left: 0; font-size: 9px; color: #929ca0; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .campus-app .slot-block-end { position: relative; width: 0; }
+/* KAN-78: lunch break blocks are not used by the engine. */
+.campus-app .slot-block.slot-block-break { background: repeating-linear-gradient(45deg, #f1f1f1, #f1f1f1 4px, #e2e2e2 4px, #e2e2e2 8px); border-color: #dcdcdc; }
 .campus-app .slot-block-end span { left: auto; right: 0; }
 .campus-app .slot-preview-card .settings-preview { margin: 0; padding: 10px 12px; border: 0; border-radius: 8px; background: #f8f9f9; color: #576268; font-size: 11px; font-weight: 600; line-height: 1.5; }
 
@@ -150,3 +152,8 @@
 .campus-app.campus-app.campus-app .course-table .room-code { min-width: 150px; }
 .campus-app.campus-app.campus-app .course-table .course-degree-cell { min-width: 140px; color: #899499; }
 .campus-app.campus-app.campus-app .course-table tbody td:last-child { width: 1%; }
+/* Users page (KAN-69): account status pills. */
+.campus-app.campus-app.campus-app .room-table .user-status { white-space: nowrap; }
+.campus-app.campus-app.campus-app .room-table .user-status-active { background: #e6f5ee; color: #205e4b; }
+.campus-app.campus-app.campus-app .room-table .user-status-invited { background: #fdf3e2; color: #8a5a12; }
+.campus-app.campus-app.campus-app .room-table .user-status-deactivated { background: #f1f2f3; color: #69757a; }

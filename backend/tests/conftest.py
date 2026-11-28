@@ -11,7 +11,7 @@ from app import models  # noqa: F401  (register tables on Base.metadata)
 from app.config import Settings, get_settings
 from app.database import Base, get_session
 from app.main import app
-from app.models import AppUser, Course, Degree, Semester, Year
+from app.models import AppUser, Course, Degree, Semester, Student, Teacher, Year
 
 # Tests sign their own tokens with this secret: no calls to Supabase.
 # 32+ bytes so PyJWT does not warn about a short HMAC key.
@@ -99,12 +99,38 @@ def make_token():
     return _make_token
 
 
+def linked_record(session, role, teacher=None, student=None):
+    """The teacher_id/student_id a new account with `role` must have (KAN-69).
+
+    Uses the given record, or creates one that no other test data refers to.
+    """
+    suffix = uuid.uuid4().hex[:10]
+    if role == "teacher":
+        teacher = teacher or Teacher(name="Signed-in Teacher", identifier=f"account-{suffix}")
+        session.add(teacher)
+        session.flush()
+        return {"teacher_id": teacher.id}
+    if role == "student":
+        if student is None:
+            year = Year(number=1, degree=Degree(name=f"Signed-in student degree {suffix}"))
+            student = Student(name="Signed-in Student", student_number=f"account-{suffix}",
+                              degree=year.degree, year=year)
+        session.add(student)
+        session.flush()
+        return {"student_id": student.id}
+    return {}
+
+
 @pytest.fixture()
 def auth_client(client, session, make_token):
-    """auth_client("director") -> a TestClient logged in as a new user with that role."""
+    """auth_client("director") -> a TestClient logged in as a new user with that role.
 
-    def _auth_client(role):
-        user = AppUser(id=uuid.uuid4(), role=role)
+    A teacher or student account is linked to a new record, or to the one passed:
+    auth_client("student", student=my_student).
+    """
+
+    def _auth_client(role, *, teacher=None, student=None):
+        user = AppUser(id=uuid.uuid4(), role=role, **linked_record(session, role, teacher, student))
         session.add(user)
         session.commit()
         token = make_token(user.id)

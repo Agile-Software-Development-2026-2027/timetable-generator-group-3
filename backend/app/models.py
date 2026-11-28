@@ -164,10 +164,6 @@ class Course(Base):
             name="ck_course_session_duration_positive"
         ),
         CheckConstraint(
-            "(weekly_hours * 60) % session_duration_minutes = 0",
-            name="ck_course_session_duration_divides_week"
-        ),
-        CheckConstraint(
             "enrolled_students > 0", name="ck_course_enrolled_students_positive"
         ),
         CheckConstraint("length(trim(name)) > 0", name="ck_course_name_not_empty"),
@@ -190,6 +186,78 @@ class Teacher(Base):
         CheckConstraint("length(trim(name)) > 0", name="ck_teacher_name_not_empty"),
         CheckConstraint(
             "length(trim(identifier)) > 0", name="ck_teacher_identifier_not_empty"
+        ),
+    )
+
+
+class TeacherAvailability(Base):
+    """KAN-57: a time range a teacher marks as unavailable or preferred.
+
+    Stored as times, not slot indexes, so entries stay valid when the slot
+    configuration changes. The engine maps each range to the slots it overlaps.
+    """
+
+    __tablename__ = "teacher_availability"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    teacher_id: Mapped[int] = mapped_column(
+        ForeignKey("teacher.id", ondelete="CASCADE"), nullable=False
+    )
+    weekday: Mapped[int] = mapped_column(Integer, nullable=False)
+    start_time: Mapped[time] = mapped_column(Time, nullable=False)
+    end_time: Mapped[time] = mapped_column(Time, nullable=False)
+    availability_type: Mapped[str] = mapped_column(String(16), nullable=False)
+
+    __table_args__ = (
+        CheckConstraint("weekday BETWEEN 0 AND 6", name="ck_availability_weekday"),
+        CheckConstraint("start_time < end_time", name="ck_availability_time_order"),
+        CheckConstraint(
+            "availability_type IN ('unavailable', 'preferred')",
+            name="ck_availability_type",
+        ),
+        Index("ix_teacher_availability_teacher_id", "teacher_id"),
+    )
+
+
+class TeacherPreferences(Base):
+    """KAN-72: optional weekly workload limits for a teacher."""
+
+    __tablename__ = "teacher_preferences"
+
+    teacher_id: Mapped[int] = mapped_column(
+        ForeignKey("teacher.id", ondelete="CASCADE"),
+        primary_key=True,
+        autoincrement=False,
+    )
+    max_hours_per_day: Mapped[int | None] = mapped_column(
+        Integer, nullable=True
+    )
+    max_teaching_days: Mapped[int | None] = mapped_column(
+        Integer, nullable=True
+    )
+    max_consecutive_hours: Mapped[int | None] = mapped_column(
+        Integer, nullable=True
+    )
+    preferred_part_of_day: Mapped[str | None] = mapped_column(
+        String(16), nullable=True
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "max_hours_per_day > 0",
+            name="ck_teacher_preferences_daily_hours",
+        ),
+        CheckConstraint(
+            "max_teaching_days BETWEEN 1 AND 6",
+            name="ck_teacher_preferences_teaching_days",
+        ),
+        CheckConstraint(
+            "max_consecutive_hours > 0",
+            name="ck_teacher_preferences_consecutive_hours",
+        ),
+        CheckConstraint(
+            "preferred_part_of_day IN ('morning', 'afternoon', 'none')",
+            name="ck_teacher_preferences_part_of_day",
         ),
     )
 
@@ -250,6 +318,7 @@ class SlotConfig(Base):
     working_days: JSON-encoded sorted list of weekday integers (0=Mon … 6=Sun).
     block_minutes: length of each time slot in minutes (must be > 0).
     start_time / end_time: the daily range within which blocks are placed.
+    break_start / break_end: optional lunch break; no block overlaps it.
     """
 
     __tablename__ = "slot_config"
@@ -265,10 +334,17 @@ class SlotConfig(Base):
         Time, nullable=False, default=time(18, 0)
     )
     block_minutes: Mapped[int] = mapped_column(Integer, nullable=False, default=30)
+    # KAN-78: optional lunch break. No grid block overlaps it.
+    break_start: Mapped[time | None] = mapped_column(Time, nullable=True)
+    break_end: Mapped[time | None] = mapped_column(Time, nullable=True)
 
     __table_args__ = (
         CheckConstraint("block_minutes > 0", name="ck_slot_block_minutes_positive"),
         CheckConstraint("id = 1", name="ck_slot_config_singleton"),
+        CheckConstraint(
+            "(break_start IS NULL AND break_end IS NULL) OR break_start < break_end",
+            name="ck_slot_config_break",
+        ),
     )
 
 
@@ -293,9 +369,28 @@ class AppUser(Base):
     back_populates="directors",
 )
 
+    # KAN-69: the teacher or student record this account belongs to. Deleting
+    # that record also deletes this row, so the login loses its role.
+    teacher_id: Mapped[int | None] = mapped_column(
+        ForeignKey("teacher.id", ondelete="CASCADE"), unique=True
+    )
+    student_id: Mapped[int | None] = mapped_column(
+        ForeignKey("student.id", ondelete="CASCADE"), unique=True
+    )
+    teacher: Mapped["Teacher | None"] = relationship()
+    student: Mapped["Student | None"] = relationship()
+
     __table_args__ = (
         CheckConstraint(
             "role IN ('director', 'teacher', 'student')", name="ck_app_user_role"
+        ),
+        # A teacher account points to a teacher, a student account to a
+        # student, and a director to neither.
+        CheckConstraint(
+            "(role = 'director' AND teacher_id IS NULL AND student_id IS NULL)"
+            " OR (role = 'teacher' AND teacher_id IS NOT NULL AND student_id IS NULL)"
+            " OR (role = 'student' AND student_id IS NOT NULL AND teacher_id IS NULL)",
+            name="ck_app_user_linked_record",
         ),
     )
 

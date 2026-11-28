@@ -36,9 +36,12 @@ CREATE TABLE slot_config (
 	start_time TIME WITHOUT TIME ZONE NOT NULL, 
 	end_time TIME WITHOUT TIME ZONE NOT NULL, 
 	block_minutes INTEGER NOT NULL, 
+	break_start TIME WITHOUT TIME ZONE, 
+	break_end TIME WITHOUT TIME ZONE, 
 	PRIMARY KEY (id), 
 	CONSTRAINT ck_slot_block_minutes_positive CHECK (block_minutes > 0), 
-	CONSTRAINT ck_slot_config_singleton CHECK (id = 1)
+	CONSTRAINT ck_slot_config_singleton CHECK (id = 1), 
+	CONSTRAINT ck_slot_config_break CHECK ((break_start IS NULL AND break_end IS NULL) OR break_start < break_end)
 );
 
 CREATE TABLE teacher (
@@ -86,7 +89,6 @@ CREATE TABLE course (
 	CONSTRAINT uq_course_semester_name UNIQUE (semester_id, name), 
 	CONSTRAINT ck_course_weekly_hours_positive CHECK (weekly_hours > 0), 
        CONSTRAINT ck_course_session_duration_positive CHECK (session_duration_minutes > 0),
-       CONSTRAINT ck_course_session_duration_divides_week CHECK ((weekly_hours * 60) % session_duration_minutes = 0),
 	CONSTRAINT ck_course_enrolled_students_positive CHECK (enrolled_students > 0), 
 	CONSTRAINT ck_course_name_not_empty CHECK (length(trim(name)) > 0), 
 	FOREIGN KEY(degree_id) REFERENCES degree (id) ON DELETE RESTRICT, 
@@ -115,6 +117,45 @@ CREATE TABLE schedule_session (
 	FOREIGN KEY(course_id) REFERENCES course (id) ON DELETE CASCADE, 
 	FOREIGN KEY(room_id) REFERENCES room (id) ON DELETE SET NULL
 );
+
+-- KAN-57: time ranges a teacher marks as unavailable or preferred.
+CREATE TABLE teacher_availability (
+	id SERIAL NOT NULL, 
+	teacher_id INTEGER NOT NULL, 
+	weekday INTEGER NOT NULL, 
+	start_time TIME WITHOUT TIME ZONE NOT NULL, 
+	end_time TIME WITHOUT TIME ZONE NOT NULL, 
+	availability_type VARCHAR(16) NOT NULL, 
+	PRIMARY KEY (id), 
+	CONSTRAINT ck_availability_weekday CHECK (weekday BETWEEN 0 AND 6), 
+	CONSTRAINT ck_availability_time_order CHECK (start_time < end_time), 
+	CONSTRAINT ck_availability_type CHECK (availability_type IN ('unavailable', 'preferred')), 
+	FOREIGN KEY(teacher_id) REFERENCES teacher (id) ON DELETE CASCADE
+);
+
+CREATE INDEX ix_teacher_availability_teacher_id ON teacher_availability (teacher_id);
+
+-- KAN-72: optional teacher workload preferences.
+CREATE TABLE teacher_preferences (
+    teacher_id INTEGER PRIMARY KEY
+        REFERENCES teacher(id) ON DELETE CASCADE,
+    max_hours_per_day INTEGER,
+    max_teaching_days INTEGER,
+    max_consecutive_hours INTEGER,
+    preferred_part_of_day VARCHAR(16),
+
+    CONSTRAINT ck_teacher_preferences_daily_hours
+        CHECK (max_hours_per_day > 0),
+    CONSTRAINT ck_teacher_preferences_teaching_days
+        CHECK (max_teaching_days BETWEEN 1 AND 6),
+    CONSTRAINT ck_teacher_preferences_consecutive_hours
+        CHECK (max_consecutive_hours > 0),
+    CONSTRAINT ck_teacher_preferences_part_of_day
+        CHECK (preferred_part_of_day IN ('morning', 'afternoon', 'none'))
+);
+
+-- Preferences are accessed through the authorized backend only.
+ALTER TABLE teacher_preferences ENABLE ROW LEVEL SECURITY;
 
 -- Platform role of each Supabase Auth user (KAN-44). `id` is auth.users.id.
 -- The FK to auth.users and the RLS policy exist only here: the `auth` schema
@@ -214,3 +255,19 @@ CREATE TABLE enrollment (
 -- No public or authenticated Data API policies are granted.
 ALTER TABLE student ENABLE ROW LEVEL SECURITY;
 ALTER TABLE enrollment ENABLE ROW LEVEL SECURITY;
+
+-- KAN-69: Link each account to its teacher or student record.
+-- A teacher account points to a teacher, a student account to a student, and a
+-- director to neither. Deleting the teacher or student also deletes the
+-- app_user row, so that login loses its role (the Supabase user is kept).
+-- Before applying: every existing 'teacher' or 'student' row in app_user must be
+-- linked or removed, otherwise the CHECK fails. To find them:
+--   SELECT id, role FROM app_user WHERE role <> 'director';
+ALTER TABLE app_user
+    ADD COLUMN teacher_id INTEGER UNIQUE REFERENCES teacher (id) ON DELETE CASCADE,
+    ADD COLUMN student_id INTEGER UNIQUE REFERENCES student (id) ON DELETE CASCADE,
+    ADD CONSTRAINT ck_app_user_linked_record CHECK (
+        (role = 'director' AND teacher_id IS NULL AND student_id IS NULL)
+        OR (role = 'teacher' AND teacher_id IS NOT NULL AND student_id IS NULL)
+        OR (role = 'student' AND student_id IS NOT NULL AND teacher_id IS NULL)
+    );

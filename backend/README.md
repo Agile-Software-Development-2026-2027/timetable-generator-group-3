@@ -144,9 +144,17 @@ sends the access token to the API as `Authorization: Bearer <JWT>`. Each user's
 role (`director`, `teacher` or `student`) is stored in the `app_user` table,
 whose `id` is the user's `auth.users.id`.
 
-`GET /auth/me` returns `{"id": "<uuid>", "role": "director"}` for the caller.
+`GET /auth/me` returns `{"id": "<uuid>", "role": "director"}` for the caller,
+plus `teacher_id` for a teacher and `student_id` for a student (KAN-69).
 It answers `401` when the token is missing, expired or invalid, and `403` when
 the user has no `app_user` row yet.
+
+Each teacher account is linked to its `teacher` row and each student account to
+its `student` row (`app_user.teacher_id` / `app_user.student_id`, each unique);
+a director has neither. Endpoints for the signed-in teacher or student use the
+`get_current_teacher` / `get_current_student` dependencies from `app/auth.py`,
+which return that `Teacher` / `Student` (403 for other roles). Deleting a teacher
+or student also removes the linked account's role.
 
 Protected endpoints add the `get_current_user` dependency from `app/auth.py`,
 which verifies the token's signature, expiry and audience (`authenticated`)
@@ -155,8 +163,35 @@ Configure it with `SUPABASE_JWT_SECRET` (legacy HS256 secret) or
 `SUPABASE_JWKS_URL` (asymmetric signing keys); see `.env.example`. The values
 are shared privately by the project maintainer.
 
-To give someone a role, create the user in the Supabase dashboard
-(Authentication -> Users) and add their row:
+### User management (directors)
+
+Directors manage accounts at `/users` (the Users page in the frontend):
+
+- `GET /users` — every account with its `email`, `role`, linked record
+  (`teacher_id` / `student_id` and `linked_name`) and `status` (`invited` until
+  the person sets a password, then `active`).
+- `POST /users` — `{"email", "role", "teacher_id" | "student_id"}`: sends a
+  Supabase invite email and creates the `app_user` row.
+- `PATCH /users/{id}` — `{"role", "teacher_id" | "student_id"}`: change the role
+  or the linked record. Directors cannot change their own role.
+- `DELETE /users/{id}` — bans the account in Supabase and deletes its
+  `app_user` row (the teacher or student record is kept). Directors cannot
+  deactivate themselves.
+
+Linking a record that another account already uses returns `409`, an unknown
+teacher or student `404`, a link that does not fit the role `422`, an email that
+already has an account `409`, and a non-director `403`.
+
+The Supabase Admin API calls live in `app/supabase_admin.py`. They need
+`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`; without them `/users` answers
+`503`. The service role key can create and ban any account: keep it in
+`backend/.env` only, never in the frontend. The invite email sends people to
+`INVITE_REDIRECT_URL` (default `http://localhost:3000/set-password`), where they
+choose their password; that URL must be listed under Authentication -> URL
+Configuration -> Redirect URLs in Supabase.
+
+The first director has no one to invite them: create the user in the Supabase
+dashboard (Authentication -> Users) and add their row:
 
 ```sql
 INSERT INTO app_user (id, role)
@@ -165,7 +200,10 @@ SELECT id, 'director' FROM auth.users WHERE email = 'someone@example.com';
 
 In tests, the `make_token` fixture signs tokens with a local test secret and
 `auth_client("teacher")` returns a client logged in as a new user with that
-role, so no test calls Supabase.
+role, linked to a new teacher (or student) record. Pass your own record with
+`auth_client("student", student=my_student)`. Tests replace the Supabase Admin
+API by overriding `get_supabase_admin` (see `tests/test_users.py`), so no test
+calls Supabase.
 
 ## Manual Data Loader
 

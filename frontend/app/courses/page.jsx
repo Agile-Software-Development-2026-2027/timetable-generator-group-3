@@ -2,11 +2,12 @@
 
 import { Pencil, Trash2, UserPlus } from "lucide-react";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AppNav, Notification, useNotification } from "../components/app-shell.jsx";
 import { matches, teachersByCourse, toggleId } from "../teachers/teacher-form.mjs";
 import { pageNumbers, pageSizes, paginate } from "../rooms/room-table.mjs";
 import { apiRequest as request } from "../../lib/api.js";
+import { formatHours, splitWeeklyMinutes } from "../../lib/session-plan.js";
 
 const emptyForm = {
   name: "",
@@ -48,6 +49,7 @@ export default function CoursesPage() {
   const [teachers, setTeachers] = useState([]);
   const [assignTarget, setAssignTarget] = useState(null);
   const [selectedTeachers, setSelectedTeachers] = useState([]);
+  const preflightLinkHandled = useRef(false);
 
   const refreshCourses = useCallback(async () => {
     const filters = [];
@@ -113,11 +115,10 @@ export default function CoursesPage() {
   const sessionLengthError =
     !Number.isInteger(sessionMinutes) || sessionMinutes <= 0
       ? "Select a valid session length."
-      : weeklyMinutes % sessionMinutes !== 0
-        ? "Session length must divide weekly teaching hours exactly."
-        : blockMinutes !== null && sessionMinutes % blockMinutes !== 0
-          ? `Session length must be a multiple of ${blockMinutes} minutes.`
-          : "";
+      : blockMinutes !== null && sessionMinutes % blockMinutes !== 0
+        ? `Session length must be a multiple of ${blockMinutes} minutes.`
+        : "";
+  const sessionPlan = sessionLengthError ? [] : splitWeeklyMinutes(weeklyMinutes, sessionMinutes, blockMinutes ?? 60);
   function getYears(degreeId) {
     return (
       degrees.find((degree) => String(degree.id) === String(degreeId))
@@ -247,12 +248,11 @@ export default function CoursesPage() {
       body.weekly_hours <= 0 ||
       !Number.isInteger(body.session_duration_minutes) ||
       body.session_duration_minutes <= 0 ||
-      (body.weekly_hours * 60) % body.session_duration_minutes !== 0 ||
       !Number.isInteger(body.enrolled_students) ||
       body.enrolled_students <= 0
     ) {
       showNotification(
-        "Weekly hours, students and session duration must be positive whole numbers. Session duration must divide weekly teaching minutes exactly."
+        "Weekly hours, students and session duration must be positive whole numbers."
       );
       return;
     }
@@ -351,6 +351,32 @@ export default function CoursesPage() {
       (assignedTeachers.get(course.id) ?? []).map((teacher) => teacher.id)
     );
   }
+
+  // KAN-67: open the existing form for a linked course.
+  useEffect(() => {
+    if (preflightLinkHandled.current || degrees.length === 0) return;
+
+    const params = new window.URLSearchParams(window.location.search);
+    const assignId = params.get("assign");
+    const editId = params.get("edit");
+    const targetId = assignId || editId;
+
+    if (!targetId) return;
+
+    const course = courses.find(
+      (item) => String(item.id) === targetId
+    );
+
+    if (!course) return;
+
+    preflightLinkHandled.current = true;
+
+    if (assignId) {
+      openAssignForm(course);
+    } else {
+      openEditForm(course);
+    }
+  }, [courses, degrees, teachers]);
 
   async function saveAssignment(event) {
     event.preventDefault();
@@ -459,7 +485,7 @@ export default function CoursesPage() {
                   <input className="form-control" type="number" min="1" step="1" required value={form.weekly_hours} onChange={(event) => setForm({ ...form, weekly_hours: event.target.value })} />
                 </label>
                 <label className="course-form-field">
-                  <span className="form-label">Session length</span>
+                  <span className="form-label">Max session length</span>
                   <select
                     className="form-select"
                     value={form.session_duration_minutes}
@@ -478,6 +504,11 @@ export default function CoursesPage() {
                   {sessionLengthError && (
                     <small className="text-danger" role="alert">
                       {sessionLengthError}
+                    </small>
+                  )}
+                  {sessionPlan.length > 0 && (
+                    <small className="text-secondary" data-testid="session-plan">
+                      {`Sessions per week: ${sessionPlan.map(formatHours).join(" + ")}`}
                     </small>
                   )}
                 </label>
@@ -582,7 +613,7 @@ export default function CoursesPage() {
                   <th scope="col" className="text-end">Year</th>
                   <th scope="col" className="text-end">Semester</th>
                   <th scope="col" className="text-end">Weekly hours</th>
-                  <th scope="col" className="text-end">Session (min)</th>
+                  <th scope="col" className="text-end">Max session (min)</th>
                   <th scope="col" className="text-end">Students</th>
                   <th scope="col">Requirements</th>
                   <th scope="col">Teachers</th>

@@ -120,6 +120,10 @@ def test_sessions_are_enriched_with_names(director_client, timetable):
         "degree_name": "Computer Science",
         "room_code": "MT1",
         "teacher_names": ["Ada Lovelace", "Alan Turing"],
+        "teacher_ids": sorted([
+            timetable["teacher_id"]["ada"],
+            timetable["teacher_id"]["turing"],
+        ]),
     }
 
 

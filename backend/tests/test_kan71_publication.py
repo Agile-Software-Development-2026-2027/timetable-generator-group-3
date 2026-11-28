@@ -14,28 +14,28 @@ def _add_draft(session, course, hour=9):
     return record
 
 
-def test_student_only_sees_published_snapshot(session, course, auth_client):
+def test_teacher_only_sees_published_snapshot(session, course, auth_client):
     draft = _add_draft(session, course)
-    student = auth_client("student")
+    teacher = auth_client("teacher")
     director = auth_client("director")
     degree = course.degree_id
     path = f"/timetable/sessions?degree_id={degree}"
 
-    assert student.get(path).json() == []
+    assert teacher.get(path).json() == []
     assert len(director.get(path).json()) == 1
     assert director.post(f"/timetable/publish?degree_id={degree}").status_code == 200
-    assert len(student.get(path).json()) == 1
+    assert len(teacher.get(path).json()) == 1
 
     draft.start_time = time(10)
     draft.end_time = time(11)
     session.commit()
-    assert student.get(path).json()[0]["start_time"] == "09:00:00"
+    assert teacher.get(path).json()[0]["start_time"] == "09:00:00"
     assert director.get(path).json()[0]["start_time"] == "10:00:00"
     assert director.get(f"/timetable/publication?degree_id={degree}").json()[
         "has_unpublished_changes"
     ] is True
     assert director.post(f"/timetable/publish?degree_id={degree}").status_code == 200
-    assert student.get(path).json()[0]["start_time"] == "10:00:00"
+    assert teacher.get(path).json()[0]["start_time"] == "10:00:00"
     assert director.get(f"/timetable/publication?degree_id={degree}").json()[
         "has_unpublished_changes"
     ] is False
@@ -59,11 +59,33 @@ def test_student_cannot_request_draft(session, course, auth_client, client):
 def test_publish_empty_draft_clears_published(session, course, auth_client):
     draft = _add_draft(session, course)
     director = auth_client("director")
-    student = auth_client("student")
+    teacher = auth_client("teacher")
     path = f"/timetable/publish?degree_id={course.degree_id}"
     assert director.post(path).status_code == 200
     session.delete(draft)
     session.commit()
-    assert len(student.get("/timetable/sessions").json()) == 1
+    assert len(teacher.get("/timetable/sessions").json()) == 1
     assert director.post(path).status_code == 200
-    assert student.get("/timetable/sessions").json() == []
+    assert teacher.get("/timetable/sessions").json() == []
+
+def test_student_cannot_bypass_personal_timetable(session, course, auth_client):
+    _add_draft(session, course)
+    director = auth_client("director")
+    student = auth_client("student")
+    degree = course.degree_id
+
+    assert director.post(f"/timetable/publish?degree_id={degree}").status_code == 200
+    assert session.query(PublishedSession).count() == 1
+
+    paths = [
+        "/timetable/sessions",
+        "/timetable/sessions?student=me",
+        "/timetable/sessions?version=published",
+        f"/timetable/sessions?degree_id={degree}",
+        "/timetable/sessions?student=me&page=1&page_size=500",
+    ]
+
+    for path in paths:
+        response = student.get(path)
+        assert response.status_code == 403
+        assert response.json()["detail"] == "Students must use /students/me/timetable."

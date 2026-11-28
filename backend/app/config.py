@@ -19,6 +19,13 @@ class Settings(BaseSettings):
     supabase_jwks_url: str = ""
     supabase_jwt_audience: str = "authenticated"
 
+    # User management (KAN-69). The service role key can create and ban
+    # accounts, so only the backend reads it; it is never sent to the browser.
+    supabase_service_role_key: str = ""
+    # Where the invite email sends new users: the page where they choose a
+    # password. It must be in the Supabase project's allowed redirect URLs.
+    invite_redirect_url: str = "http://localhost:3000/set-password"
+
 
 def get_settings() -> Settings:
     return Settings()

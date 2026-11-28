@@ -91,6 +91,32 @@ gap(C1, C2, D) :-
 #minimize { 1, C1, C2, D : gap(C1, C2, D) }.
 ```
 
+Priority levels in `model.lp` (a higher level always wins over a lower one):
+
+| Level | Rule | Story |
+|-------|------|-------|
+| @4 | Maximise scheduled hours (partial mode only) | KAN-15 |
+| @3 | Spread a course's sessions over different days | KAN-55 |
+| @2 | Use the slots teachers marked as preferred | KAN-57 |
+| @1 | Use the smallest room that fits the group | KAN-16 |
+
+Scheduled hours stay at the top, so no preference ever makes the partial
+solver drop a course. New soft constraints (compact days KAN-41, edge slots
+KAN-56, same room KAN-64) should fit into this ladder without going above @4.
+
+KAN-55 counts every extra session of a course on the same day, so a day with
+k sessions costs k-1:
+
+```lp
+starts(C,D,S) :- assign(C,_,D,S).
+same_day(C,D,S2) :- starts(C,D,S1), starts(C,D,S2), S1 < S2.
+#minimize { 1@3,C,D,S : same_day(C,D,S) }.
+```
+
+`starts/3` drops the room before pairing the sessions. Pairing `assign/4`
+directly grounds every room and slot combination and made the solver noticeably
+slower on the real data.
+
 ---
 
 ## How to run the spike

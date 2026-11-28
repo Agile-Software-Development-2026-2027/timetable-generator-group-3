@@ -117,7 +117,7 @@ def test_unknown_teacher_returns_404(director):
 def test_deleting_a_teacher_deletes_their_entries(director, client, teacher, session):
     put(director, teacher.id, [MONDAY_MORNING])
 
-    assert client.delete(f"/teachers/{teacher.id}").status_code == 204
+    assert director.delete(f"/teachers/{teacher.id}").status_code == 204
     session.expire_all()
     assert session.query(TeacherAvailability).count() == 0
 

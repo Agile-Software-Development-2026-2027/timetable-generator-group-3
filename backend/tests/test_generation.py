@@ -133,7 +133,7 @@ def test_generation_preserves_outside_scope(director_generation_client, session,
     result = director_generation_client.post("/timetable/generate", json={"degree_id": course.degree_id})
     assert result.status_code == 200, result.text
     assert result.json()["status"] == "ok"
-       saved = director_generation_client.get("/timetable/sessions").json()
+    saved = director_generation_client.get("/timetable/sessions").json()
     assert len(saved) == 4
 
     outside_session = session.query(ScheduleSession).filter_by(
@@ -176,7 +176,7 @@ def test_clear_removes_only_selected_degree_and_allows_regenerate(director_gener
 
     cleared = director_generation_client.delete(f"/timetable/sessions?degree_id={course.degree_id}")
     assert cleared.status_code == 204
-        remaining = session.query(ScheduleSession).filter_by(
+    remaining = session.query(ScheduleSession).filter_by(
         course_id=other.id
     ).one_or_none()
     assert remaining is not None

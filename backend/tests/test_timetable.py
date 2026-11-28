@@ -72,3 +72,38 @@ def test_missing_session_returns_404(director_client, course):
 
     assert response.status_code == 404
     assert director_client.delete("/timetable/sessions/999").status_code == 404
+
+@pytest.mark.parametrize("role", ["teacher", "student"])
+def test_only_directors_can_write_timetable(auth_client, course, role):
+    api = auth_client(role)
+
+    payload = session_payload(course.id)
+
+    assert api.post("/timetable/sessions", json=payload).status_code == 403
+    assert api.put("/timetable/sessions/999", json=payload).status_code == 403
+    assert api.delete("/timetable/sessions/999").status_code == 403
+    assert api.delete(
+        f"/timetable/sessions?degree_id={course.degree_id}"
+    ).status_code == 403
+
+
+def test_timetable_writes_require_authentication(client, course):
+    payload = session_payload(course.id)
+
+    assert client.post("/timetable/sessions", json=payload).status_code == 401
+    assert client.put("/timetable/sessions/999", json=payload).status_code == 401
+    assert client.delete("/timetable/sessions/999").status_code == 401
+    assert client.delete(
+        f"/timetable/sessions?degree_id={course.degree_id}"
+    ).status_code == 401
+
+
+def test_students_must_use_personal_timetable(auth_client):
+    api = auth_client("student")
+
+    response = api.get("/timetable/sessions")
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == (
+        "Students must use /students/me/timetable."
+    )

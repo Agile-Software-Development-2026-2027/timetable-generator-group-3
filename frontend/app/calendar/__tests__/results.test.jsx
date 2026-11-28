@@ -27,6 +27,10 @@ const reply = (data) =>
 
 function mockApi(result) {
   global.fetch = vi.fn((url, options) => {
+    if (url.includes("/timetable/preflight?")) {
+      return reply({ warnings: [] });
+    }
+
     if (url.endsWith("/degrees/7")) {
       return reply({ id: 7, name: "Computer Science", years: [] });
     }
@@ -96,11 +100,15 @@ await within(confirm).findByRole("option", {
 });
 
 fireEvent.change(select, { target: { value: "7" } });
-  fireEvent.click(
-    within(confirm).getByRole("button", {
-      name: "Generate timetable",
-    })
-  );
+  const confirmButton = within(confirm).getByRole("button", {
+    name: "Generate timetable",
+  });
+
+  await waitFor(() => {
+    expect(confirmButton).toBeEnabled();
+  });
+
+  fireEvent.click(confirmButton);
 }
 
 afterEach(() => {

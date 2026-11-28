@@ -105,7 +105,7 @@ def get_current_user(
     if user is None:
         raise HTTPException(403, "User has no role assigned")
 
-        degree_ids = []
+    degree_ids = []
 
     if user.role == "director" and inspect(session.get_bind()).has_table(
         "director_degree"
